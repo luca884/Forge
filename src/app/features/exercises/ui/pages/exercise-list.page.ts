@@ -3,8 +3,6 @@ import { Exercise, MuscleGroup } from '../../domain/exercise.entity';
 import { ExerciseFilter } from '../../domain/exercise-filter';
 import { GetExercisesUseCase } from '../../domain/use-cases/get-exercises.use-case';
 import { SeedExercisesUseCase } from '../../domain/use-cases/seed-exercises.use-case';
-import { DexieExerciseRepository } from '../../data/dexie-exercise.repository';
-import { ExerciseRepository } from '../../domain/exercise.repository';
 
 const MUSCLE_GROUPS: MuscleGroup[] = [
   'chest',
