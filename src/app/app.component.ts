@@ -1,12 +1,10 @@
 import { Component } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { AppLayoutComponent } from './shell/layout/app-layout.component';
 
 @Component({
   selector: 'fg-root',
-  imports: [RouterOutlet],
-  templateUrl: './app.component.html',
-  styleUrl: './app.component.css',
+  standalone: true,
+  imports: [AppLayoutComponent],
+  template: `<fg-app-layout />`,
 })
-export class AppComponent {
-  title = 'forge';
-}
+export class AppComponent {}
