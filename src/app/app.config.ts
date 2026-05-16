@@ -8,6 +8,11 @@ import { AuditEventLogRepository } from '@core/shared/events/audit-event-log.rep
 import { DexieAuditEventLogRepository } from '@core/shared/data/dexie-audit-event-log.repository';
 import { AuditEventLogListener } from '@core/shared/events/audit-event-log.listener';
 
+// Profile repository at root so UserPreferencesService (root-scoped) can inject it.
+// ADR-22 addendum — consistent with AuditEventLogRepository pattern.
+import { ProfileRepository } from '@features/profile/domain/profile.repository';
+import { DexieProfileRepository } from '@features/profile/data/dexie-profile.repository';
+
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -33,5 +38,10 @@ export const appConfig: ApplicationConfig = {
       deps: [AuditEventLogListener],
       multi: true,
     },
+
+    // Profile repository at root — allows UserPreferencesService to access profile
+    // from any feature without coupling training/progress routes to profile.routes.ts.
+    // ADR-22 addendum. The route-level binding in profile.routes.ts becomes a no-op shadow.
+    { provide: ProfileRepository, useClass: DexieProfileRepository },
   ],
 };
