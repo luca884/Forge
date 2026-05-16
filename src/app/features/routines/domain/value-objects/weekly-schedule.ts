@@ -66,7 +66,7 @@ export namespace WeeklySchedule {
     }
 
     const obj = raw as Record<string, unknown>;
-    const schedule: Partial<WeeklySchedule> = {};
+    const schedule: Record<string, string> = {};
 
     for (const day of DAYS_OF_WEEK) {
       const value = obj[day];
@@ -83,7 +83,7 @@ export namespace WeeklySchedule {
       schedule[day] = value;
     }
 
-    return { ok: true, value: schedule as WeeklySchedule };
+    return { ok: true, value: schedule as unknown as WeeklySchedule };
   }
 
   /**

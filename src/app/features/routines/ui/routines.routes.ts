@@ -37,6 +37,11 @@ export default [
         loadComponent: () =>
           import('./pages/exercise-picker.page').then(m => m.ExercisePickerPage),
       },
+      {
+        path: ':routineId/schedule',
+        loadComponent: () =>
+          import('./pages/weekly-schedule-editor.page').then(m => m.WeeklyScheduleEditorPage),
+      },
     ],
   },
 ] satisfies Routes;
