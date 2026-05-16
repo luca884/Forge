@@ -7,8 +7,7 @@ import { TrainingDayRepository } from '../../routines/domain/training-day.reposi
 import { DexieTrainingDayRepository } from '../../routines/data/dexie-training-day.repository';
 import { ExerciseRepository } from '../../exercises/domain/exercise.repository';
 import { DexieExerciseRepository } from '../../exercises/data/dexie-exercise.repository';
-import { EventBus } from '@core/shared/events/event-bus';
-import { InMemoryEventBus } from '@core/shared/events/in-memory-event-bus';
+// EventBus lifted to root in app.config.ts (slice-3/P0.12) — ADR cross-feature subscription.
 import { PersonalRecordDetector } from '../domain/services/personal-record-detector';
 import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-record.repository';
 import { DexiePersonalRecordRepository } from '../../progress/data/repositories/dexie-personal-record.repository';
@@ -23,7 +22,6 @@ export default [
       { provide: RoutineRepository, useClass: DexieRoutineRepository },
       { provide: TrainingDayRepository, useClass: DexieTrainingDayRepository },
       { provide: ExerciseRepository, useClass: DexieExerciseRepository },
-      { provide: EventBus, useClass: InMemoryEventBus },
       PersonalRecordDetector,
       { provide: PersonalRecordRepository, useClass: DexiePersonalRecordRepository },
       TrainingSessionStore,

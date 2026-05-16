@@ -6,8 +6,17 @@ export interface ProfileRow {
   id: 'me';
   name: string;
   avatarBase64?: string;
+  preferredUnit?: 'kg' | 'lb';
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface AuditEventRow {
+  id: string;
+  name: string;
+  occurredAt: Date;
+  sessionId?: string;
+  payload: string; // JSON-serialized AuditEventPayload
 }
 
 export interface RoutineRow {
@@ -114,6 +123,7 @@ export class ForgeDatabase extends Dexie {
   sessions!: Table<SessionRow, string>;
   workedSets!: Table<WorkedSetRow, string>;
   personalRecords!: Table<PersonalRecordRow, string>;
+  auditEvents!: Table<AuditEventRow, string>;
 
   constructor() {
     super('forge');
@@ -133,6 +143,14 @@ export class ForgeDatabase extends Dexie {
     this.version(2).stores({
       workedSets: 'id, sessionId, exerciseId, isPR',
       personalRecords: 'id, exerciseId, trackingType, achievedAt',
+    });
+
+    // v3 — additive-only: new auditEvents table + startedAt index on sessions. D-1, ADR-16.
+    // No .upgrade() callback needed: auditEvents is brand new; startedAt already exists on rows
+    // but was not indexed. Additive index addition is safe in Dexie.
+    this.version(3).stores({
+      sessions: 'id, date, routineId, dayId, status, startedAt',
+      auditEvents: 'id, name, occurredAt, sessionId',
     });
   }
 }
