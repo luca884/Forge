@@ -59,7 +59,7 @@ import { TrainingDayRepository } from '../../domain/training-day.repository';
           </button>
         </div>
 
-        @if (day()?.exercises.length === 0) {
+        @if ((day()?.exercises ?? []).length === 0) {
           <p class="text-gray-500 text-sm">No hay ejercicios en este día.</p>
         }
 
