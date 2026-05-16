@@ -81,15 +81,16 @@ describe('GetExerciseHistoryUseCase', () => {
     expect(repo.lastExerciseIdArg).toBe('ex-42');
   });
 
-  it('should return sets ordered by createdAt ascending (as returned by repo)', async () => {
-    // Per ADR-15: repo is responsible for ordering ASC; use case passes through.
-    // The design states createdAt ASC for the chart (chronological).
+  it('should return sets ordered by createdAt ascending (defensive sort in use case)', async () => {
+    // Use case applies a defensive sort after repo returns, guaranteeing createdAt ASC
+    // for chart rendering regardless of repo ordering (safety net per D-31 design decision).
+    // Primary ordering responsibility stays with repo per ADR-15.
     const sets = [
+      makeWeightRepsSet('set-3', new Date('2024-05-10')),
       makeWeightRepsSet('set-1', new Date('2024-05-01')),
       makeWeightRepsSet('set-2', new Date('2024-05-05')),
-      makeWeightRepsSet('set-3', new Date('2024-05-10')),
     ];
-    repo.sets = sets;
+    repo.sets = sets; // repo returns out-of-order; use case must sort
 
     const result = await useCase.execute({ exerciseId: 'ex-1' });
 
@@ -98,7 +99,7 @@ describe('GetExerciseHistoryUseCase', () => {
     expect(result[2]?.id).toBe('set-3');
   });
 
-  it('should delegate to SessionRepository and return its result unchanged', async () => {
+  it('should delegate to SessionRepository and return sets sorted by createdAt ASC', async () => {
     const spy = jest.spyOn(repo, 'getAllWorkedSetsForExercise');
     const sets = [makeWeightRepsSet('set-1', new Date('2024-05-01'))];
     repo.sets = sets;
@@ -106,6 +107,6 @@ describe('GetExerciseHistoryUseCase', () => {
     const result = await useCase.execute({ exerciseId: 'ex-1' });
 
     expect(spy).toHaveBeenCalledWith('ex-1');
-    expect(result).toEqual(sets);
+    expect(result).toEqual(sets); // single element — sort is a no-op
   });
 });

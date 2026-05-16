@@ -6,6 +6,10 @@ import { DexieSessionRepository } from '@features/training/data/dexie-session.re
 import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
 import { DexieExerciseRepository } from '@features/exercises/data/dexie-exercise.repository';
 
+// Progress no usa Store (per D-31 design decision): las pages son read-only y
+// manejan su estado con signals locales de página. ADR-8 reserva NgRx Store
+// exclusivamente para el flujo de entrenamiento activo (training feature).
+// Si buscás ProgressStore, no existe — es intencional.
 export const PROGRESS_ROUTES: Routes = [
   {
     path: '',

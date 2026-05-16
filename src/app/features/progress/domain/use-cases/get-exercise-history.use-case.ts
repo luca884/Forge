@@ -16,7 +16,10 @@ import { SessionRepository } from '@features/training/domain/session.repository'
 export class GetExerciseHistoryUseCase {
   private readonly sessionRepo = inject(SessionRepository);
 
-  execute({ exerciseId }: { exerciseId: string }): Promise<WorkedSet[]> {
-    return this.sessionRepo.getAllWorkedSetsForExercise(exerciseId);
+  async execute({ exerciseId }: { exerciseId: string }): Promise<WorkedSet[]> {
+    const sets = await this.sessionRepo.getAllWorkedSetsForExercise(exerciseId);
+    // Defensive sort: guarantee createdAt ASC regardless of repo ordering (time-series for charts).
+    // Primary ordering responsibility stays with the repo per ADR-15; this is a safety net.
+    return sets.slice().sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   }
 }
