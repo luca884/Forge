@@ -3,16 +3,14 @@ import { NotificationPermissionService } from './notification-permission.service
 
 // Helper to install a mock Notification API on window
 function installMockNotification(permission: NotificationPermission): void {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (window as any).Notification = {
+  (window as Window & { Notification?: unknown }).Notification = {
     permission,
     requestPermission: jest.fn().mockResolvedValue(permission),
   };
 }
 
 function removeMockNotification(): void {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  delete (window as any).Notification;
+  delete (window as Window & { Notification?: unknown }).Notification;
 }
 
 describe('NotificationPermissionService', () => {

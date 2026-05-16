@@ -12,7 +12,7 @@ function makeBeforeInstallPromptEvent(): Event & { prompt: jest.Mock } {
 describe('PwaInstallService', () => {
   let service: PwaInstallService;
   let addEventListenerSpy: jest.SpyInstance;
-  const listeners: Map<string, EventListener> = new Map();
+  const listeners = new Map<string, EventListener>();
 
   beforeEach(() => {
     // Capture event listeners so we can fire them manually
@@ -47,6 +47,7 @@ describe('PwaInstallService', () => {
     const event = makeBeforeInstallPromptEvent();
     const handler = listeners.get('beforeinstallprompt');
     handler!(event);
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(event.preventDefault).toHaveBeenCalled();
   });
 

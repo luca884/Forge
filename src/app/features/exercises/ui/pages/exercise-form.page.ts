@@ -139,13 +139,20 @@ export class ExerciseFormPage implements OnInit {
   readonly formError = signal<string | null>(null);
 
   readonly exerciseForm = this.fb.group({
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     name: ['', Validators.required],
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     muscleGroup: ['chest' as MuscleGroup, Validators.required],
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     trackingType: ['weight-reps' as TrackingType, Validators.required],
     equipment: [''],
   });
 
-  async ngOnInit(): Promise<void> {
+  ngOnInit(): void {
+    void this.loadForm();
+  }
+
+  private async loadForm(): Promise<void> {
     const id = this.route.snapshot.paramMap.get('id');
 
     if (id) {

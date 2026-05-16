@@ -41,7 +41,7 @@ interface NavTab {
       flex-direction: column;
       align-items: center;
       gap: 0.25rem;
-      padding: 0.25rem 1rem;
+      padding: 0.25rem 0.5rem;
       color: #888;
       text-decoration: none;
       font-size: 0.75rem;

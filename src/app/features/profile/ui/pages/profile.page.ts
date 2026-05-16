@@ -10,7 +10,6 @@ import { NotificationPermissionService } from '@core/notifications/notification-
   selector: 'fg-profile-page',
   standalone: true,
   imports: [ReactiveFormsModule],
-  providers: [GetUserProfileUseCase, SetUserProfileUseCase],
   template: `
     <div class="profile-page">
       <h1>Perfil</h1>
@@ -148,11 +147,16 @@ export class ProfilePage implements OnInit {
   private avatarBase64: string | undefined;
 
   readonly profileForm = this.fb.group({
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     name: ['', Validators.required],
     preferredUnit: ['kg'],
   });
 
-  async ngOnInit(): Promise<void> {
+  ngOnInit(): void {
+    void this.loadProfile();
+  }
+
+  private async loadProfile(): Promise<void> {
     try {
       const existing = await this.getUserProfileUseCase.execute();
       this.profile.set(existing);
