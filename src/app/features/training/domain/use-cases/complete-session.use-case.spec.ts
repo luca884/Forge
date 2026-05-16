@@ -77,7 +77,7 @@ describe('CompleteSessionUseCase', () => {
     await useCase.execute({ sessionId: 'session-1' });
 
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy.mock.calls[0]![0]!.status).toBe('completed');
+    expect(spy.mock.calls[0]![0].status).toBe('completed');
   });
 
   // D-23/S10

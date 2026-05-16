@@ -114,7 +114,11 @@ export class SessionSummaryPage implements OnInit {
     return `${mins}m ${secs}s`;
   });
 
-  async ngOnInit(): Promise<void> {
+  ngOnInit(): void {
+    void this.init();
+  }
+
+  private async init(): Promise<void> {
     const activeSession = this.store.activeSession();
     if (activeSession) {
       // Load the completed session from repo (it should now be status: completed)

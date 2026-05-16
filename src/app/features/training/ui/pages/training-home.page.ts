@@ -71,7 +71,11 @@ export class TrainingHomePage implements OnInit {
   readonly loading = signal(false);
   readonly errorMessage = signal<string | null>(null);
 
-  async ngOnInit(): Promise<void> {
+  ngOnInit(): void {
+    void this.init();
+  }
+
+  private async init(): Promise<void> {
     // Check if a session is already in progress — resume it
     const activeSession = await this.getActiveSessionUseCase.execute();
     if (activeSession) {

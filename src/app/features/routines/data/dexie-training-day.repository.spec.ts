@@ -31,8 +31,8 @@ describe('DexieTrainingDayRepository', () => {
     await db.trainingDays.clear();
   });
 
-  afterEach(async () => {
-    await db.close();
+  afterEach(() => {
+    db.close();
   });
 
   it('should save and retrieve by id', async () => {

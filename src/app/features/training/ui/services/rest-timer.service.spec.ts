@@ -3,7 +3,7 @@ import { RestTimerService } from './rest-timer.service';
 import { EventBus } from '@core/shared/events/event-bus';
 
 class StubEventBus extends EventBus {
-  private readonly handlers = new Map<string, Array<(e: unknown) => void>>();
+  private readonly handlers = new Map<string, ((e: unknown) => void)[]>();
 
   override publish(_event: { name: string; occurredAt: Date }): void {}
 

@@ -10,7 +10,9 @@ import { WorkedSet } from '../../domain/worked-set';
         class="pr-celebration"
         role="dialog"
         aria-modal="true"
+        tabindex="0"
         (click)="onDismiss()"
+        (keyup.escape)="onDismiss()"
       >
         <div class="pr-celebration__content">
           <div class="pr-celebration__icon">🏆</div>

@@ -2,7 +2,7 @@ import { Component, OnInit, inject, signal, effect } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Exercise } from '@features/exercises/domain/exercise.entity';
 import { GetExercisesUseCase } from '@features/exercises/domain/use-cases/get-exercises.use-case';
-import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
+
 import { AddExerciseToDayUseCase } from '../../domain/use-cases/add-exercise-to-day.use-case';
 
 @Component({
@@ -31,7 +31,10 @@ import { AddExerciseToDayUseCase } from '../../domain/use-cases/add-exercise-to-
         @for (exercise of exercises(); track exercise.id) {
           <li
             class="border rounded p-3 cursor-pointer hover:bg-gray-50"
+            tabindex="0"
+            role="button"
             (click)="pickExercise(exercise)"
+            (keydown.enter)="pickExercise(exercise)"
           >
             <div class="font-medium">{{ exercise.name }}</div>
             <div class="text-sm text-gray-500">{{ exercise.muscleGroup }}</div>
@@ -59,7 +62,7 @@ export class ExercisePickerPage implements OnInit {
     });
   }
 
-  async ngOnInit(): Promise<void> {
+  ngOnInit(): void {
     this.routineId.set(this.route.snapshot.paramMap.get('routineId') ?? '');
     this.dayId.set(this.route.snapshot.paramMap.get('dayId') ?? '');
   }

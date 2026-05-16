@@ -1,5 +1,5 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
-import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { ReactiveFormsModule } from '@angular/forms';
 import { TargetSet } from '../../domain/target-set';
 import { TrackingType } from '@core/shared/domain/tracking-type';
 
@@ -26,8 +26,9 @@ import { TrackingType } from '@core/shared/domain/tracking-type';
             @case ('weight-reps') {
               <div class="flex gap-2">
                 <div class="flex-1">
-                  <label class="text-xs text-gray-500">Reps</label>
+                  <label [for]="'set-' + i + '-reps'" class="text-xs text-gray-500">Reps</label>
                   <input
+                    [id]="'set-' + i + '-reps'"
                     type="number"
                     min="0"
                     class="w-full border rounded p-1 text-sm"
@@ -36,8 +37,9 @@ import { TrackingType } from '@core/shared/domain/tracking-type';
                   />
                 </div>
                 <div class="flex-1">
-                  <label class="text-xs text-gray-500">Peso (kg)</label>
+                  <label [for]="'set-' + i + '-weightKg'" class="text-xs text-gray-500">Peso (kg)</label>
                   <input
+                    [id]="'set-' + i + '-weightKg'"
                     type="number"
                     min="0"
                     step="0.25"
@@ -51,8 +53,9 @@ import { TrackingType } from '@core/shared/domain/tracking-type';
             @case ('bodyweight-reps') {
               <div class="flex gap-2">
                 <div class="flex-1">
-                  <label class="text-xs text-gray-500">Reps</label>
+                  <label [for]="'set-' + i + '-reps'" class="text-xs text-gray-500">Reps</label>
                   <input
+                    [id]="'set-' + i + '-reps'"
                     type="number"
                     min="0"
                     class="w-full border rounded p-1 text-sm"
@@ -61,8 +64,9 @@ import { TrackingType } from '@core/shared/domain/tracking-type';
                   />
                 </div>
                 <div class="flex-1">
-                  <label class="text-xs text-gray-500">Peso extra (kg)</label>
+                  <label [for]="'set-' + i + '-extraWeightKg'" class="text-xs text-gray-500">Peso extra (kg)</label>
                   <input
+                    [id]="'set-' + i + '-extraWeightKg'"
                     type="number"
                     min="0"
                     step="0.25"
@@ -75,8 +79,9 @@ import { TrackingType } from '@core/shared/domain/tracking-type';
             }
             @case ('time') {
               <div>
-                <label class="text-xs text-gray-500">Duración (seg)</label>
+                <label [for]="'set-' + i + '-durationSec'" class="text-xs text-gray-500">Duración (seg)</label>
                 <input
+                  [id]="'set-' + i + '-durationSec'"
                   type="number"
                   min="0"
                   class="w-full border rounded p-1 text-sm"
@@ -88,8 +93,9 @@ import { TrackingType } from '@core/shared/domain/tracking-type';
             @case ('distance-time') {
               <div class="flex gap-2">
                 <div class="flex-1">
-                  <label class="text-xs text-gray-500">Distancia (km)</label>
+                  <label [for]="'set-' + i + '-distanceKm'" class="text-xs text-gray-500">Distancia (km)</label>
                   <input
+                    [id]="'set-' + i + '-distanceKm'"
                     type="number"
                     min="0"
                     step="0.1"
@@ -99,8 +105,9 @@ import { TrackingType } from '@core/shared/domain/tracking-type';
                   />
                 </div>
                 <div class="flex-1">
-                  <label class="text-xs text-gray-500">Duración (seg)</label>
+                  <label [for]="'set-' + i + '-durationSec'" class="text-xs text-gray-500">Duración (seg)</label>
                   <input
+                    [id]="'set-' + i + '-durationSec'"
                     type="number"
                     min="0"
                     class="w-full border rounded p-1 text-sm"

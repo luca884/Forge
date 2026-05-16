@@ -1,5 +1,5 @@
 import { toWorkedSet, toWorkedSetRow } from './worked-set.mapper';
-import { WorkedSet, WeightRepsSet, BodyweightRepsSet, TimeSet, DistanceTimeSet } from '../domain/worked-set';
+import { WeightRepsSet, BodyweightRepsSet, TimeSet, DistanceTimeSet } from '../domain/worked-set';
 import { WorkedSetRow } from '@core/db/database';
 import { Reps } from '@core/shared/domain/value-objects/reps';
 import { Weight } from '@core/shared/domain/value-objects/weight';

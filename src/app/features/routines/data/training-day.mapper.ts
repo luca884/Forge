@@ -1,5 +1,5 @@
 import { TrainingDayRow } from '@core/db/database';
-import { TrainingDay, ExerciseInDay } from '../domain/training-day.entity';
+import { TrainingDay } from '../domain/training-day.entity';
 import { TargetSet } from '../domain/target-set';
 
 export interface ExerciseInDayRow {
@@ -20,7 +20,7 @@ export function toTrainingDay(row: TrainingDayRow): TrainingDay {
     exercises: exercises.map(e => ({
       exerciseId: e.exerciseId,
       order: e.order,
-      targetSets: (e.targetSets ?? []) as TargetSet[],
+      targetSets: (e.targetSets ?? []),
       restSeconds: e.restSeconds,
       note: e.note,
     })),

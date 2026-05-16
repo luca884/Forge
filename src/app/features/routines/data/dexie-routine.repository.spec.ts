@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { DexieRoutineRepository } from './dexie-routine.repository';
 import { RoutineRepository } from '../domain/routine.repository';
 import { ForgeDatabaseService } from '@core/db/forge-database.service';
-import { ForgeDatabase } from '@core/db/database';
+
 import { Routine } from '../domain/routine.entity';
 
 const makeRoutine = (overrides: Partial<Routine> = {}): Routine => ({
@@ -33,8 +33,8 @@ describe('DexieRoutineRepository', () => {
     await db.routines.clear();
   });
 
-  afterEach(async () => {
-    await db.close();
+  afterEach(() => {
+    db.close();
   });
 
   it('should save and retrieve a routine via getAll', async () => {

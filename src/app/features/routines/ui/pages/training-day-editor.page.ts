@@ -20,8 +20,9 @@ import { TrainingDayRepository } from '../../domain/training-day.repository';
 
       <form [formGroup]="form" (ngSubmit)="save()" class="space-y-4 mb-6">
         <div>
-          <label class="block text-sm font-medium mb-1">Nombre del día</label>
+          <label for="day-name" class="block text-sm font-medium mb-1">Nombre del día</label>
           <input
+            id="day-name"
             formControlName="name"
             class="w-full border rounded p-2"
             placeholder="Ej: Día A"
@@ -29,8 +30,9 @@ import { TrainingDayRepository } from '../../domain/training-day.repository';
         </div>
 
         <div>
-          <label class="block text-sm font-medium mb-1">Etiqueta (opcional)</label>
+          <label for="day-label" class="block text-sm font-medium mb-1">Etiqueta (opcional)</label>
           <input
+            id="day-label"
             formControlName="label"
             class="w-full border rounded p-2"
             placeholder="Ej: Push, Pull, Legs..."
@@ -95,17 +97,19 @@ export class TrainingDayEditorPage implements OnInit {
   routineId = signal<string>('');
   dayId = signal<string>('');
 
+  /* eslint-disable @typescript-eslint/unbound-method */
   form: FormGroup = this.fb.group({
     name: ['', [Validators.required]],
     label: [''],
   });
+  /* eslint-enable @typescript-eslint/unbound-method */
 
-  async ngOnInit(): Promise<void> {
+  ngOnInit(): void {
     const rId = this.route.snapshot.paramMap.get('routineId') ?? '';
     const dId = this.route.snapshot.paramMap.get('dayId') ?? '';
     this.routineId.set(rId);
     this.dayId.set(dId);
-    await this.loadDay();
+    void this.loadDay();
   }
 
   async loadDay(): Promise<void> {

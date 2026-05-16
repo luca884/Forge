@@ -31,5 +31,5 @@ export type TargetSet =
 
 /** Exhaustiveness helper — same pattern as TrackingType assertNever. */
 export function assertNeverTargetSet(x: never): never {
-  return assertNever(x as never);
+  return assertNever(x);
 }

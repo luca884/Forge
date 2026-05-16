@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Exercise } from '../../../exercises/domain/exercise.entity';
 import { ExerciseInDay } from '../../../routines/domain/training-day.entity';
@@ -86,7 +86,11 @@ export class TrainingSessionPage implements OnInit {
   readonly prVisible = signal(false);
   readonly latestPrSet = signal<WorkedSet | null>(null);
 
-  async ngOnInit(): Promise<void> {
+  ngOnInit(): void {
+    void this.init();
+  }
+
+  private async init(): Promise<void> {
     if (!this.store.activeSession()) {
       await this.store.loadActive();
     }

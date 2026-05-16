@@ -3,7 +3,7 @@ import { DexieSessionRepository } from './dexie-session.repository';
 import { SessionRepository } from '../domain/session.repository';
 import { ForgeDatabaseService } from '@core/db/forge-database.service';
 import { Session } from '../domain/session.entity';
-import { WorkedSet, WeightRepsSet, BodyweightRepsSet } from '../domain/worked-set';
+import { WeightRepsSet, BodyweightRepsSet } from '../domain/worked-set';
 import { Reps } from '@core/shared/domain/value-objects/reps';
 import { Weight } from '@core/shared/domain/value-objects/weight';
 
@@ -53,8 +53,8 @@ describe('DexieSessionRepository', () => {
     await db.workedSets.clear();
   });
 
-  afterEach(async () => {
-    await db.close();
+  afterEach(() => {
+    db.close();
   });
 
   // D-25/S5

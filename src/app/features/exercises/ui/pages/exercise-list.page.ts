@@ -73,8 +73,8 @@ export class ExerciseListPage implements OnInit {
     });
   }
 
-  async ngOnInit(): Promise<void> {
-    await this.seedExercisesUseCase.execute();
+  ngOnInit(): void {
+    void this.seedExercisesUseCase.execute();
   }
 
   onSearchInput(event: Event): void {

@@ -69,8 +69,8 @@ export class RoutineListPage implements OnInit {
 
   routines = signal<Routine[]>([]);
 
-  async ngOnInit(): Promise<void> {
-    await this.loadRoutines();
+  ngOnInit(): void {
+    void this.loadRoutines();
   }
 
   async loadRoutines(): Promise<void> {
