@@ -26,7 +26,14 @@ import { formatTrackingValue } from '../helpers/format-tracking-value';
       } @else {
         <ul class="pr-list">
           @for (pr of prs(); track pr.id) {
-            <li class="pr-item" (click)="navigateToExercise(pr.exerciseId)" role="button">
+            <li
+              class="pr-item"
+              role="button"
+              tabindex="0"
+              (click)="navigateToExercise(pr.exerciseId)"
+              (keydown.enter)="navigateToExercise(pr.exerciseId)"
+              (keydown.space)="navigateToExercise(pr.exerciseId)"
+            >
               <div class="pr-item__name">{{ exerciseName(pr.exerciseId) }}</div>
               <div class="pr-item__details">
                 <span class="pr-item__value">{{ formatValue(pr) }}</span>
@@ -80,7 +87,7 @@ export class PRListPage implements OnInit {
         this.getAllPRs.execute(),
         this.exerciseRepo.getAll(),
       ]);
-      this.prs.set(prs as PersonalRecord[]);
+      this.prs.set(prs);
       this.exerciseMap.set(new Map(exercises.map((e) => [e.id, e])));
     } finally {
       this.loading.set(false);

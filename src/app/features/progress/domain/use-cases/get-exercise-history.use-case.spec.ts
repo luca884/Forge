@@ -16,7 +16,6 @@ function makeWeightRepsSet(id: string, createdAt: Date, exerciseId = 'ex-1'): We
     weight: new Weight(80),
     isPR: false,
     createdAt,
-    updatedAt: createdAt,
   };
 }
 
@@ -94,9 +93,9 @@ describe('GetExerciseHistoryUseCase', () => {
 
     const result = await useCase.execute({ exerciseId: 'ex-1' });
 
-    expect(result[0].id).toBe('set-1');
-    expect(result[1].id).toBe('set-2');
-    expect(result[2].id).toBe('set-3');
+    expect(result[0]?.id).toBe('set-1');
+    expect(result[1]?.id).toBe('set-2');
+    expect(result[2]?.id).toBe('set-3');
   });
 
   it('should delegate to SessionRepository and return its result unchanged', async () => {

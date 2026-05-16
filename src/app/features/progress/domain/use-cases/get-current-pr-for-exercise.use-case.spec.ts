@@ -3,6 +3,8 @@ import { GetCurrentPRForExerciseUseCase } from './get-current-pr-for-exercise.us
 import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-record.repository';
 import { PersonalRecord } from '../entities/personal-record.entity';
 import { TrackingType } from '@core/shared/domain/tracking-type';
+import { Reps } from '@core/shared/domain/value-objects/reps';
+import { Weight } from '@core/shared/domain/value-objects/weight';
 
 const makeRecord = (id: string, exerciseId = 'ex-1', trackingType: TrackingType = 'weight-reps'): PersonalRecord => ({
   id,
@@ -15,11 +17,10 @@ const makeRecord = (id: string, exerciseId = 'ex-1', trackingType: TrackingType 
     exerciseId,
     sessionId: 's-1',
     type: 'weight-reps',
-    reps: 5,
-    weightKg: 85,
+    reps: new Reps(5),
+    weight: new Weight(85),
     isPR: true,
     createdAt: new Date('2024-05-01'),
-    updatedAt: new Date('2024-05-01'),
   },
 });
 

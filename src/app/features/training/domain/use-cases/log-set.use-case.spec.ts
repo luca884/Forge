@@ -195,12 +195,12 @@ describe('LogSetUseCase', () => {
 
     expect(prRepo.savedRecords).toHaveLength(1);
     const saved = prRepo.savedRecords[0];
-    expect(saved.exerciseId).toBe('ex-1');
-    expect(saved.trackingType).toBe('weight-reps');
-    expect(saved.workedSetId).toBe(result.id);
-    expect(saved.set).toEqual(result);
-    expect(typeof saved.id).toBe('string');
-    expect(saved.achievedAt).toBeInstanceOf(Date);
+    expect(saved?.exerciseId).toBe('ex-1');
+    expect(saved?.trackingType).toBe('weight-reps');
+    expect(saved?.workedSetId).toBe(result.id);
+    expect(saved?.set).toEqual(result);
+    expect(typeof saved?.id).toBe('string');
+    expect(saved?.achievedAt).toBeInstanceOf(Date);
   });
 
   // P3 — V-65: personalRecordRepo.save NOT called when isPR === false

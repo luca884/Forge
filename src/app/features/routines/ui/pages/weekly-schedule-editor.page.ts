@@ -42,8 +42,9 @@ const DOW_LABELS: Record<DayOfWeek, string> = {
         <form [formGroup]="form" (ngSubmit)="save()" class="space-y-3">
           @for (dow of daysOfWeek; track dow) {
             <div class="flex items-center gap-3">
-              <label class="w-28 text-sm font-medium">{{ dowLabel(dow) }}</label>
+              <label [for]="'schedule-' + dow" class="w-28 text-sm font-medium">{{ dowLabel(dow) }}</label>
               <select
+                [id]="'schedule-' + dow"
                 [formControlName]="dow"
                 class="flex-1 border rounded p-2 text-sm"
               >
@@ -99,7 +100,6 @@ export class WeeklyScheduleEditorPage implements OnInit {
   readonly errorMessage = signal<string | null>(null);
   readonly successMessage = signal<string | null>(null);
 
-  /* eslint-disable @typescript-eslint/unbound-method */
   readonly form: FormGroup = this.fb.group({
     monday: [''],
     tuesday: [''],
@@ -109,7 +109,6 @@ export class WeeklyScheduleEditorPage implements OnInit {
     saturday: [''],
     sunday: [''],
   });
-  /* eslint-enable @typescript-eslint/unbound-method */
 
   private routineId!: string;
 

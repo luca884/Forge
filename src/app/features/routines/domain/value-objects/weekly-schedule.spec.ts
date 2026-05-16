@@ -1,6 +1,5 @@
 import {
   WeeklySchedule,
-  DayOfWeek,
   DAYS_OF_WEEK,
   isRestDay,
   getDayId,
@@ -90,7 +89,7 @@ describe('WeeklySchedule', () => {
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.value.monday).toBe('day-a');
-        expect((result.value as any).unknownKey).toBeUndefined();
+        expect((result.value as unknown as Record<string, unknown>)['unknownKey']).toBeUndefined();
       }
     });
   });

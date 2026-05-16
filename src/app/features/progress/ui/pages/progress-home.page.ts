@@ -44,7 +44,14 @@ import { formatTrackingValue } from '../helpers/format-tracking-value';
         } @else {
           <ul class="pr-list">
             @for (pr of recentPRs(); track pr.id) {
-              <li class="pr-item" (click)="navigateToExercise(pr.exerciseId)" role="button">
+              <li
+                class="pr-item"
+                role="button"
+                tabindex="0"
+                (click)="navigateToExercise(pr.exerciseId)"
+                (keydown.enter)="navigateToExercise(pr.exerciseId)"
+                (keydown.space)="navigateToExercise(pr.exerciseId)"
+              >
                 <div class="pr-item__name">{{ exerciseName(pr.exerciseId) }}</div>
                 <div class="pr-item__value">{{ formatValue(pr) }}</div>
                 <div class="pr-item__date">{{ formatDate(pr.achievedAt) }}</div>
@@ -132,7 +139,7 @@ export class ProgressHomePage implements OnInit {
   private async init(): Promise<void> {
     try {
       const prs = await this.getAllPRs.execute();
-      this.allPRs.set(prs as PersonalRecord[]);
+      this.allPRs.set(prs);
 
       // Load exercise names for display
       const exercises = await this.exerciseRepo.getAll();

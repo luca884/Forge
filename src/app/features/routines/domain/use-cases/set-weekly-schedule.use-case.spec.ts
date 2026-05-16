@@ -88,9 +88,8 @@ describe('SetWeeklyScheduleUseCase', () => {
     await useCase.execute({ routineId: 'routine-1', schedule });
 
     expect(saveSpy).toHaveBeenCalledTimes(1);
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const savedRoutine = saveSpy.mock.calls[0]![0]!;
-    expect(savedRoutine.schedule).toEqual(schedule);
+    const savedRoutine = saveSpy.mock.calls[0]?.[0];
+    expect(savedRoutine?.schedule).toEqual(schedule);
   });
 
   it('throws RoutineNotFoundError when routine does not exist — D-17/S2', async () => {

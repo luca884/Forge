@@ -66,12 +66,12 @@ describe('PersonalRecordRepository port', () => {
 
   it('does NOT have an update method — append-only invariant', () => {
     // V-53: no update or delete on this port (CC-16)
-    expect((repo as any).update).toBeUndefined();
+    expect((repo as unknown as Record<string, unknown>)['update']).toBeUndefined();
   });
 
   it('does NOT have a delete method — append-only invariant', () => {
     // V-53: CC-16
-    expect((repo as any).delete).toBeUndefined();
+    expect((repo as unknown as Record<string, unknown>)['delete']).toBeUndefined();
   });
 
   it('getById returns null for non-existent id', async () => {

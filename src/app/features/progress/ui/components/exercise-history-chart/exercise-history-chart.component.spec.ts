@@ -7,9 +7,12 @@ import { ExerciseHistoryChartComponent } from './exercise-history-chart.componen
 import type { WorkedSet } from '@features/training/domain/worked-set';
 
 // Mock canvas for Chart.js in jsdom
+type CanvasPrototypeExt = typeof HTMLCanvasElement.prototype & { __mockSet?: boolean };
+
 beforeAll(() => {
-  if (!(HTMLCanvasElement.prototype as any).__mockSet) {
-    Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+  const proto = HTMLCanvasElement.prototype as CanvasPrototypeExt;
+  if (!proto.__mockSet) {
+    Object.defineProperty(proto, 'getContext', {
       value: jest.fn(() => ({
         clearRect: jest.fn(),
         fillRect: jest.fn(),
@@ -33,7 +36,7 @@ beforeAll(() => {
       configurable: true,
       writable: true,
     });
-    (HTMLCanvasElement.prototype as any).__mockSet = true;
+    proto.__mockSet = true;
   }
 });
 
@@ -65,7 +68,6 @@ const sampleSets: WorkedSet[] = [
 
 describe('ExerciseHistoryChartComponent', () => {
   let fixture: ComponentFixture<ExerciseHistoryChartComponent>;
-  let component: ExerciseHistoryChartComponent;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({

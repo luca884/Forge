@@ -2,6 +2,8 @@ import { TestBed } from '@angular/core/testing';
 import { GetAllPersonalRecordsUseCase } from './get-all-personal-records.use-case';
 import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-record.repository';
 import { PersonalRecord } from '../entities/personal-record.entity';
+import { Reps } from '@core/shared/domain/value-objects/reps';
+import { Weight } from '@core/shared/domain/value-objects/weight';
 
 const makeRecord = (id: string, exerciseId = 'ex-1'): PersonalRecord => ({
   id,
@@ -14,11 +16,10 @@ const makeRecord = (id: string, exerciseId = 'ex-1'): PersonalRecord => ({
     exerciseId,
     sessionId: 's-1',
     type: 'weight-reps',
-    reps: 5,
-    weightKg: 80,
+    reps: new Reps(5),
+    weight: new Weight(80),
     isPR: true,
     createdAt: new Date('2024-05-01'),
-    updatedAt: new Date('2024-05-01'),
   },
 });
 
@@ -87,6 +88,6 @@ describe('GetAllPersonalRecordsUseCase', () => {
     const result = await useCase.execute('ex-1');
 
     expect(result).toHaveLength(1);
-    expect(result[0].exerciseId).toBe('ex-1');
+    expect(result[0]?.exerciseId).toBe('ex-1');
   });
 });

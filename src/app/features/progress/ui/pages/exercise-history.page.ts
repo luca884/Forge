@@ -5,7 +5,7 @@
  * Reads exerciseId from route input signal (Angular 19 style).
  * No dexie/data imports. Injects use cases and repos via inject().
  */
-import { Component, OnInit, inject, input, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
 import { ActivatedRoute } from '@angular/router';
 import { OneRepMax } from '@core/shared/domain/value-objects/one-rep-max';

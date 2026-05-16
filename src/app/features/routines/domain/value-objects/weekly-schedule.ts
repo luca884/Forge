@@ -44,6 +44,7 @@ export function getDayId(schedule: WeeklySchedule, dow: DayOfWeek): string | und
 }
 
 // Namespace-style static methods on WeeklySchedule
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace WeeklySchedule {
   /**
    * Validates and parses a raw unknown value into a WeeklySchedule.
