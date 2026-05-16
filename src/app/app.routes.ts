@@ -23,10 +23,8 @@ export const routes: Routes = [
   },
   {
     path: 'progress',
-    loadComponent: () =>
-      import(
-        '@features/progress/ui/pages/progress-placeholder.page'
-      ).then((m) => m.ProgressPlaceholderPage),
+    loadChildren: () =>
+      import('@features/progress/ui/progress.routes').then((m) => m.PROGRESS_ROUTES),
   },
   {
     path: '**',
