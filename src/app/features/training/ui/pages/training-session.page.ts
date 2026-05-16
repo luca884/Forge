@@ -11,6 +11,7 @@ import { ExerciseSessionCardComponent } from '../components/exercise-session-car
 import { RestTimerComponent } from '../components/rest-timer.component';
 import { PrCelebrationComponent } from '../components/pr-celebration.component';
 import { WorkedSet } from '../../domain/worked-set';
+import { UserPreferencesService } from '@core/profile/user-preferences.service';
 
 interface ExerciseWithData {
   exercise: Exercise;
@@ -45,6 +46,7 @@ interface ExerciseWithData {
             [targetSets]="item.exerciseInDay.targetSets"
             [loggedSets]="store.setsByExercise().get(item.exercise.id) ?? []"
             [sessionId]="store.activeSession()?.id ?? ''"
+            [unit]="unit()"
             (setLogged)="onSetLogged($event)"
           />
         } @empty {
@@ -69,6 +71,7 @@ interface ExerciseWithData {
     <fg-pr-celebration
       [visible]="prVisible()"
       [set]="latestPrSet()"
+      [unit]="unit()"
       (dismissed)="dismissPr()"
     />
   `,
@@ -80,6 +83,10 @@ export class TrainingSessionPage implements OnInit {
   private readonly logSetUseCase = inject(LogSetUseCase);
   private readonly completeSessionUseCase = inject(CompleteSessionUseCase);
   private readonly router = inject(Router);
+  private readonly userPrefs = inject(UserPreferencesService);
+
+  /** Preferred weight unit — propagated to ExerciseSessionCard and PrCelebration (D-5, ADR-22). */
+  readonly unit = this.userPrefs.unit;
 
   readonly exercisesWithData = signal<ExerciseWithData[]>([]);
   readonly completing = signal(false);
@@ -87,6 +94,7 @@ export class TrainingSessionPage implements OnInit {
   readonly latestPrSet = signal<WorkedSet | null>(null);
 
   ngOnInit(): void {
+    void this.userPrefs.loadOnce();
     void this.init();
   }
 

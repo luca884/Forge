@@ -4,10 +4,13 @@ import { TrainingSessionStore } from '../services/training-session.store';
 import { SessionRepository } from '../../domain/session.repository';
 import { WorkedSet } from '../../domain/worked-set';
 import { Session } from '../../domain/session.entity';
+import { UserPreferencesService } from '@core/profile/user-preferences.service';
+import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
 
 @Component({
   selector: 'fg-session-summary-page',
   standalone: true,
+  imports: [DisplayWeightPipe],
   template: `
     <div class="session-summary">
       <header class="session-summary__header">
@@ -38,12 +41,12 @@ import { Session } from '../../domain/session.entity';
             <div class="session-summary__pr-item">
               @switch (set.type) {
                 @case ('weight-reps') {
-                  <span>{{ set.reps.value }} reps × {{ set.weight.value }} kg</span>
+                  <span>{{ set.reps.value }} reps × {{ set.weight.value | displayWeight: unit() }}</span>
                 }
                 @case ('bodyweight-reps') {
                   <span>{{ set.reps.value }} reps
                     @if (set.extraWeight) {
-                      (+ {{ set.extraWeight.value }} kg)
+                      (+ {{ set.extraWeight.value | displayWeight: unit() }})
                     }
                   </span>
                 }
@@ -62,12 +65,12 @@ import { Session } from '../../domain/session.entity';
           <div class="session-summary__set" [class.session-summary__set--pr]="set.isPR">
             @switch (set.type) {
               @case ('weight-reps') {
-                <span>{{ set.reps.value }} reps × {{ set.weight.value }} kg</span>
+                <span>{{ set.reps.value }} reps × {{ set.weight.value | displayWeight: unit() }}</span>
               }
               @case ('bodyweight-reps') {
                 <span>{{ set.reps.value }} reps
                   @if (set.extraWeight) {
-                    (+ {{ set.extraWeight.value }} kg)
+                    (+ {{ set.extraWeight.value | displayWeight: unit() }})
                   }
                 </span>
               }
@@ -97,7 +100,9 @@ export class SessionSummaryPage implements OnInit {
   private readonly store = inject(TrainingSessionStore);
   private readonly sessionRepo = inject(SessionRepository);
   private readonly router = inject(Router);
+  private readonly userPrefs = inject(UserPreferencesService);
 
+  readonly unit = this.userPrefs.unit;
   readonly session = signal<Session | null>(null);
   readonly workedSets = signal<readonly WorkedSet[]>([]);
 
@@ -115,6 +120,7 @@ export class SessionSummaryPage implements OnInit {
   });
 
   ngOnInit(): void {
+    void this.userPrefs.loadOnce();
     void this.init();
   }
 
