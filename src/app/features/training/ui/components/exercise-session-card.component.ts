@@ -1,14 +1,16 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, input } from '@angular/core';
 import { Exercise } from '../../../exercises/domain/exercise.entity';
 import { TargetSet } from '../../../routines/domain/target-set';
 import { WorkedSet } from '../../domain/worked-set';
 import { SetLoggerComponent } from './set-logger.component';
 import { LogSetInput } from '../../domain/use-cases/log-set.use-case';
+import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
+import { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
 
 @Component({
   selector: 'fg-exercise-session-card',
   standalone: true,
-  imports: [SetLoggerComponent],
+  imports: [SetLoggerComponent, DisplayWeightPipe],
   template: `
     <div class="exercise-card">
       <h3 class="exercise-card__name">{{ exercise.name }}</h3>
@@ -21,12 +23,12 @@ import { LogSetInput } from '../../domain/use-cases/log-set.use-case';
           <div class="exercise-card__set" [class.exercise-card__set--pr]="set.isPR">
             @switch (set.type) {
               @case ('weight-reps') {
-                <span>{{ set.reps.value }} reps × {{ set.weight.value }} kg</span>
+                <span>{{ set.reps.value }} reps × {{ set.weight.value | displayWeight: unit() }}</span>
               }
               @case ('bodyweight-reps') {
                 <span>{{ set.reps.value }} reps
                   @if (set.extraWeight) {
-                    (+ {{ set.extraWeight.value }} kg)
+                    (+ {{ set.extraWeight.value | displayWeight: unit() }})
                   }
                 </span>
               }
@@ -63,6 +65,9 @@ export class ExerciseSessionCardComponent {
   @Input() targetSets: readonly TargetSet[] = [];
   @Input() loggedSets: WorkedSet[] = [];
   @Input() sessionId!: string;
+
+  /** Preferred weight unit — passed down from the hosting page (D-2, ADR-22). */
+  readonly unit = input<PreferredUnit>('kg');
 
   @Output() setLogged = new EventEmitter<LogSetInput>();
 

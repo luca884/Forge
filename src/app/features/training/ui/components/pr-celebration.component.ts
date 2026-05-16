@@ -1,9 +1,12 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, input } from '@angular/core';
 import { WorkedSet } from '../../domain/worked-set';
+import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
+import { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
 
 @Component({
   selector: 'fg-pr-celebration',
   standalone: true,
+  imports: [DisplayWeightPipe],
   template: `
     @if (visible && set) {
       <div
@@ -20,12 +23,12 @@ import { WorkedSet } from '../../domain/worked-set';
           <p class="pr-celebration__subtitle">
             @switch (set.type) {
               @case ('weight-reps') {
-                {{ set.reps.value }} reps × {{ set.weight.value }} kg
+                {{ set.reps.value }} reps × {{ set.weight.value | displayWeight: unit() }}
               }
               @case ('bodyweight-reps') {
                 {{ set.reps.value }} reps
                 @if (set.extraWeight) {
-                  (+ {{ set.extraWeight.value }} kg)
+                  (+ {{ set.extraWeight.value | displayWeight: unit() }})
                 }
               }
               @default {
@@ -42,6 +45,10 @@ import { WorkedSet } from '../../domain/worked-set';
 export class PrCelebrationComponent {
   @Input() visible = false;
   @Input() set: WorkedSet | null = null;
+
+  /** Preferred weight unit — passed down from the hosting page (D-3, ADR-22). */
+  readonly unit = input<PreferredUnit>('kg');
+
   @Output() dismissed = new EventEmitter<void>();
 
   onDismiss(): void {
