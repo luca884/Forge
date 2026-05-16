@@ -63,4 +63,19 @@ export class DexieSessionRepository extends SessionRepository {
     if (rows.length === 0) return null;
     return toWorkedSet(rows[rows.length - 1]!);
   }
+
+  async getAllSessions(fromDate?: Date): Promise<Session[]> {
+    if (fromDate) {
+      // Use client-side filter for reliability across IndexedDB implementations.
+      // Normalise to timestamps to handle cases where fake-indexeddb may return
+      // Date-like objects that don't compare correctly with >=.
+      const fromTime = fromDate.getTime();
+      const rows = await this.db.sessions.toArray();
+      return rows
+        .filter(r => new Date(r.startedAt).getTime() >= fromTime)
+        .map(toSession);
+    }
+    const rows = await this.db.sessions.toArray();
+    return rows.map(toSession);
+  }
 }

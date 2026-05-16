@@ -182,4 +182,32 @@ describe('DexieSessionRepository', () => {
       expect((sets[0] as BodyweightRepsSet).extraWeight?.value).toBe(20);
     }
   });
+
+  // D-24 — getAllSessions
+  it('getAllSessions() returns all sessions when no fromDate is provided', async () => {
+    const s1 = makeSession({ id: 'session-1', startedAt: new Date('2024-01-01T10:00:00') });
+    const s2 = makeSession({ id: 'session-2', startedAt: new Date('2024-02-01T10:00:00') });
+    await repo.save(s1);
+    await repo.save(s2);
+
+    const result = await repo.getAllSessions();
+    expect(result).toHaveLength(2);
+  });
+
+  it('getAllSessions(fromDate) returns only sessions at or after the cutoff', async () => {
+    const cutoff = new Date('2024-02-01T00:00:00');
+    const before = makeSession({ id: 'session-old', startedAt: new Date('2024-01-15T10:00:00') });
+    const onCutoff = makeSession({ id: 'session-cutoff', startedAt: new Date('2024-02-01T10:00:00') });
+    const after = makeSession({ id: 'session-new', startedAt: new Date('2024-03-01T10:00:00') });
+    await repo.save(before);
+    await repo.save(onCutoff);
+    await repo.save(after);
+
+    const result = await repo.getAllSessions(cutoff);
+    expect(result).toHaveLength(2);
+    const ids = result.map(s => s.id);
+    expect(ids).toContain('session-cutoff');
+    expect(ids).toContain('session-new');
+    expect(ids).not.toContain('session-old');
+  });
 });

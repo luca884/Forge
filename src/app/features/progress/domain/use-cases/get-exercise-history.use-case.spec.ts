@@ -35,6 +35,7 @@ class StubSessionRepository extends SessionRepository {
     this.lastExerciseIdArg = exerciseId;
     return this.sets;
   }
+  override async getAllSessions(_fromDate?: Date): Promise<Session[]> { return []; }
 }
 
 describe('GetExerciseHistoryUseCase', () => {

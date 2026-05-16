@@ -23,4 +23,7 @@ export abstract class SessionRepository {
 
   /** Returns the most recent worked set for this exercise across ALL sessions. */
   abstract getLastWorkedSetForExercise(exerciseId: string): Promise<WorkedSet | null>;
+
+  /** Returns all sessions, optionally filtered by startedAt >= fromDate. */
+  abstract getAllSessions(fromDate?: Date): Promise<Session[]>;
 }

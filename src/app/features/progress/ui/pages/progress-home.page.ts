@@ -1,6 +1,6 @@
 /**
  * ProgressHomePage — /progress (D-27).
- * Shows last 5 PRs + summary stats. Click a PR → /progress/exercise/:id.
+ * Shows session heatmap + last 5 PRs + summary stats. Click a PR → /progress/exercise/:id.
  *
  * No ProgressStore (D-31 design note: read-only page-local signals).
  * Injects use cases + exercise repo via inject().
@@ -9,19 +9,28 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
 import { PersonalRecord } from '../../domain/entities/personal-record.entity';
 import { GetAllPersonalRecordsUseCase } from '../../domain/use-cases/get-all-personal-records.use-case';
+import { GetSessionHeatmapUseCase } from '../../domain/use-cases/get-session-heatmap.use-case';
 import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
 import { Exercise } from '@features/exercises/domain/exercise.entity';
 import { formatTrackingValue } from '../helpers/format-tracking-value';
+import { SessionHeatmapComponent } from '../components/session-heatmap.component';
 
 @Component({
   selector: 'fg-progress-home-page',
   standalone: true,
+  imports: [SessionHeatmapComponent],
   providers: [
     GetAllPersonalRecordsUseCase,
+    GetSessionHeatmapUseCase,
   ],
   template: `
     <div class="progress-home">
       <h1>Progreso</h1>
+
+      <section class="heatmap-section">
+        <h2>Actividad (últimas 12 semanas)</h2>
+        <fg-session-heatmap [heatmapData]="heatmapData()" />
+      </section>
 
       <div class="stats-cards">
         <div class="stat-card">
@@ -70,6 +79,8 @@ import { formatTrackingValue } from '../helpers/format-tracking-value';
     h1 { font-size: 1.5rem; margin-bottom: 1rem; }
     h2 { font-size: 1.1rem; margin-bottom: 0.75rem; }
 
+    .heatmap-section { margin-bottom: 1.5rem; }
+
     .stats-cards {
       display: flex;
       gap: 1rem;
@@ -116,11 +127,13 @@ import { formatTrackingValue } from '../helpers/format-tracking-value';
 })
 export class ProgressHomePage implements OnInit {
   private readonly getAllPRs = inject(GetAllPersonalRecordsUseCase);
+  private readonly getSessionHeatmap = inject(GetSessionHeatmapUseCase);
   private readonly exerciseRepo = inject(ExerciseRepository);
   private readonly router = inject(Router);
 
   readonly loading = signal(true);
   readonly allPRs = signal<PersonalRecord[]>([]);
+  readonly heatmapData = signal<Map<string, number>>(new Map());
   private readonly exerciseMap = signal<Map<string, Exercise>>(new Map());
 
   readonly recentPRs = computed(() => this.allPRs().slice(0, 5));
@@ -138,11 +151,13 @@ export class ProgressHomePage implements OnInit {
 
   private async init(): Promise<void> {
     try {
-      const prs = await this.getAllPRs.execute();
+      const [prs, heatmap, exercises] = await Promise.all([
+        this.getAllPRs.execute(),
+        this.getSessionHeatmap.execute(),
+        this.exerciseRepo.getAll(),
+      ]);
       this.allPRs.set(prs);
-
-      // Load exercise names for display
-      const exercises = await this.exerciseRepo.getAll();
+      this.heatmapData.set(heatmap);
       const map = new Map<string, Exercise>(exercises.map((e) => [e.id, e]));
       this.exerciseMap.set(map);
     } finally {

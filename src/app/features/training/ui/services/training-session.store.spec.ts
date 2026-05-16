@@ -39,6 +39,9 @@ class StubSessionRepository extends SessionRepository {
   override async getLastWorkedSetForExercise(_id: string): Promise<WorkedSet | null> {
     return null;
   }
+  override async getAllSessions(_fromDate?: Date): Promise<import('../../domain/session.entity').Session[]> {
+    return [];
+  }
 }
 
 class StubEventBus extends EventBus {
