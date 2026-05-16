@@ -8,6 +8,7 @@
 import { Component, computed, input, signal } from '@angular/core';
 import type { WorkedSet } from '@features/training/domain/worked-set';
 import type { TrackingType } from '@core/shared/domain/tracking-type';
+import type { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
 import { buildTimeSeries, type Metric } from '../../helpers/time-series';
 import { LineChartComponent } from '../line-chart/line-chart.component';
 
@@ -83,6 +84,9 @@ export class ExerciseHistoryChartComponent {
   readonly sets = input.required<readonly WorkedSet[]>();
   readonly trackingType = input.required<TrackingType>();
 
+  /** Preferred weight unit — used for axis labels (D-9, ADR-22). Chart data values remain in kg. */
+  readonly unit = input<PreferredUnit>('kg');
+
   protected readonly selectedMetric = signal<Metric>('weight');
 
   protected readonly availableMetrics = computed<readonly Metric[]>(() => {
@@ -98,11 +102,12 @@ export class ExerciseHistoryChartComponent {
 
   protected readonly yLabel = computed(() => {
     const m = this.selectedMetric();
+    const u = this.unit();
     const labels: Record<Metric, string> = {
-      weight: 'Peso (kg)',
+      weight: `Peso (${u})`,
       reps: 'Repeticiones',
-      volume: 'Volumen (kg×reps)',
-      '1rm': '1RM estimado (kg)',
+      volume: `Volumen (${u}×reps)`,
+      '1rm': `1RM estimado (${u})`,
     };
     return labels[m];
   });

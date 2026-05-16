@@ -17,11 +17,13 @@ import { Exercise } from '@features/exercises/domain/exercise.entity';
 import type { WorkedSet } from '@features/training/domain/worked-set';
 import { ExerciseHistoryChartComponent } from '../components/exercise-history-chart/exercise-history-chart.component';
 import { formatTrackingValue } from '../helpers/format-tracking-value';
+import { UserPreferencesService } from '@core/profile/user-preferences.service';
+import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
 
 @Component({
   selector: 'fg-exercise-history-page',
   standalone: true,
-  imports: [ExerciseHistoryChartComponent],
+  imports: [ExerciseHistoryChartComponent, DisplayWeightPipe],
   providers: [
     GetCurrentPRForExerciseUseCase,
     GetExerciseHistoryUseCase,
@@ -44,7 +46,7 @@ import { formatTrackingValue } from '../helpers/format-tracking-value';
               @if (estimated1RM(); as orm) {
                 <div class="pr-card__orm">
                   <span>1RM estimado (Epley):</span>
-                  <strong>{{ orm }} kg</strong>
+                  <strong>{{ orm | displayWeight: unit() }}</strong>
                 </div>
               }
             </div>
@@ -58,6 +60,7 @@ import { formatTrackingValue } from '../helpers/format-tracking-value';
             <fg-exercise-history-chart
               [sets]="history()"
               [trackingType]="exercise()?.trackingType ?? 'weight-reps'"
+              [unit]="unit()"
             />
           } @else {
             <p class="empty-state">Sin historial de series registradas. (D-29/S3)</p>
@@ -134,6 +137,9 @@ export class ExerciseHistoryPage implements OnInit {
   private readonly getHistory = inject(GetExerciseHistoryUseCase);
   private readonly exerciseRepo = inject(ExerciseRepository);
   private readonly router = inject(Router);
+  private readonly userPrefs = inject(UserPreferencesService);
+
+  readonly unit = this.userPrefs.unit;
 
   readonly loading = signal(true);
   readonly exerciseId = signal<string>('');
@@ -154,6 +160,7 @@ export class ExerciseHistoryPage implements OnInit {
   );
 
   ngOnInit(): void {
+    void this.userPrefs.loadOnce();
     const id = this.route.snapshot.paramMap.get('exerciseId') ?? '';
     this.exerciseId.set(id);
     void this.init(id);
@@ -179,11 +186,11 @@ export class ExerciseHistoryPage implements OnInit {
   }
 
   formatValue(pr: PersonalRecord): string {
-    return formatTrackingValue(pr.set);
+    return formatTrackingValue(pr.set, this.unit());
   }
 
   formatWorkedSet(set: WorkedSet): string {
-    return formatTrackingValue(set);
+    return formatTrackingValue(set, this.unit());
   }
 
   formatDate(date: Date): string {

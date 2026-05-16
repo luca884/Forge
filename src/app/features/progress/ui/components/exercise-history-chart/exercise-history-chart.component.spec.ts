@@ -131,4 +131,37 @@ describe('ExerciseHistoryChartComponent', () => {
     fixture.componentRef.setInput('trackingType', 'time');
     expect(() => fixture.detectChanges()).not.toThrow();
   });
+
+  // D-9 — unit-aware axis labels (T.22/T.23)
+  it('yLabel() returns "Peso (lb)" when unit="lb" and metric=weight', () => {
+    fixture = TestBed.createComponent(ExerciseHistoryChartComponent);
+    fixture.componentRef.setInput('sets', sampleSets);
+    fixture.componentRef.setInput('trackingType', 'weight-reps');
+    fixture.componentRef.setInput('unit', 'lb');
+    fixture.detectChanges();
+    const instance = fixture.componentInstance as any;
+    expect(instance.yLabel()).toBe('Peso (lb)');
+  });
+
+  it('yLabel() returns "Volumen (lb×reps)" when unit="lb" and metric=volume', () => {
+    fixture = TestBed.createComponent(ExerciseHistoryChartComponent);
+    fixture.componentRef.setInput('sets', sampleSets);
+    fixture.componentRef.setInput('trackingType', 'weight-reps');
+    fixture.componentRef.setInput('unit', 'lb');
+    fixture.detectChanges();
+    const instance = fixture.componentInstance as any;
+    // Set metric directly and check computed value — no detectChanges needed (pure computed)
+    instance.selectedMetric.set('volume');
+    expect(instance.yLabel()).toBe('Volumen (lb×reps)');
+  });
+
+  it('yLabel() returns "Peso (kg)" when unit="kg" (default) and metric=weight', () => {
+    fixture = TestBed.createComponent(ExerciseHistoryChartComponent);
+    fixture.componentRef.setInput('sets', sampleSets);
+    fixture.componentRef.setInput('trackingType', 'weight-reps');
+    // unit defaults to 'kg' — no explicit setInput
+    fixture.detectChanges();
+    const instance = fixture.componentInstance as any;
+    expect(instance.yLabel()).toBe('Peso (kg)');
+  });
 });

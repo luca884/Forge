@@ -10,6 +10,7 @@ import { GetAllPersonalRecordsUseCase } from '../../domain/use-cases/get-all-per
 import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
 import { Exercise } from '@features/exercises/domain/exercise.entity';
 import { formatTrackingValue } from '../helpers/format-tracking-value';
+import { UserPreferencesService } from '@core/profile/user-preferences.service';
 
 @Component({
   selector: 'fg-pr-list-page',
@@ -72,12 +73,16 @@ export class PRListPage implements OnInit {
   private readonly getAllPRs = inject(GetAllPersonalRecordsUseCase);
   private readonly exerciseRepo = inject(ExerciseRepository);
   private readonly router = inject(Router);
+  private readonly userPrefs = inject(UserPreferencesService);
+
+  readonly unit = this.userPrefs.unit;
 
   readonly loading = signal(true);
   readonly prs = signal<PersonalRecord[]>([]);
   private readonly exerciseMap = signal<Map<string, Exercise>>(new Map());
 
   ngOnInit(): void {
+    void this.userPrefs.loadOnce();
     void this.init();
   }
 
@@ -99,7 +104,7 @@ export class PRListPage implements OnInit {
   }
 
   formatValue(pr: PersonalRecord): string {
-    return formatTrackingValue(pr.set);
+    return formatTrackingValue(pr.set, this.unit());
   }
 
   formatDate(date: Date): string {
