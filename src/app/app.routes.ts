@@ -27,6 +27,11 @@ export const routes: Routes = [
       import('@features/progress/ui/progress.routes').then((m) => m.PROGRESS_ROUTES),
   },
   {
+    path: 'profile',
+    loadChildren: () =>
+      import('@features/profile/ui/profile.routes').then((m) => m.PROFILE_ROUTES),
+  },
+  {
     path: '**',
     redirectTo: '/training',
   },
