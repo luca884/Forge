@@ -1,9 +1,8 @@
 import { Injectable, signal } from '@angular/core';
 
 /**
- * PwaInstallService — wraps the beforeinstallprompt event (D-31).
+ * PwaInstallService — wraps the beforeinstallprompt + appinstalled events (D-31, ADR-19).
  * Safe on platforms where the event never fires (Safari, iOS).
- * Full implementation: slice-3 P3.
  */
 @Injectable({ providedIn: 'root' })
 export class PwaInstallService {
@@ -16,6 +15,11 @@ export class PwaInstallService {
       event.preventDefault();
       this.deferredPrompt = event as BeforeInstallPromptEvent;
       this.canInstall.set(true);
+    });
+
+    window.addEventListener('appinstalled', () => {
+      this.deferredPrompt = null;
+      this.canInstall.set(false);
     });
   }
 
