@@ -10,6 +10,8 @@ import { DexieExerciseRepository } from '../../exercises/data/dexie-exercise.rep
 import { EventBus } from '@core/shared/events/event-bus';
 import { InMemoryEventBus } from '@core/shared/events/in-memory-event-bus';
 import { PersonalRecordDetector } from '../domain/services/personal-record-detector';
+import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-record.repository';
+import { DexiePersonalRecordRepository } from '../../progress/data/repositories/dexie-personal-record.repository';
 import { TrainingSessionStore } from './services/training-session.store';
 import { RestTimerService } from './services/rest-timer.service';
 
@@ -23,6 +25,7 @@ export default [
       { provide: ExerciseRepository, useClass: DexieExerciseRepository },
       { provide: EventBus, useClass: InMemoryEventBus },
       PersonalRecordDetector,
+      { provide: PersonalRecordRepository, useClass: DexiePersonalRecordRepository },
       TrainingSessionStore,
       RestTimerService,
     ],

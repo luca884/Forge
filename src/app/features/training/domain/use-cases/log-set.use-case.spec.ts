@@ -8,6 +8,8 @@ import { EventBus } from '@core/shared/events/event-bus';
 import { DomainEvent } from '@core/shared/events/domain-event';
 import { SessionNotInProgressError } from '../errors/session-not-in-progress.error';
 import { InvalidSetInputError } from '../errors/invalid-set-input.error';
+import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-record.repository';
+import { PersonalRecord } from '@features/progress/domain/entities/personal-record.entity';
 
 // crypto mock
 let uuidCounter = 0;
@@ -52,6 +54,17 @@ class StubPRDetector {
   isPR(_set: WorkedSet, _history: WorkedSet[]) { return this.returnValue; }
 }
 
+class StubPersonalRecordRepository extends PersonalRecordRepository {
+  savedRecords: PersonalRecord[] = [];
+  override save(record: PersonalRecord): Promise<void> {
+    this.savedRecords.push(record);
+    return Promise.resolve();
+  }
+  override getById(_id: string): Promise<PersonalRecord | null> { return Promise.resolve(null); }
+  override getCurrentForExercise(_exerciseId: string, _trackingType: import('@core/shared/domain/tracking-type').TrackingType): Promise<PersonalRecord | null> { return Promise.resolve(null); }
+  override listAll(_exerciseId?: string): Promise<PersonalRecord[]> { return Promise.resolve([]); }
+}
+
 function makeInProgressSession(): Session {
   return {
     id: 'session-1',
@@ -70,6 +83,7 @@ describe('LogSetUseCase', () => {
   let repo: StubSessionRepository;
   let eventBus: StubEventBus;
   let prDetector: StubPRDetector;
+  let prRepo: StubPersonalRecordRepository;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
@@ -78,12 +92,14 @@ describe('LogSetUseCase', () => {
         { provide: SessionRepository, useClass: StubSessionRepository },
         { provide: EventBus, useClass: StubEventBus },
         { provide: PersonalRecordDetector, useValue: new StubPRDetector() },
+        { provide: PersonalRecordRepository, useClass: StubPersonalRecordRepository },
       ],
     });
     useCase = TestBed.inject(LogSetUseCase);
     repo = TestBed.inject(SessionRepository) as StubSessionRepository;
     eventBus = TestBed.inject(EventBus) as StubEventBus;
     prDetector = TestBed.inject(PersonalRecordDetector) as unknown as StubPRDetector;
+    prRepo = TestBed.inject(PersonalRecordRepository) as StubPersonalRecordRepository;
   });
 
   it('should throw SessionNotInProgressError when session status is completed', async () => {
@@ -162,5 +178,77 @@ describe('LogSetUseCase', () => {
 
     expect(result.type).toBe('bodyweight-reps');
     expect(result.isPR).toBe(false);
+  });
+
+  // P3 — V-64: PersonalRecordRepository.save called when isPR === true
+  it('should call personalRecordRepo.save once with correct PR shape when isPR is true', async () => {
+    repo.sessions['session-1'] = makeInProgressSession();
+    prDetector.returnValue = true;
+
+    const result = await useCase.execute({
+      sessionId: 'session-1',
+      exerciseId: 'ex-1',
+      type: 'weight-reps',
+      repsValue: 10,
+      weightKgValue: 100,
+    });
+
+    expect(prRepo.savedRecords).toHaveLength(1);
+    const saved = prRepo.savedRecords[0];
+    expect(saved.exerciseId).toBe('ex-1');
+    expect(saved.trackingType).toBe('weight-reps');
+    expect(saved.workedSetId).toBe(result.id);
+    expect(saved.set).toEqual(result);
+    expect(typeof saved.id).toBe('string');
+    expect(saved.achievedAt).toBeInstanceOf(Date);
+  });
+
+  // P3 — V-65: personalRecordRepo.save NOT called when isPR === false
+  it('should NOT call personalRecordRepo.save when isPR is false', async () => {
+    repo.sessions['session-1'] = makeInProgressSession();
+    prDetector.returnValue = false;
+
+    await useCase.execute({
+      sessionId: 'session-1',
+      exerciseId: 'ex-1',
+      type: 'weight-reps',
+      repsValue: 10,
+      weightKgValue: 100,
+    });
+
+    expect(prRepo.savedRecords).toHaveLength(0);
+  });
+
+  // P3 — V-66: event order — set added to session BEFORE PR saved, events emitted after
+  it('should persist set to session before saving PR and emit both events after', async () => {
+    repo.sessions['session-1'] = makeInProgressSession();
+    prDetector.returnValue = true;
+    const callOrder: string[] = [];
+
+    jest.spyOn(repo, 'addSetToSession').mockImplementation(async (sId, set) => {
+      callOrder.push('addSetToSession');
+      repo.workedSets.push(set);
+    });
+    jest.spyOn(prRepo, 'save').mockImplementation(async (_record) => {
+      callOrder.push('prRepo.save');
+    });
+    jest.spyOn(eventBus, 'publish').mockImplementation((event) => {
+      callOrder.push(`event:${event.name}`);
+    });
+
+    await useCase.execute({
+      sessionId: 'session-1',
+      exerciseId: 'ex-1',
+      type: 'weight-reps',
+      repsValue: 5,
+      weightKgValue: 80,
+    });
+
+    // Set must be persisted before PR record; events come after
+    expect(callOrder[0]).toBe('addSetToSession');
+    expect(callOrder[1]).toBe('prRepo.save');
+    // Both events must appear
+    expect(callOrder).toContain('event:WorkedSetLogged');
+    expect(callOrder).toContain('event:PersonalRecordAchieved');
   });
 });

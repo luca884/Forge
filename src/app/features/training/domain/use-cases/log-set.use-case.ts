@@ -4,6 +4,7 @@ import { Reps } from '@core/shared/domain/value-objects/reps';
 import { Weight } from '@core/shared/domain/value-objects/weight';
 import { EventBus } from '@core/shared/events/event-bus';
 import { generateUUID } from '@core/shared/utils/uuid';
+import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-record.repository';
 import { SessionRepository } from '../session.repository';
 import { PersonalRecordDetector } from '../services/personal-record-detector';
 import { WorkedSet, WeightRepsSet, BodyweightRepsSet } from '../worked-set';
@@ -12,6 +13,7 @@ import { SessionNotFoundError } from '../errors/session-not-found.error';
 import { InvalidSetInputError } from '../errors/invalid-set-input.error';
 import { WorkedSetLoggedEvent } from '../events/worked-set-logged.event';
 import { PersonalRecordAchievedEvent } from '../events/personal-record-achieved.event';
+import { PersonalRecord } from '@features/progress/domain/entities/personal-record.entity';
 
 export interface LogSetInput {
   sessionId: string;
@@ -29,6 +31,7 @@ export class LogSetUseCase {
   private readonly sessionRepo = inject(SessionRepository);
   private readonly prDetector = inject(PersonalRecordDetector);
   private readonly eventBus = inject(EventBus);
+  private readonly prRepo = inject(PersonalRecordRepository);
 
   async execute(input: LogSetInput): Promise<WorkedSet> {
     const session = await this.sessionRepo.getById(input.sessionId);
@@ -44,8 +47,31 @@ export class LogSetUseCase {
     const isPR = this.prDetector.isPR(newSet, history);
     const finalSet: WorkedSet = { ...newSet, isPR } as WorkedSet;
 
+    // 1. Persist the set first (always).
     await this.sessionRepo.addSetToSession(input.sessionId, finalSet);
 
+    // 2. If PR: persist the PersonalRecord synchronously BEFORE emitting events (ADR-12).
+    //    Save BEFORE event so subscribers see consistent state.
+    //    Partial failure: try/catch — if PR save fails, set is already persisted (acceptable R-8).
+    if (isPR) {
+      const record: PersonalRecord = {
+        id: generateUUID(),
+        exerciseId: finalSet.exerciseId,
+        trackingType: finalSet.type,
+        workedSetId: finalSet.id,
+        achievedAt: finalSet.createdAt,
+        set: finalSet,
+      };
+      try {
+        await this.prRepo.save(record);
+      } catch (err) {
+        // R-8: PR save failure is acceptable for v1. Set is already persisted.
+        // slice-3 reconciliation pass can recover from isPR flag on workedSets.
+        console.error('[LogSetUseCase] Failed to persist PersonalRecord (non-fatal):', err);
+      }
+    }
+
+    // 3. Publish events after persistence (both WorkedSetLogged and PersonalRecordAchieved).
     this.eventBus.publish<WorkedSetLoggedEvent>({
       name: 'WorkedSetLogged',
       occurredAt: new Date(),
