@@ -10,7 +10,33 @@ import {
   DistanceTimeSet,
 } from '../domain/worked-set';
 
-export function toWorkedSet(row: WorkedSetRow): WorkedSet {
+/**
+ * Shape of the minimal parts needed to reconstruct a WorkedSet from any flat row.
+ * Used by both toWorkedSet (WorkedSetRow) and personal-record.mapper (PersonalRecordRow).
+ * D-11/R3 — shared reconstruction logic. Task 1.3.
+ */
+export interface WorkedSetRowParts {
+  id: string;
+  sessionId: string;
+  exerciseId: string;
+  type: string;
+  isPR: boolean;
+  createdAt: Date;
+  targetSetIndex?: number;
+  note?: string;
+  reps?: number;
+  weightKg?: number;
+  extraWeightKg?: number;
+  durationSec?: number;
+  distanceKm?: number;
+}
+
+/**
+ * Reconstruct a WorkedSet from any flat row that conforms to WorkedSetRowParts.
+ * Exported for reuse by personal-record.mapper to avoid duplication.
+ * Exhaustive switch with assertNever as default. D-11/R3.
+ */
+export function workedSetFromRowParts(row: WorkedSetRowParts): WorkedSet {
   const base = {
     id: row.id,
     sessionId: row.sessionId,
@@ -27,11 +53,11 @@ export function toWorkedSet(row: WorkedSetRow): WorkedSet {
     case 'weight-reps': {
       const repsResult = Reps.tryFrom(row.reps ?? NaN);
       if (!repsResult.ok) {
-        throw new Error(`[worked-set.mapper] Invalid reps in DB row ${row.id}: ${repsResult.error}`);
+        throw new Error(`[worked-set.mapper] Invalid reps in row ${row.id}: ${repsResult.error}`);
       }
       const weightResult = Weight.tryFrom(row.weightKg ?? NaN);
       if (!weightResult.ok) {
-        throw new Error(`[worked-set.mapper] Invalid weightKg in DB row ${row.id}: ${weightResult.error}`);
+        throw new Error(`[worked-set.mapper] Invalid weightKg in row ${row.id}: ${weightResult.error}`);
       }
       return {
         ...base,
@@ -44,14 +70,14 @@ export function toWorkedSet(row: WorkedSetRow): WorkedSet {
     case 'bodyweight-reps': {
       const repsResult = Reps.tryFrom(row.reps ?? NaN);
       if (!repsResult.ok) {
-        throw new Error(`[worked-set.mapper] Invalid reps in DB row ${row.id}: ${repsResult.error}`);
+        throw new Error(`[worked-set.mapper] Invalid reps in row ${row.id}: ${repsResult.error}`);
       }
 
       let extraWeight: Weight | undefined;
       if (row.extraWeightKg !== undefined) {
         const ewResult = Weight.tryFrom(row.extraWeightKg);
         if (!ewResult.ok) {
-          throw new Error(`[worked-set.mapper] Invalid extraWeightKg in DB row ${row.id}: ${ewResult.error}`);
+          throw new Error(`[worked-set.mapper] Invalid extraWeightKg in row ${row.id}: ${ewResult.error}`);
         }
         extraWeight = ewResult.value;
       }
@@ -82,6 +108,10 @@ export function toWorkedSet(row: WorkedSetRow): WorkedSet {
     default:
       return assertNever(type);
   }
+}
+
+export function toWorkedSet(row: WorkedSetRow): WorkedSet {
+  return workedSetFromRowParts(row);
 }
 
 export function toWorkedSetRow(set: WorkedSet): WorkedSetRow {

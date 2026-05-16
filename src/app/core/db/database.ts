@@ -15,7 +15,39 @@ export interface RoutineRow {
   name: string;
   description?: string;
   isActive: boolean;
-  schedule: unknown;
+  schedule: WeeklyScheduleRow | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** Serialized shape of WeeklySchedule for DB storage. Each value is a TrainingDay.id. */
+export interface WeeklyScheduleRow {
+  monday?: string;
+  tuesday?: string;
+  wednesday?: string;
+  thursday?: string;
+  friday?: string;
+  saturday?: string;
+  sunday?: string;
+}
+
+/**
+ * PersonalRecordRow — flat denormalized record for a PR.
+ * Denormalized value fields match WorkedSetRow field names to enable mapper reuse.
+ * D-7, ADR-14.
+ */
+export interface PersonalRecordRow {
+  id: string;
+  exerciseId: string;
+  trackingType: string;
+  workedSetId: string;
+  achievedAt: Date;
+  // Denormalized WorkedSet fields (match WorkedSetRow field names, D-7/R2)
+  reps?: number;
+  weightKg?: number;
+  extraWeightKg?: number;
+  durationSec?: number;
+  distanceKm?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -81,9 +113,12 @@ export class ForgeDatabase extends Dexie {
   exercises!: Table<ExerciseRow, string>;
   sessions!: Table<SessionRow, string>;
   workedSets!: Table<WorkedSetRow, string>;
+  personalRecords!: Table<PersonalRecordRow, string>;
 
   constructor() {
     super('forge');
+
+    // v1 — original schema (keep intact for upgrade chain, ADR-14/D-8/R3)
     this.version(1).stores({
       profile: 'id',
       routines: 'id, isActive',
@@ -91,6 +126,13 @@ export class ForgeDatabase extends Dexie {
       exercises: 'id, muscleGroup, isCustom, name',
       sessions: 'id, date, routineId, dayId, status',
       workedSets: 'id, sessionId, exerciseId',
+    });
+
+    // v2 — additive-only: new personalRecords table + isPR index on workedSets.
+    // No .upgrade() callback needed (single-user install, no existing PR data). D-8.
+    this.version(2).stores({
+      workedSets: 'id, sessionId, exerciseId, isPR',
+      personalRecords: 'id, exerciseId, trackingType, achievedAt',
     });
   }
 }
