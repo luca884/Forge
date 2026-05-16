@@ -87,20 +87,20 @@ export class ExerciseHistoryChartComponent {
   /** Preferred weight unit — used for axis labels (D-9, ADR-22). Chart data values remain in kg. */
   readonly unit = input<PreferredUnit>('kg');
 
-  protected readonly selectedMetric = signal<Metric>('weight');
+  readonly selectedMetric = signal<Metric>('weight');
 
-  protected readonly availableMetrics = computed<readonly Metric[]>(() => {
+  readonly availableMetrics = computed<readonly Metric[]>(() => {
     const tt = this.trackingType();
     return tt === 'weight-reps' || tt === 'bodyweight-reps'
       ? WEIGHT_METRICS
       : GENERIC_METRICS;
   });
 
-  protected readonly series = computed(() =>
+  readonly series = computed(() =>
     buildTimeSeries(this.sets(), this.trackingType(), this.selectedMetric()),
   );
 
-  protected readonly yLabel = computed(() => {
+  readonly yLabel = computed(() => {
     const m = this.selectedMetric();
     const u = this.unit();
     const labels: Record<Metric, string> = {
@@ -112,7 +112,7 @@ export class ExerciseHistoryChartComponent {
     return labels[m];
   });
 
-  protected metricLabel(m: Metric): string {
+  metricLabel(m: Metric): string {
     return METRIC_LABELS[m];
   }
 }

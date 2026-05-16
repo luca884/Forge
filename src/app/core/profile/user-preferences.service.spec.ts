@@ -57,9 +57,9 @@ describe('UserPreferencesService', () => {
   });
 
   it('calling loadOnce() twice only invokes ProfileRepository.get() once', async () => {
-    // Spy on the ProfileRepository instance that the service actually uses
-    const profileRepoInService = (service as any).profileRepo as ProfileRepository;
-    const getSpy = jest.spyOn(profileRepoInService, 'get');
+    // Spy on the ProfileRepository token instance — same instance the service injects
+    const profileRepo = TestBed.inject(ProfileRepository);
+    const getSpy = jest.spyOn(profileRepo, 'get');
     await service.loadOnce();
     await service.loadOnce();
     expect(getSpy).toHaveBeenCalledTimes(1);

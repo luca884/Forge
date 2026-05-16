@@ -11,8 +11,11 @@ import type { Exercise } from '../../../exercises/domain/exercise.entity';
 const mockExercise: Exercise = {
   id: 'ex-1',
   name: 'Sentadilla',
-  muscleGroup: 'Piernas',
+  muscleGroup: 'legs',
   trackingType: 'weight-reps',
+  isCustom: false,
+  createdAt: new Date('2026-01-01'),
+  updatedAt: new Date('2026-01-01'),
 };
 
 const weightRepsSet: WorkedSet = {

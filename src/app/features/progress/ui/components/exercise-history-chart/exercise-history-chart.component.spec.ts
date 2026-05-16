@@ -139,8 +139,7 @@ describe('ExerciseHistoryChartComponent', () => {
     fixture.componentRef.setInput('trackingType', 'weight-reps');
     fixture.componentRef.setInput('unit', 'lb');
     fixture.detectChanges();
-    const instance = fixture.componentInstance as any;
-    expect(instance.yLabel()).toBe('Peso (lb)');
+    expect(fixture.componentInstance.yLabel()).toBe('Peso (lb)');
   });
 
   it('yLabel() returns "Volumen (lb×reps)" when unit="lb" and metric=volume', () => {
@@ -149,10 +148,9 @@ describe('ExerciseHistoryChartComponent', () => {
     fixture.componentRef.setInput('trackingType', 'weight-reps');
     fixture.componentRef.setInput('unit', 'lb');
     fixture.detectChanges();
-    const instance = fixture.componentInstance as any;
     // Set metric directly and check computed value — no detectChanges needed (pure computed)
-    instance.selectedMetric.set('volume');
-    expect(instance.yLabel()).toBe('Volumen (lb×reps)');
+    fixture.componentInstance.selectedMetric.set('volume');
+    expect(fixture.componentInstance.yLabel()).toBe('Volumen (lb×reps)');
   });
 
   it('yLabel() returns "Peso (kg)" when unit="kg" (default) and metric=weight', () => {
@@ -161,7 +159,6 @@ describe('ExerciseHistoryChartComponent', () => {
     fixture.componentRef.setInput('trackingType', 'weight-reps');
     // unit defaults to 'kg' — no explicit setInput
     fixture.detectChanges();
-    const instance = fixture.componentInstance as any;
-    expect(instance.yLabel()).toBe('Peso (kg)');
+    expect(fixture.componentInstance.yLabel()).toBe('Peso (kg)');
   });
 });

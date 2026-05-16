@@ -34,6 +34,7 @@ const completedSession: Session = {
   startedAt: new Date('2026-01-01T09:00:00Z'),
   endedAt: new Date('2026-01-01T10:00:00Z'),
   createdAt: new Date('2026-01-01'),
+  updatedAt: new Date('2026-01-01'),
 };
 
 describe('SessionSummaryPage', () => {
