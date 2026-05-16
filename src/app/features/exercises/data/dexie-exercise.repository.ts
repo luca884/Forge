@@ -45,4 +45,8 @@ export class DexieExerciseRepository extends ExerciseRepository {
   async count(): Promise<number> {
     return this.db.exercises.count();
   }
+
+  async delete(id: string): Promise<void> {
+    await this.db.exercises.delete(id);
+  }
 }

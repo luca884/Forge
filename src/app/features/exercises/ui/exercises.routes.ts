@@ -11,4 +11,20 @@ export default [
       { provide: ExerciseRepository, useClass: DexieExerciseRepository },
     ],
   },
+  {
+    path: 'new',
+    loadComponent: () =>
+      import('./pages/exercise-form.page').then((m) => m.ExerciseFormPage),
+    providers: [
+      { provide: ExerciseRepository, useClass: DexieExerciseRepository },
+    ],
+  },
+  {
+    path: ':id/edit',
+    loadComponent: () =>
+      import('./pages/exercise-form.page').then((m) => m.ExerciseFormPage),
+    providers: [
+      { provide: ExerciseRepository, useClass: DexieExerciseRepository },
+    ],
+  },
 ] satisfies Routes;

@@ -6,4 +6,5 @@ export abstract class ExerciseRepository {
   abstract getById(id: string): Promise<Exercise | null>;
   abstract save(exercise: Exercise): Promise<void>;
   abstract count(): Promise<number>;
+  abstract delete(id: string): Promise<void>;
 }

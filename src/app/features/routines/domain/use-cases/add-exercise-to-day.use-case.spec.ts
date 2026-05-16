@@ -35,6 +35,7 @@ class StubExerciseRepository extends ExerciseRepository {
 
   override async save(_exercise: Exercise): Promise<void> {}
   override async count(): Promise<number> { return this.exercises.length; }
+  override async delete(_id: string): Promise<void> {}
 }
 
 const makeDay = (overrides: Partial<TrainingDay> = {}): TrainingDay => ({

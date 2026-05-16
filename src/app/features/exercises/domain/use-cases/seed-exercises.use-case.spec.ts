@@ -40,6 +40,10 @@ class InMemoryExerciseRepository extends ExerciseRepository {
   override count(): Promise<number> {
     return Promise.resolve(this.exercises.length);
   }
+
+  override delete(_id: string): Promise<void> {
+    return Promise.resolve();
+  }
 }
 
 describe('SeedExercisesUseCase', () => {

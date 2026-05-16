@@ -102,4 +102,17 @@ describe('DexieExerciseRepository', () => {
     expect(result).not.toBeNull();
     expect(result!.id).toBe('ex-get');
   });
+
+  it('should delete an exercise — getAll no longer contains it (D-18/S1)', async () => {
+    await repo.save(makeExercise({ id: 'ex-del' }));
+
+    await repo.delete('ex-del');
+
+    const results = await repo.getAll();
+    expect(results.find((e) => e.id === 'ex-del')).toBeUndefined();
+  });
+
+  it('should resolve without error when deleting nonexistent id (D-18/S2)', async () => {
+    await expect(repo.delete('nonexistent-id')).resolves.toBeUndefined();
+  });
 });
