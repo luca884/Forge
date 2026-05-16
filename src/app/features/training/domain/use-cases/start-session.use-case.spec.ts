@@ -122,7 +122,7 @@ describe('StartSessionUseCase', () => {
     await useCase.execute({ routineId: 'r1', dayId: 'd1' });
 
     expect(repo.savedSessions.length).toBeGreaterThan(0);
-    expect(repo.savedSessions[0].status).toBe('in-progress');
+    expect(repo.savedSessions[0]!.status).toBe('in-progress');
   });
 
   it('should set date as today ISO string (YYYY-MM-DD)', async () => {

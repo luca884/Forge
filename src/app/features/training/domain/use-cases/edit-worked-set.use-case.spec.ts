@@ -32,8 +32,8 @@ class StubSessionRepository extends SessionRepository {
 
 class StubEventBus extends EventBus {
   publishedEvents: DomainEvent[] = [];
-  override publish(event: DomainEvent) { this.publishedEvents.push(event); }
-  override subscribe(_name: string, _handler: (e: DomainEvent) => void) { return () => {}; }
+  override publish<E extends DomainEvent>(event: E) { this.publishedEvents.push(event); }
+  override subscribe<E extends DomainEvent>(_name: E['name'], _handler: (e: E) => void) { return () => {}; }
 }
 
 class StubPRDetector {
