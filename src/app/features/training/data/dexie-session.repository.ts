@@ -38,6 +38,14 @@ export class DexieSessionRepository extends SessionRepository {
     await this.db.workedSets.delete(setId);
   }
 
+  async getSetsForSession(sessionId: string): Promise<WorkedSet[]> {
+    const rows = await this.db.workedSets
+      .where('sessionId')
+      .equals(sessionId)
+      .sortBy('createdAt');
+    return rows.map(toWorkedSet);
+  }
+
   async getAllWorkedSetsForExercise(exerciseId: string): Promise<WorkedSet[]> {
     const rows = await this.db.workedSets
       .where('exerciseId')

@@ -15,6 +15,9 @@ export abstract class SessionRepository {
 
   abstract removeWorkedSet(sessionId: string, setId: string): Promise<void>;
 
+  /** Returns all worked sets for a specific session, ordered by createdAt ascending. */
+  abstract getSetsForSession(sessionId: string): Promise<WorkedSet[]>;
+
   /** Returns worked sets across ALL sessions for this exercise, ordered by createdAt ascending. */
   abstract getAllWorkedSetsForExercise(exerciseId: string): Promise<WorkedSet[]>;
 

@@ -22,6 +22,7 @@ class StubSessionRepository extends SessionRepository {
     this.workedSets = this.workedSets.filter(s => s.id !== setId);
     return Promise.resolve();
   }
+  override getSetsForSession(_sId: string) { return Promise.resolve(this.workedSets); }
   override getAllWorkedSetsForExercise(_eId: string) { return Promise.resolve(this.workedSets); }
   override getLastWorkedSetForExercise(_eId: string) { return Promise.resolve(null); }
 }
