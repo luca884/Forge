@@ -106,18 +106,24 @@ import { NotificationPermissionService } from '@core/notifications/notification-
 
       <!-- Sección Notificaciones -->
       <div class="notifications-section">
-        <button type="button" (click)="onRequestNotification()">
-          Activar notificaciones
-          <span class="permission-status">
-            @if (notificationService.permission() === 'granted') {
-              (concedido)
-            } @else if (notificationService.permission() === 'denied') {
-              (denegado)
-            } @else {
-              (pendiente)
-            }
-          </span>
-        </button>
+        @if (notificationService.supported()) {
+          <button type="button" (click)="onRequestNotification()">
+            Activar notificaciones
+            <span class="permission-status">
+              @if (notificationService.permission() === 'granted') {
+                (concedido)
+              } @else if (notificationService.permission() === 'denied') {
+                (denegado)
+              } @else {
+                (pendiente)
+              }
+            </span>
+          </button>
+        } @else {
+          <p class="notifications-unsupported">
+            Las notificaciones requieren instalar la app primero.
+          </p>
+        }
       </div>
 
       @if (saveError()) {

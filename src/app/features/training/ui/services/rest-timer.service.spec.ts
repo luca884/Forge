@@ -1,7 +1,41 @@
-import { TestBed, fakeAsync, tick } from '@angular/core/testing';
-import { RestTimerService } from './rest-timer.service';
+import { TestBed } from '@angular/core/testing';
 import { EventBus } from '@core/shared/events/event-bus';
+import { NotificationPermissionService } from '@core/notifications/notification-permission.service';
 
+// ---------------------------------------------------------------------------
+// Mock Worker — simulates the Web Worker message channel without Worker infra
+// ---------------------------------------------------------------------------
+type MessageHandler = (event: MessageEvent) => void;
+
+class MockWorker {
+  static readonly instances: MockWorker[] = [];
+
+  readonly postMessage = jest.fn();
+  onmessage: MessageHandler | null = null;
+
+  constructor() {
+    MockWorker.instances.push(this);
+  }
+
+  simulateMessage(data: unknown): void {
+    this.onmessage?.({ data } as MessageEvent);
+  }
+
+  terminate = jest.fn();
+}
+
+// rest-timer-worker.factory uses `import.meta.url` which Jest's CJS transform
+// cannot parse. Mock the factory before importing the service.
+jest.mock('./rest-timer-worker.factory', () => ({
+  createRestTimerWorker: (): Worker =>
+    new (globalThis as unknown as { Worker: new () => Worker }).Worker(),
+}));
+
+import { RestTimerService } from './rest-timer.service';
+
+// ---------------------------------------------------------------------------
+// Stubs
+// ---------------------------------------------------------------------------
 class StubEventBus extends EventBus {
   private readonly handlers = new Map<string, ((e: unknown) => void)[]>();
 
@@ -17,27 +51,54 @@ class StubEventBus extends EventBus {
   }
 
   emit(name: string, event: unknown): void {
-    (this.handlers.get(name) ?? []).forEach(h => h(event));
+    (this.handlers.get(name) ?? []).forEach((h) => h(event));
   }
 }
 
-describe('RestTimerService', () => {
+class StubNotificationPermissionService {
+  permission = jest.fn().mockReturnValue('denied');
+  supported = jest.fn().mockReturnValue(false);
+  request = jest.fn().mockResolvedValue('denied');
+  showTimerDoneNotification = jest.fn();
+}
+
+describe('RestTimerService (Worker-based)', () => {
   let service: RestTimerService;
   let eventBus: StubEventBus;
+  let notifService: StubNotificationPermissionService;
 
   beforeEach(() => {
+    MockWorker.instances.length = 0;
+    jest.clearAllMocks();
+
+    // Install MockWorker globally before the service is created
+    Object.defineProperty(globalThis, 'Worker', {
+      value: MockWorker,
+      writable: true,
+      configurable: true,
+    });
+
     eventBus = new StubEventBus();
+    notifService = new StubNotificationPermissionService();
 
     TestBed.configureTestingModule({
       providers: [
         RestTimerService,
         { provide: EventBus, useValue: eventBus },
+        { provide: NotificationPermissionService, useValue: notifService },
       ],
     });
 
     service = TestBed.inject(RestTimerService);
   });
 
+  afterEach(() => {
+    TestBed.resetTestingModule();
+  });
+
+  // -------------------------------------------------------------------------
+  // Initial state
+  // -------------------------------------------------------------------------
   describe('initial state', () => {
     it('remaining() is null when no timer running', () => {
       expect(service.remaining()).toBeNull();
@@ -46,96 +107,139 @@ describe('RestTimerService', () => {
     it('isRunning() is false initially', () => {
       expect(service.isRunning()).toBe(false);
     });
+
+    it('does not create a Worker until start() is called', () => {
+      expect(MockWorker.instances).toHaveLength(0);
+    });
   });
 
+  // -------------------------------------------------------------------------
+  // start() — Worker message protocol
+  // -------------------------------------------------------------------------
   describe('start()', () => {
-    it('sets remaining to the given seconds', fakeAsync(() => {
+    it('creates a Worker on first call (lazy)', () => {
       service.start(90);
-      expect(service.remaining()).toBe(90);
-      service.cancel();
-    }));
+      expect(MockWorker.instances).toHaveLength(1);
+    });
 
-    it('sets isRunning to true', fakeAsync(() => {
+    it('sends a start message to the Worker with the correct seconds', () => {
+      service.start(90);
+      const worker = MockWorker.instances[0];
+      expect(worker.postMessage).toHaveBeenCalledWith({
+        type: 'start',
+        payload: { seconds: 90 },
+      });
+    });
+
+    it('sets isRunning to true after sending start', () => {
       service.start(90);
       expect(service.isRunning()).toBe(true);
-      service.cancel();
-    }));
+    });
 
-    it('counts down every second', fakeAsync(() => {
-      service.start(5);
-      expect(service.remaining()).toBe(5);
-
-      tick(1000);
-      expect(service.remaining()).toBe(4);
-
-      tick(1000);
-      expect(service.remaining()).toBe(3);
-
-      service.cancel();
-    }));
-
-    it('sets remaining to null when countdown reaches 0', fakeAsync(() => {
-      service.start(3);
-      tick(3000);
-      expect(service.remaining()).toBeNull();
-    }));
-
-    it('sets isRunning to false when countdown reaches 0', fakeAsync(() => {
-      service.start(3);
-      tick(3000);
-      expect(service.isRunning()).toBe(false);
-    }));
-
-    it('restarting replaces the current countdown', fakeAsync(() => {
+    it('sets remaining to the initial seconds', () => {
       service.start(90);
-      tick(2000);
+      expect(service.remaining()).toBe(90);
+    });
+
+    it('reuses the same Worker instance on repeated start calls', () => {
+      service.start(90);
       service.start(30);
-      expect(service.remaining()).toBe(30);
+      expect(MockWorker.instances).toHaveLength(1);
+    });
 
-      tick(1000);
-      expect(service.remaining()).toBe(29);
+    it('sends cancel then start when restarting', () => {
+      service.start(90);
+      const worker = MockWorker.instances[0];
+      worker.postMessage.mockClear();
 
-      service.cancel();
-    }));
+      service.start(30);
+      expect(worker.postMessage).toHaveBeenNthCalledWith(1, { type: 'cancel' });
+      expect(worker.postMessage).toHaveBeenNthCalledWith(2, {
+        type: 'start',
+        payload: { seconds: 30 },
+      });
+    });
   });
 
-  describe('cancel()', () => {
-    it('stops the countdown and sets remaining to null', fakeAsync(() => {
+  // -------------------------------------------------------------------------
+  // tick / done messages from Worker
+  // -------------------------------------------------------------------------
+  describe('Worker inbound messages', () => {
+    beforeEach(() => {
       service.start(90);
-      tick(2000);
-      service.cancel();
+    });
 
+    it('updates remaining() on tick messages', () => {
+      const worker = MockWorker.instances[0];
+      worker.simulateMessage({ type: 'tick', payload: { remaining: 89 } });
+      expect(service.remaining()).toBe(89);
+    });
+
+    it('updates remaining on multiple tick messages', () => {
+      const worker = MockWorker.instances[0];
+      worker.simulateMessage({ type: 'tick', payload: { remaining: 89 } });
+      worker.simulateMessage({ type: 'tick', payload: { remaining: 88 } });
+      expect(service.remaining()).toBe(88);
+    });
+
+    it('sets remaining to null and isRunning to false on done', () => {
+      const worker = MockWorker.instances[0];
+      worker.simulateMessage({ type: 'done' });
       expect(service.remaining()).toBeNull();
       expect(service.isRunning()).toBe(false);
-    }));
+    });
 
-    it('further ticks do not change remaining after cancel', fakeAsync(() => {
+    it('calls showTimerDoneNotification() on done', () => {
+      const worker = MockWorker.instances[0];
+      worker.simulateMessage({ type: 'done' });
+      expect(notifService.showTimerDoneNotification).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // cancel()
+  // -------------------------------------------------------------------------
+  describe('cancel()', () => {
+    it('sends a cancel message to the Worker', () => {
+      service.start(90);
+      const worker = MockWorker.instances[0];
+      service.cancel();
+      expect(worker.postMessage).toHaveBeenCalledWith({ type: 'cancel' });
+    });
+
+    it('sets remaining to null and isRunning to false', () => {
       service.start(90);
       service.cancel();
-      tick(5000);
       expect(service.remaining()).toBeNull();
-    }));
+      expect(service.isRunning()).toBe(false);
+    });
 
-    it('cancel when not running does not throw', () => {
+    it('does not throw when called before start()', () => {
       expect(() => service.cancel()).not.toThrow();
     });
   });
 
+  // -------------------------------------------------------------------------
+  // skip()
+  // -------------------------------------------------------------------------
   describe('skip()', () => {
-    it('stops the countdown immediately', fakeAsync(() => {
+    it('stops the timer immediately', () => {
       service.start(90);
       service.skip();
       expect(service.remaining()).toBeNull();
       expect(service.isRunning()).toBe(false);
-    }));
+    });
 
-    it('skip when not running does not throw', () => {
+    it('does not throw when called before start()', () => {
       expect(() => service.skip()).not.toThrow();
     });
   });
 
+  // -------------------------------------------------------------------------
+  // WorkedSetLogged event integration
+  // -------------------------------------------------------------------------
   describe('WorkedSetLogged event integration', () => {
-    it('auto-starts 90s countdown when WorkedSetLogged fires with no restSeconds hint', fakeAsync(() => {
+    it('auto-starts 90s countdown when WorkedSetLogged fires', () => {
       eventBus.emit('WorkedSetLogged', {
         name: 'WorkedSetLogged',
         occurredAt: new Date(),
@@ -143,32 +247,29 @@ describe('RestTimerService', () => {
         workedSet: { id: 'set-1', exerciseId: 'ex-1' },
       });
 
-      expect(service.remaining()).toBe(90);
       expect(service.isRunning()).toBe(true);
-      service.cancel();
-    }));
-
-    it('resets timer on consecutive WorkedSetLogged events', fakeAsync(() => {
-      eventBus.emit('WorkedSetLogged', {
-        name: 'WorkedSetLogged',
-        occurredAt: new Date(),
-        sessionId: 'session-1',
-        workedSet: { id: 'set-1', exerciseId: 'ex-1' },
-      });
-
-      tick(30000);
-      expect(service.remaining()).toBe(60);
-
-      // Log another set — timer restarts
-      eventBus.emit('WorkedSetLogged', {
-        name: 'WorkedSetLogged',
-        occurredAt: new Date(),
-        sessionId: 'session-1',
-        workedSet: { id: 'set-2', exerciseId: 'ex-1' },
-      });
-
       expect(service.remaining()).toBe(90);
-      service.cancel();
-    }));
+      const worker = MockWorker.instances[0];
+      expect(worker.postMessage).toHaveBeenCalledWith({
+        type: 'start',
+        payload: { seconds: 90 },
+      });
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // destroy — Worker terminates
+  // -------------------------------------------------------------------------
+  describe('ngOnDestroy()', () => {
+    it('terminates the Worker on destroy', () => {
+      service.start(90);
+      const worker = MockWorker.instances[0];
+      service.ngOnDestroy();
+      expect(worker.terminate).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not throw on destroy if Worker was never created', () => {
+      expect(() => service.ngOnDestroy()).not.toThrow();
+    });
   });
 });

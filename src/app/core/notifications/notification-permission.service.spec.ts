@@ -32,6 +32,11 @@ describe('NotificationPermissionService', () => {
       expect(service.permission()).toBe('default');
     });
 
+    it('should report supported() as false when Notification API is absent', () => {
+      const service = TestBed.inject(NotificationPermissionService);
+      expect(service.supported()).toBe(false);
+    });
+
     it('should set permission to denied and NOT throw when request() is called', async () => {
       const service = TestBed.inject(NotificationPermissionService);
       await expect(service.request()).resolves.toBeUndefined();
@@ -57,6 +62,11 @@ describe('NotificationPermissionService', () => {
     it('should initialize permission from Notification.permission', () => {
       const service = TestBed.inject(NotificationPermissionService);
       expect(service.permission()).toBe('default');
+    });
+
+    it('should report supported() as true when Notification API is present', () => {
+      const service = TestBed.inject(NotificationPermissionService);
+      expect(service.supported()).toBe(true);
     });
 
     it('should update permission signal to granted after request()', async () => {

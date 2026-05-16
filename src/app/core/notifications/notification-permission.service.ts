@@ -1,12 +1,13 @@
 import { Injectable, signal } from '@angular/core';
 
 /**
- * NotificationPermissionService — wraps the Web Notification API (D-30).
+ * NotificationPermissionService — wraps the Web Notification API.
  * Gracefully degrades on iOS Safari (where Notification may be unavailable).
- * Full implementation: slice-3 P3.
  */
 @Injectable({ providedIn: 'root' })
 export class NotificationPermissionService {
+  readonly supported = signal<boolean>('Notification' in window);
+
   readonly permission = signal<'granted' | 'denied' | 'default'>(
     'Notification' in window
       ? (Notification.permission as 'granted' | 'denied' | 'default')
@@ -14,7 +15,7 @@ export class NotificationPermissionService {
   );
 
   async request(): Promise<void> {
-    if (!('Notification' in window)) {
+    if (!this.supported()) {
       this.permission.set('denied');
       return;
     }

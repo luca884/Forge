@@ -1,14 +1,19 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, OnDestroy, inject, signal } from '@angular/core';
 import { EventBus } from '@core/shared/events/event-bus';
+import { NotificationPermissionService } from '@core/notifications/notification-permission.service';
+import type { WorkerInboundMessage, WorkerOutboundMessage } from './rest-timer.helpers';
+import { createRestTimerWorker } from './rest-timer-worker.factory';
 
 @Injectable()
-export class RestTimerService {
+export class RestTimerService implements OnDestroy {
   private readonly eventBus = inject(EventBus);
+  private readonly notificationService = inject(NotificationPermissionService);
 
   readonly remaining = signal<number | null>(null);
   readonly isRunning = signal<boolean>(false);
 
-  private timerId: ReturnType<typeof setTimeout> | null = null;
+  private worker: Worker | null = null;
+  private audio: HTMLAudioElement | null = null;
 
   constructor() {
     this.eventBus.subscribe('WorkedSetLogged', () => {
@@ -17,44 +22,65 @@ export class RestTimerService {
   }
 
   start(seconds: number): void {
-    this.stop();
+    const worker = this.getOrCreateWorker();
+
+    if (this.isRunning()) {
+      worker.postMessage({ type: 'cancel' } satisfies WorkerInboundMessage);
+    }
+
     this.remaining.set(seconds);
     this.isRunning.set(true);
-    this.scheduleNext();
+    worker.postMessage({ type: 'start', payload: { seconds } } satisfies WorkerInboundMessage);
   }
 
   cancel(): void {
-    this.stop();
+    if (this.worker !== null) {
+      this.worker.postMessage({ type: 'cancel' } satisfies WorkerInboundMessage);
+    }
     this.remaining.set(null);
     this.isRunning.set(false);
   }
 
   skip(): void {
-    this.stop();
-    this.remaining.set(null);
-    this.isRunning.set(false);
+    this.cancel();
   }
 
-  private stop(): void {
-    if (this.timerId !== null) {
-      clearTimeout(this.timerId);
-      this.timerId = null;
+  ngOnDestroy(): void {
+    if (this.worker !== null) {
+      this.worker.terminate();
+      this.worker = null;
     }
   }
 
-  private scheduleNext(): void {
-    this.timerId = setTimeout(() => {
-      const current = this.remaining();
-      if (current === null) return;
+  private getOrCreateWorker(): Worker {
+    if (this.worker === null) {
+      this.worker = createRestTimerWorker();
+      this.worker.onmessage = (event: MessageEvent<WorkerOutboundMessage>) => {
+        this.handleWorkerMessage(event.data);
+      };
+    }
+    return this.worker;
+  }
 
-      if (current <= 1) {
-        this.remaining.set(null);
-        this.isRunning.set(false);
-        this.timerId = null;
-      } else {
-        this.remaining.set(current - 1);
-        this.scheduleNext();
+  private handleWorkerMessage(msg: WorkerOutboundMessage): void {
+    if (msg.type === 'tick') {
+      this.remaining.set(msg.payload.remaining);
+    } else if (msg.type === 'done') {
+      this.remaining.set(null);
+      this.isRunning.set(false);
+      this.notificationService.showTimerDoneNotification();
+      this.playSound();
+    }
+  }
+
+  private playSound(): void {
+    try {
+      if (this.audio === null) {
+        this.audio = new Audio('/sounds/beep.mp3');
       }
-    }, 1000);
+      void this.audio.play();
+    } catch {
+      // Silent fail — audio may not be available (iOS without gesture, test env, etc.)
+    }
   }
 }
