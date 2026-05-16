@@ -63,5 +63,6 @@ export class BottomNavComponent {
     { label: 'Rutinas', route: '/routines', icon: '📋' },
     { label: 'Ejercicios', route: '/exercises', icon: '💪' },
     { label: 'Progreso', route: '/progress', icon: '📈' },
+    { label: 'Perfil', route: '/profile', icon: '👤' },
   ];
 }

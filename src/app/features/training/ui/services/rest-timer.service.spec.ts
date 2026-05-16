@@ -124,7 +124,7 @@ describe('RestTimerService (Worker-based)', () => {
 
     it('sends a start message to the Worker with the correct seconds', () => {
       service.start(90);
-      const worker = MockWorker.instances[0];
+      const worker = MockWorker.instances[0]!;
       expect(worker.postMessage).toHaveBeenCalledWith({
         type: 'start',
         payload: { seconds: 90 },
@@ -149,7 +149,7 @@ describe('RestTimerService (Worker-based)', () => {
 
     it('sends cancel then start when restarting', () => {
       service.start(90);
-      const worker = MockWorker.instances[0];
+      const worker = MockWorker.instances[0]!;
       worker.postMessage.mockClear();
 
       service.start(30);
@@ -170,27 +170,27 @@ describe('RestTimerService (Worker-based)', () => {
     });
 
     it('updates remaining() on tick messages', () => {
-      const worker = MockWorker.instances[0];
+      const worker = MockWorker.instances[0]!;
       worker.simulateMessage({ type: 'tick', payload: { remaining: 89 } });
       expect(service.remaining()).toBe(89);
     });
 
     it('updates remaining on multiple tick messages', () => {
-      const worker = MockWorker.instances[0];
+      const worker = MockWorker.instances[0]!;
       worker.simulateMessage({ type: 'tick', payload: { remaining: 89 } });
       worker.simulateMessage({ type: 'tick', payload: { remaining: 88 } });
       expect(service.remaining()).toBe(88);
     });
 
     it('sets remaining to null and isRunning to false on done', () => {
-      const worker = MockWorker.instances[0];
+      const worker = MockWorker.instances[0]!;
       worker.simulateMessage({ type: 'done' });
       expect(service.remaining()).toBeNull();
       expect(service.isRunning()).toBe(false);
     });
 
     it('calls showTimerDoneNotification() on done', () => {
-      const worker = MockWorker.instances[0];
+      const worker = MockWorker.instances[0]!;
       worker.simulateMessage({ type: 'done' });
       expect(notifService.showTimerDoneNotification).toHaveBeenCalledTimes(1);
     });
@@ -202,7 +202,7 @@ describe('RestTimerService (Worker-based)', () => {
   describe('cancel()', () => {
     it('sends a cancel message to the Worker', () => {
       service.start(90);
-      const worker = MockWorker.instances[0];
+      const worker = MockWorker.instances[0]!;
       service.cancel();
       expect(worker.postMessage).toHaveBeenCalledWith({ type: 'cancel' });
     });
@@ -249,7 +249,7 @@ describe('RestTimerService (Worker-based)', () => {
 
       expect(service.isRunning()).toBe(true);
       expect(service.remaining()).toBe(90);
-      const worker = MockWorker.instances[0];
+      const worker = MockWorker.instances[0]!;
       expect(worker.postMessage).toHaveBeenCalledWith({
         type: 'start',
         payload: { seconds: 90 },
@@ -263,7 +263,7 @@ describe('RestTimerService (Worker-based)', () => {
   describe('ngOnDestroy()', () => {
     it('terminates the Worker on destroy', () => {
       service.start(90);
-      const worker = MockWorker.instances[0];
+      const worker = MockWorker.instances[0]!;
       service.ngOnDestroy();
       expect(worker.terminate).toHaveBeenCalledTimes(1);
     });
