@@ -59,7 +59,19 @@ export interface WorkedSetRow {
   sessionId: string;
   exerciseId: string;
   type: string;
-  [key: string]: unknown;
+  isPR: boolean;
+  createdAt: Date;
+  targetSetIndex?: number;
+  note?: string;
+  // weight-reps fields
+  reps?: number;
+  weightKg?: number;
+  // bodyweight-reps fields
+  extraWeightKg?: number;
+  // time fields
+  durationSec?: number;
+  // distance-time fields
+  distanceKm?: number;
 }
 
 export class ForgeDatabase extends Dexie {
