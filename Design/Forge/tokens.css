@@ -1,0 +1,170 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   FORGE · design tokens
+   Drop into Angular as global styles + extend Tailwind theme to reference
+   these CSS vars (theme.extend.colors.forge['900']: 'rgb(var(--forge-900))', etc).
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Surface scale · warm-neutral (slight 50° hue toward umber) ───────── */
+  --forge-950: 12 10 9;     /* app bg                           #0c0a09 */
+  --forge-925: 18 16 14;    /* sub-bg / safe-area               #12100e */
+  --forge-900: 22 19 17;    /* card surface                     #161311 */
+  --forge-850: 31 27 24;    /* surface-2 / sheet                #1f1b18 */
+  --forge-800: 42 37 34;    /* border subtle                    #2a2522 */
+  --forge-700: 58 52 47;    /* border / divider                 #3a342f */
+  --forge-600: 82 74 66;    /* muted icon                       #524a42 */
+  --forge-500: 116 105 94;  /* dim                              #74695e */
+  --forge-400: 150 138 125; /* text tertiary                    #968a7d */
+  --forge-300: 184 174 163; /* text secondary                   #b8aea3 */
+  --forge-200: 212 204 194; /* text body                        #d4ccc2 */
+  --forge-100: 234 227 216; /* text heading                     #eae3d8 */
+  --forge-50:  248 244 236; /* text strongest                   #f8f4ec */
+
+  /* ── Accent · BRASA (default) — re-themed by Tweaks ──────────────────── */
+  --accent-700: 184 67 12;   /* pressed              #b8430c */
+  --accent-600: 216 90 22;   /* hover                #d85a16 */
+  --accent-500: 255 106 31;  /* DEFAULT              #ff6a1f */
+  --accent-400: 255 132 71;
+  --accent-300: 255 164 120;
+  --accent-200: 255 200 168;
+  --accent-100: 255 227 208;
+  --accent-50:  255 243 232;
+
+  /* Convenience semantic accent — read these from inline styles */
+  --accent-rgb: var(--accent-500);                      /* "r g b" triplet for rgba() */
+  --accent:        rgb(var(--accent-500));
+  --accent-hover:  rgb(var(--accent-600));
+  --accent-text:   rgb(var(--accent-300));              /* accent text on dark bg */
+  --accent-fg:     #ffffff;                             /* fg text laid over solid accent */
+
+  /* PR celebration · always warm orange regardless of selected accent.
+     Reserved for personal-record moments — see PrCelebration. */
+  --pr-warm-rgb: 255 106 31;
+  --pr-warm: rgb(255 106 31);
+  --pr-warm-text: rgb(255 164 120);
+
+  /* Semantic destructive — only place a second hue is allowed */
+  --destructive-500: 209 69 69;     /* #d14545 */
+  --destructive-600: 178 51 51;
+  --destructive-bg:  rgba(209,69,69,0.10);
+
+  /* ── Type scale (px, line-height) — Geist ────────────────────────────── */
+  --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'JetBrains Mono', SFMono-Regular, Menlo, monospace;
+
+  --t-display-xl: 96px;  --lh-display-xl: 96px;  --tr-display-xl: -0.04em;
+  --t-display:    64px;  --lh-display:    64px;  --tr-display:    -0.035em;
+  --t-h1:         32px;  --lh-h1:         38px;  --tr-h1:         -0.025em;
+  --t-h2:         24px;  --lh-h2:         30px;  --tr-h2:         -0.02em;
+  --t-h3:         19px;  --lh-h3:         26px;  --tr-h3:         -0.015em;
+  --t-body-lg:    17px;  --lh-body-lg:    24px;  --tr-body-lg:    -0.005em;
+  --t-body:       15px;  --lh-body:       22px;  --tr-body:        0;
+  --t-body-sm:    13px;  --lh-body-sm:    18px;  --tr-body-sm:     0;
+  --t-caption:    12px;  --lh-caption:    16px;  --tr-caption:     0;
+  --t-micro:      11px;  --lh-micro:      14px;  --tr-micro:       0.06em;
+
+  /* ── Radius ─────────────────────────────────────────────────────────── */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;     /* inputs, buttons */
+  --r-lg: 12px;    /* cards */
+  --r-xl: 16px;    /* sheets */
+  --r-2xl: 24px;   /* modals */
+  --r-full: 9999px;
+
+  /* ── Elevation — dark uses borders, light uses shadows ───────────────── */
+  --elev-dark-1: inset 0 0 0 1px rgba(255,255,255,.05);
+  --elev-dark-2: inset 0 0 0 1px rgba(255,255,255,.08);
+  --elev-dark-3: inset 0 0 0 1px rgba(255,255,255,.10), 0 24px 56px rgba(0,0,0,.5);
+  --elev-light-1: 0 1px 0 rgba(0,0,0,.04);
+  --elev-light-2: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --elev-light-3: 0 12px 32px rgba(0,0,0,.10), 0 4px 12px rgba(0,0,0,.06);
+
+  /* ── Z-index ────────────────────────────────────────────────────────── */
+  --z-header: 10;
+  --z-bottomnav: 20;
+  --z-timer-pinned: 25;
+  --z-sheet-backdrop: 40;
+  --z-sheet: 45;
+  --z-modal-backdrop: 50;
+  --z-modal: 55;
+  --z-toast: 70;
+  --z-celebration: 80;
+}
+
+/* ── Scoped dark theme — apply to artboards or to <html data-theme="dark"> */
+.forge-dark, [data-theme="dark"] {
+  --bg:          rgb(var(--forge-950));
+  --bg-sub:      rgb(var(--forge-925));
+  --surface:     rgb(var(--forge-900));
+  --surface-2:   rgb(var(--forge-850));
+  --border:      rgb(var(--forge-800));
+  --border-2:    rgb(var(--forge-700));
+  --muted-icon:  rgb(var(--forge-600));
+  --text-dim:    rgb(var(--forge-500));
+  --text-3:      rgb(var(--forge-400));
+  --text-2:      rgb(var(--forge-300));
+  --text:        rgb(var(--forge-200));
+  --text-strong: rgb(var(--forge-100));
+  --text-hi:     rgb(var(--forge-50));
+
+  --accent:        rgb(var(--accent-500));
+  --accent-hover:  rgb(var(--accent-600));
+  --accent-pressed:rgb(var(--accent-700));
+  --accent-soft:   rgba(var(--accent-500), 0.14);
+  --accent-soft-2: rgba(var(--accent-500), 0.22);
+  --accent-text:   rgb(var(--accent-300));
+  --accent-ring:   rgba(var(--accent-500), 0.55);
+
+  --elev-1: var(--elev-dark-1);
+  --elev-2: var(--elev-dark-2);
+  --elev-3: var(--elev-dark-3);
+}
+
+.forge-light, [data-theme="light"] {
+  --bg:          rgb(var(--forge-50));
+  --bg-sub:      rgb(var(--forge-100));
+  --surface:     rgb(255 255 255);
+  --surface-2:   rgb(var(--forge-100));
+  --border:      rgb(var(--forge-200));
+  --border-2:    rgb(var(--forge-300));
+  --muted-icon:  rgb(var(--forge-400));
+  --text-dim:    rgb(var(--forge-400));
+  --text-3:      rgb(var(--forge-500));
+  --text-2:      rgb(var(--forge-600));
+  --text:        rgb(var(--forge-800));
+  --text-strong: rgb(var(--forge-900));
+  --text-hi:     rgb(var(--forge-950));
+
+  --accent:        rgb(var(--accent-600));
+  --accent-hover:  rgb(var(--accent-700));
+  --accent-pressed:rgb(var(--accent-700));
+  --accent-soft:   rgba(var(--accent-500), 0.12);
+  --accent-soft-2: rgba(var(--accent-500), 0.20);
+  --accent-text:   rgb(var(--accent-700));
+  --accent-ring:   rgba(var(--accent-600), 0.55);
+
+  --elev-1: var(--elev-light-1);
+  --elev-2: var(--elev-light-2);
+  --elev-3: var(--elev-light-3);
+}
+
+/* ── Type utility classes ──────────────────────────────────────────────── */
+.t-display-xl  { font-family: var(--font-sans); font-size: var(--t-display-xl); line-height: var(--lh-display-xl); letter-spacing: var(--tr-display-xl); font-weight: 600; font-feature-settings: "tnum","ss01"; }
+.t-display     { font-family: var(--font-sans); font-size: var(--t-display);    line-height: var(--lh-display);    letter-spacing: var(--tr-display);    font-weight: 600; font-feature-settings: "tnum","ss01"; }
+.t-h1          { font-family: var(--font-sans); font-size: var(--t-h1);   line-height: var(--lh-h1);   letter-spacing: var(--tr-h1);   font-weight: 600; }
+.t-h2          { font-family: var(--font-sans); font-size: var(--t-h2);   line-height: var(--lh-h2);   letter-spacing: var(--tr-h2);   font-weight: 600; }
+.t-h3          { font-family: var(--font-sans); font-size: var(--t-h3);   line-height: var(--lh-h3);   letter-spacing: var(--tr-h3);   font-weight: 600; }
+.t-body-lg     { font-family: var(--font-sans); font-size: var(--t-body-lg); line-height: var(--lh-body-lg); letter-spacing: var(--tr-body-lg); font-weight: 400; }
+.t-body        { font-family: var(--font-sans); font-size: var(--t-body);    line-height: var(--lh-body);    font-weight: 400; }
+.t-body-sm     { font-family: var(--font-sans); font-size: var(--t-body-sm); line-height: var(--lh-body-sm); font-weight: 400; }
+.t-caption     { font-family: var(--font-sans); font-size: var(--t-caption); line-height: var(--lh-caption); font-weight: 500; }
+.t-micro       { font-family: var(--font-sans); font-size: var(--t-micro);   line-height: var(--lh-micro);   letter-spacing: var(--tr-micro); font-weight: 600; text-transform: uppercase; }
+.t-num         { font-family: var(--font-sans); font-feature-settings: "tnum","ss01"; font-variant-numeric: tabular-nums; }
+.t-mono        { font-family: var(--font-mono); font-feature-settings: "tnum"; }
+
+/* ── Reset & base inside .forge frame ──────────────────────────────────── */
+.forge-frame { font-family: var(--font-sans); color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased; }
+.forge-frame *, .forge-frame *::before, .forge-frame *::after { box-sizing: border-box; }
+.forge-frame button, .forge-frame input, .forge-frame textarea { font-family: inherit; }
+.forge-frame:focus-within :focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; border-radius: var(--r-sm); }

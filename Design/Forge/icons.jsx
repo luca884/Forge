@@ -1,0 +1,79 @@
+// icons.jsx — Lucide-style line icons drawn inline (no CDN, no asset).
+// Stroke width 1.75, round caps, 24x24 viewport. Add only what we need.
+//
+// <Icon name="plus" size={20} className="text-[--accent]" />
+// <Icon name="dumbbell" size={20} strokeWidth={2} />
+
+const ICONS = {
+  /* ── Nav ──────────────────────────────────────────────────────────── */
+  layers:    'M12 3 2 8l10 5 10-5-10-5z M2 13l10 5 10-5 M2 18l10 5 10-5',
+  dumbbell:  'M6.5 6.5 17.5 17.5 M5 9 3 11l2 2 M9 5 7 3 5 5l2 2 M19 15l2 2-2 2-2-2 M15 19l2 2 2-2-2-2',
+  flame:     'M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z',
+  trending:  'M3 17l6-6 4 4 8-8 M14 7h7v7',
+  user:      'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+
+  /* ── Common ───────────────────────────────────────────────────────── */
+  plus:      'M5 12h14 M12 5v14',
+  check:     'M20 6 9 17l-5-5',
+  'check-circle': 'M22 11.08V12a10 10 0 1 1-5.93-9.14 M22 4 12 14.01l-3-3',
+  x:         'M18 6 6 18 M6 6l12 12',
+  'chevron-left':  'M15 18l-6-6 6-6',
+  'chevron-right': 'M9 18l6-6-6-6',
+  'chevron-down':  'M6 9l6 6 6-6',
+  'arrow-right':   'M5 12h14 M12 5l7 7-7 7',
+  more:      'M12 5v.01 M12 12v.01 M12 19v.01',
+  edit:      'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z',
+  trash:     'M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6 M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10 11v6 M14 11v6',
+  search:    'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z M21 21l-4.35-4.35',
+  settings:  'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z',
+  bell:      'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9 M10.3 21a1.94 1.94 0 0 0 3.4 0',
+  download:  'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3',
+  share:     'M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8 M16 6l-4-4-4 4 M12 2v13',
+
+  /* ── Domain ───────────────────────────────────────────────────────── */
+  timer:     'M12 22a8 8 0 1 0 0-16 8 8 0 0 0 0 16z M12 14V10 M9 2h6',
+  trophy:    'M6 9H4a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1h3 M18 9h2a2 2 0 0 0 2-2V5a1 1 0 0 0-1-1h-3 M4 22h16 M10 14.66V17c0 .55-.47.98-1 1.16C7.5 18.85 6 19.5 6 22 M14 14.66V17c0 .55.47.98 1 1.16C16.5 18.85 18 19.5 18 22 M18 2H6v7a6 6 0 0 0 12 0V2z',
+  target:    'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+  history:   'M3 12a9 9 0 1 0 3-6.7L3 8 M3 3v5h5 M12 7v5l4 2',
+  calendar:  'M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6z M16 2v4 M8 2v4 M3 10h18',
+  pin:       'M12 17v5 M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z',
+  zap:       'M13 2 3 14h9l-1 8 10-12h-9l1-8z',
+  minus:     'M5 12h14',
+  install:   'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3',
+  weight:    'M6 14a6 6 0 0 1 12 0v6H6v-6z M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+  info:      'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 8v0 M12 12v4',
+  skip:      'M5 4l10 8-10 8V4z M19 5v14',
+  pause:     'M6 4h4v16H6V4z M14 4h4v16h-4V4z',
+  play:      'M5 3l14 9-14 9V3z',
+  dot:       'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+};
+
+function Icon({ name, size = 20, strokeWidth = 1.75, className = '', style = {}, fill = 'none', ...rest }) {
+  const d = ICONS[name];
+  if (!d) return <span style={{display:'inline-block', width:size, height:size, background:'#f00', opacity:.3}} title={`missing icon: ${name}`} />;
+  // Split multi-path on " M" boundaries so we can render each as its own <path>
+  // (preserves stroke joining behaviour for compound icons).
+  const paths = d.split(/(?=M)/).map(s => s.trim()).filter(Boolean);
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={fill}
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      style={{ display: 'inline-block', flexShrink: 0, ...style }}
+      aria-hidden="true"
+      focusable="false"
+      {...rest}
+    >
+      {paths.map((p, i) => <path key={i} d={p} />)}
+    </svg>
+  );
+}
+
+Object.assign(window, { Icon, ICONS });
