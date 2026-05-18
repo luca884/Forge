@@ -1,13 +1,16 @@
 /**
- * SessionHeatmapComponent — fg-session-heatmap (D-26).
+ * SessionHeatmapComponent — fg-session-heatmap (D-5).
  * Pure presentational component. Accepts heatmapData: Map<string, number>.
  * Renders a 12-week × 7-day CSS grid (84 cells), oldest week left.
  * Tooltip on hover/tap shows date + count. No navigation (OQ-spec-3).
  * CC-26: No injected repositories or use cases.
+ *
+ * R15: Uses rgba(var(--accent-rgb), alpha) for count>0 cells (no bg-green-*).
+ *      count=0 cells use ring-zero class (bg-forge-850 + inset ring).
  */
-import { Component, input } from '@angular/core';
+import { Component, computed, input } from '@angular/core';
 
-interface HeatmapCell {
+export interface HeatmapCell {
   date: string;    // YYYY-MM-DD
   count: number;
   label: string;   // locale display string for tooltip
@@ -21,27 +24,34 @@ interface HeatmapCell {
       <div class="heatmap__grid">
         @for (cell of cells; track cell.date) {
           <div
-            class="heatmap__cell {{ colorClass(cell.count) }}"
+            class="heatmap__cell"
+            [class.ring-zero]="cell.count === 0"
+            [style.background]="cellBg(cell.count)"
             [title]="tooltip(cell)"
             [attr.aria-label]="tooltip(cell)"
             tabindex="0"
           ></div>
         }
       </div>
-      <p class="heatmap__legend">
-        <span class="heatmap__cell bg-forge-800"></span> 0
-        <span class="heatmap__cell bg-green-200"></span> 1
-        <span class="heatmap__cell bg-green-400"></span> 2
-        <span class="heatmap__cell bg-green-600"></span> 3+
-      </p>
+      <div class="heatmap__footer">
+        <span class="t-caption text-forge-500">hace 12 semanas</span>
+        <div class="heatmap__legend">
+          <span class="t-caption text-forge-500">menos</span>
+          @for (a of legendAlphas; track a) {
+            <div class="heatmap__legend-swatch" [style.background]="legendBg(a)"></div>
+          }
+          <span class="t-caption text-forge-500">más</span>
+        </div>
+        <span class="t-caption text-forge-500">hoy</span>
+      </div>
     </div>
   `,
   styles: `
     .heatmap {
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
-      padding: 0.5rem 0;
+      gap: 12px;
+      padding: 8px 0;
     }
     .heatmap__grid {
       display: grid;
@@ -50,33 +60,49 @@ interface HeatmapCell {
       gap: 3px;
     }
     .heatmap__cell {
-      width: 14px;
-      height: 14px;
-      border-radius: 2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
       cursor: default;
     }
-    .bg-forge-800 { background-color: rgb(var(--forge-800)); }
-    .bg-green-200 { background-color: #bbf7d0; }
-    .bg-green-400 { background-color: #4ade80; }
-    .bg-green-600 { background-color: #16a34a; }
+    .heatmap__cell.ring-zero {
+      background: rgb(var(--forge-850));
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    }
+    .heatmap__footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
     .heatmap__legend {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      font-size: 0.75rem;
-      color: #6b7280;
-      margin: 0;
+      gap: 4px;
+    }
+    .heatmap__legend-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
     }
   `,
 })
 export class SessionHeatmapComponent {
   readonly heatmapData = input<Map<string, number>>(new Map());
 
+  readonly legendAlphas = [0.15, 0.4, 0.65, 1] as const;
+
+  private readonly maxCount = computed<number>(() => {
+    let max = 1;
+    for (const v of this.heatmapData().values()) {
+      if (v > max) max = v;
+    }
+    return max;
+  });
+
   get cells(): HeatmapCell[] {
     const result: HeatmapCell[] = [];
     const today = new Date();
     // Go back 83 days so we cover today + 83 previous days = 84 total.
-    // Start from the Monday of 12 weeks ago for grid alignment.
     const start = new Date(today);
     start.setDate(today.getDate() - 83);
 
@@ -94,11 +120,20 @@ export class SessionHeatmapComponent {
     return result;
   }
 
-  colorClass(count: number): string {
-    if (count === 0) return 'bg-forge-800';
-    if (count === 1) return 'bg-green-200';
-    if (count === 2) return 'bg-green-400';
-    return 'bg-green-600';
+  /**
+   * Returns the inline background style for a cell.
+   * count=0 → undefined (CSS .ring-zero class handles styling).
+   * count>0 → rgba(var(--accent-rgb), alpha) with alpha = 0.18 + (intensity * 0.82).
+   */
+  cellBg(count: number): string | undefined {
+    if (count === 0) return undefined;
+    const intensity = count / this.maxCount();
+    const alpha = 0.18 + intensity * 0.82;
+    return `rgba(var(--accent-rgb), ${alpha.toFixed(2)})`;
+  }
+
+  legendBg(alpha: number): string {
+    return `rgba(var(--accent-rgb), ${alpha})`;
   }
 
   tooltip(cell: HeatmapCell): string {

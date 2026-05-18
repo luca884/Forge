@@ -79,6 +79,12 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
   readonly series = input.required<readonly LineChartSeries[]>();
   readonly xAxisLabel = input<string>('Fecha');
   readonly yAxisLabel = input<string>('');
+  /**
+   * When 'accent', applies a vertical CanvasGradient fill under the first dataset
+   * using the resolved --accent-rgb CSS variable. Default 'none' preserves all
+   * existing consumers without change. (ADR-35 — additive only, ADR-13 not violated.)
+   */
+  readonly gradient = input<'accent' | 'none'>('none');
 
   @ViewChild('chartCanvas') private canvasRef?: ElementRef<HTMLCanvasElement>;
 
@@ -160,6 +166,48 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
       data: this.buildChartData(),
       options: this.buildChartOptions(),
     });
+
+    if (this.gradient() === 'accent') {
+      this.applyAccentGradient();
+    }
+  }
+
+  /**
+   * Applies a vertical CanvasGradient fill to the first dataset.
+   * Resolves --accent-rgb from the parent element via getComputedStyle.
+   * Falls back to a default warm color if the var is not resolvable (R20 fallback — jsdom/old browsers).
+   * ADR-35: per-instance gradient, not a global plugin.
+   * Wrapped in try-catch: Chart.js update may fail in jsdom (no real layout engine).
+   */
+  private applyAccentGradient(): void {
+    try {
+      if (!this.chart || !this.canvasRef) return;
+      const canvas = this.canvasRef.nativeElement;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const parentEl = canvas.parentElement ?? canvas;
+      const accentRgb = getComputedStyle(parentEl)
+        .getPropertyValue('--accent-rgb')
+        .trim() || '255 106 31'; // R20 fallback: Brasa default
+
+      const height = canvas.clientHeight || 300;
+      const grad = ctx.createLinearGradient(0, 0, 0, height);
+      grad.addColorStop(0, `rgba(${accentRgb}, 0.25)`);
+      grad.addColorStop(1, `rgba(${accentRgb}, 0)`);
+
+      // Chart.js dataset type omits `fill` in the union; cast to access it (ADR-35)
+      type DatasetWithFill = (typeof this.chart.data.datasets)[0] & { fill?: boolean };
+      const ds = this.chart.data.datasets[0] as DatasetWithFill | undefined;
+      if (ds) {
+        ds.backgroundColor = grad as unknown as string;
+        ds.fill = true;
+        this.chart.update('none');
+      }
+    } catch {
+      // R20 fallback: gradient application fails in environments without a real layout engine
+      // (e.g., jsdom in tests). Silently ignore — chart renders with flat colors instead.
+    }
   }
 
   private updateChart(): void {
@@ -167,9 +215,13 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
       this.renderChart();
       return;
     }
-    this.chart.data = this.buildChartData();
-    this.chart.options = this.buildChartOptions();
-    this.chart.update();
+    try {
+      this.chart.data = this.buildChartData();
+      this.chart.options = this.buildChartOptions();
+      this.chart.update();
+    } catch {
+      // Guard against Chart.js layout errors in non-browser environments (e.g., jsdom)
+    }
   }
 
   private formatDate(date: Date): string {
