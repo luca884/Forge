@@ -105,6 +105,6 @@ export class FgPageHeaderComponent {
   readonly title = input.required<string>();
   readonly subtitle = input<string | undefined>(undefined);
   readonly leadingIcon = input<IconName | undefined>(undefined);
-  readonly trailingActions = input<ReadonlyArray<PageHeaderAction>>([]);
+  readonly trailingActions = input<readonly PageHeaderAction[]>([]);
   readonly leadingClick = output<void>();
 }

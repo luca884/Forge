@@ -129,7 +129,7 @@ export class ProgressHomePage implements OnInit {
     return `${total} PR · ${this.prsThisWeek()} esta semana`;
   });
 
-  readonly trailingActions: ReadonlyArray<PageHeaderAction> = [
+  readonly trailingActions: readonly PageHeaderAction[] = [
     {
       icon: 'calendar',
       ariaLabel: 'Calendario',

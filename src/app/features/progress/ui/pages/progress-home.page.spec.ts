@@ -102,9 +102,10 @@ describe('ProgressHomePage', () => {
 
   // V-D2-Spec-1: calls use cases on init
   it('calls getAllPRs.execute(), getSessionHeatmap.execute() and exerciseRepo.getAll() during init', async () => {
-    const prRepo = TestBed.inject(PersonalRecordRepository);
-    const exRepo = TestBed.inject(ExerciseRepository);
-    const sessRepo = TestBed.inject(SessionRepository);
+    // Cast to unknown first to access mock methods without TS conflict
+    const prRepo = TestBed.inject(PersonalRecordRepository) as unknown as { listAll: jest.Mock };
+    const exRepo = TestBed.inject(ExerciseRepository) as unknown as { getAll: jest.Mock };
+    const sessRepo = TestBed.inject(SessionRepository) as unknown as { getAllSessions: jest.Mock };
     await init();
     expect(prRepo.listAll).toHaveBeenCalled();
     expect(exRepo.getAll).toHaveBeenCalled();

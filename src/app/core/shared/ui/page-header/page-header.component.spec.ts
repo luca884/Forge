@@ -13,7 +13,7 @@ describe('FgPageHeaderComponent', () => {
     title: string;
     subtitle?: string;
     leadingIcon?: string;
-    trailingActions?: ReadonlyArray<PageHeaderAction>;
+    trailingActions?: readonly PageHeaderAction[];
   }): Promise<void> {
     fixture = TestBed.createComponent(FgPageHeaderComponent);
     fixture.componentRef.setInput('title', inputs.title);
