@@ -1,4 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { Router } from '@angular/router';
 import { Routine } from '../../../routines/domain/routine.entity';
 import { TrainingDay } from '../../../routines/domain/training-day.entity';
@@ -9,67 +10,197 @@ import { GetActiveSessionUseCase } from '../../domain/use-cases/get-active-sessi
 import { GetSuggestedDayForTodayUseCase, SuggestedDayResult } from '../../domain/use-cases/get-suggested-day-for-today.use-case';
 import { TrainingSessionStore } from '../services/training-session.store';
 import { SessionAlreadyInProgressError } from '../../domain/errors/session-already-in-progress.error';
-import { BannerComponent } from '@core/shared/ui/banner/banner.component';
+import { FgCardComponent } from '@core/shared/ui';
+import { FgButtonComponent } from '@core/shared/ui';
+import { DAYS_OF_WEEK, DayOfWeek } from '../../../routines/domain/value-objects/weekly-schedule';
+
+// ─── File-local types ─────────────────────────────────────────────────────────
+
+interface WeekCell {
+  dow: DayOfWeek;
+  /** Short day label: L M M J V S D */
+  label: string;
+  /** TrainingDay.label for days in schedule, null for rest days */
+  dayLabel: string | null;
+  isToday: boolean;
+}
+
+// ─── File-local helpers ───────────────────────────────────────────────────────
+
+/**
+ * Maps a Date to a DayOfWeek string using JS getDay() (0 = Sunday).
+ * Duplicated intentionally from get-suggested-day-for-today.use-case.ts
+ * per ADR-34 (inline-over-extract for screen-local concerns). Promote
+ * to shared util when a third consumer appears.
+ */
+function dateToDayOfWeek(date: Date): DayOfWeek {
+  const DAY_MAP: readonly DayOfWeek[] = [
+    'sunday',
+    'monday',
+    'tuesday',
+    'wednesday',
+    'thursday',
+    'friday',
+    'saturday',
+  ];
+  return DAY_MAP[date.getDay()] as DayOfWeek;
+}
+
+const DOW_LABELS: Record<DayOfWeek, string> = {
+  monday: 'L',
+  tuesday: 'M',
+  wednesday: 'M',
+  thursday: 'J',
+  friday: 'V',
+  saturday: 'S',
+  sunday: 'D',
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 @Component({
   selector: 'fg-training-home-page',
   standalone: true,
-  imports: [BannerComponent],
+  imports: [FgCardComponent, FgButtonComponent, RouterLink],
   providers: [
     StartSessionUseCase,
     GetActiveSessionUseCase,
     GetSuggestedDayForTodayUseCase,
   ],
   template: `
-    <div class="training-home">
-      <h1>Entrenamiento</h1>
+    <section class="training-home bg-forge-900 min-h-screen flex flex-col gap-4 p-4">
+      <header>
+        <h1 class="t-h3 text-forge-50">Entrenar</h1>
+      </header>
 
       @if (activeRoutine()) {
-        <div class="training-home__routine">
-          <h2>{{ activeRoutine()!.name }}</h2>
-          @if (activeRoutine()!.description) {
-            <p>{{ activeRoutine()!.description }}</p>
-          }
-
+        <!-- HERO CARD -->
+        <fg-card data-hero [padding]="20" class="relative overflow-hidden">
           @if (suggestedDay(); as s) {
-            @if (s.reason === 'scheduled') {
-              <fg-banner kind="info">Hoy: {{ s.day!.name }}{{ s.day!.label ? ' — ' + s.day!.label : '' }}</fg-banner>
-            } @else if (s.reason === 'rest-day') {
-              <fg-banner kind="muted">Hoy es día de descanso — podés elegir cualquier día</fg-banner>
-            } @else if (s.reason === 'no-schedule-configured') {
-              <fg-banner kind="muted">Configurá tu schedule semanal en Rutinas para ver tu día sugerido.</fg-banner>
+            @switch (s.reason) {
+              @case ('scheduled') {
+                @let day = s.day!;
+                <div class="flex flex-col gap-3">
+                  <span class="t-micro text-accent-300 tracking-widest uppercase">HOY TOCA</span>
+                  <h2 class="t-h1 text-forge-50">{{ day.name }}{{ day.label ? ' · ' + day.label : '' }}</h2>
+                  <button
+                    fg-button
+                    variant="primary"
+                    size="lg"
+                    [full]="true"
+                    leadingIcon="zap"
+                    (click)="startSession(day)"
+                    [disabled]="loading()"
+                    aria-label="Empezar sesión de {{ day.name }}"
+                  >Empezar sesión</button>
+                </div>
+              }
+              @case ('rest-day') {
+                <div class="flex flex-col gap-3">
+                  <span class="t-micro text-forge-400 tracking-widest uppercase">HOY</span>
+                  <h2 class="t-h1 text-forge-50">Día de descanso</h2>
+                  <p class="t-body text-forge-300">Podés elegir cualquier día si querés entrenar.</p>
+                </div>
+              }
+              @case ('no-schedule-configured') {
+                <div class="flex flex-col gap-3">
+                  <span class="t-micro text-forge-400 tracking-widest uppercase">SIN SCHEDULE</span>
+                  <h2 class="t-h1 text-forge-50">Configurá tu semana</h2>
+                  <p class="t-body text-forge-300">Asigná días a tu rutina para ver tu día sugerido.</p>
+                  <a routerLink="/routines" fg-button variant="accent_soft" size="md">Ir a rutinas</a>
+                </div>
+              }
+              @case ('no-active-routine') {
+                <!-- unreachable: parent @if (activeRoutine()) guards -->
+              }
             }
+          } @else {
+            <div class="flex flex-col gap-2">
+              <span class="t-micro text-forge-500 tracking-widest uppercase">CARGANDO</span>
+            </div>
           }
+        </fg-card>
 
-          <div class="training-home__days">
+        <!-- WEEK STRIP -->
+        <section data-week-strip>
+          <p class="t-micro text-forge-400 tracking-widest uppercase mb-2">SEMANA</p>
+          <fg-card [padding]="14">
+            <div class="grid grid-cols-7 gap-1.5" role="group" aria-label="Semana">
+              @for (cell of weekCells(); track cell.dow) {
+                <div
+                  class="text-center flex flex-col items-center gap-1"
+                  [attr.data-week-cell]="cell.dow"
+                  [attr.aria-label]="cell.dow + (cell.dayLabel ? ', día ' + cell.dayLabel : ', descanso')"
+                >
+                  <div class="t-caption text-forge-500 text-xs">{{ cell.label }}</div>
+                  <div
+                    class="week-cell-tile text-xs rounded-sm px-1"
+                    [class.is-today]="cell.isToday"
+                    [class.has-day]="!!cell.dayLabel"
+                    [class.text-accent-300]="cell.isToday"
+                    [class.font-semibold]="cell.isToday"
+                    [class.text-forge-400]="!cell.isToday"
+                    [attr.aria-current]="cell.isToday ? 'date' : null"
+                  >
+                    {{ cell.dayLabel ?? '—' }}
+                  </div>
+                </div>
+              }
+            </div>
+          </fg-card>
+        </section>
+
+        <!-- RUTINA EN CURSO CARD -->
+        <section data-routine-card>
+          <p class="t-micro text-forge-400 tracking-widest uppercase mb-2">RUTINA EN CURSO</p>
+          <fg-card [padding]="16">
+            <h3 class="t-body text-forge-100 font-semibold">{{ activeRoutine()!.name }}</h3>
+            @if (activeRoutine()!.description) {
+              <p class="t-body-sm text-forge-400 mt-1">{{ activeRoutine()!.description }}</p>
+            }
+          </fg-card>
+        </section>
+
+        <!-- DAYS LIST -->
+        <section data-days-list>
+          <p class="t-micro text-forge-400 tracking-widest uppercase mb-2">DÍAS DE LA RUTINA</p>
+          <div class="flex flex-col gap-2">
             @for (day of trainingDays(); track day.id) {
               <button
-                type="button"
-                class="training-home__day-btn"
+                fg-button
+                variant="secondary"
+                size="md"
+                [full]="true"
                 (click)="startSession(day)"
                 [disabled]="loading()"
               >
-                {{ day.name }}
-                @if (day.label) {
-                  <span class="training-home__day-label"> — {{ day.label }}</span>
-                }
+                {{ day.name }}{{ day.label ? ' · ' + day.label : '' }}
               </button>
             } @empty {
-              <p>Sin días de entrenamiento. Configurá tu rutina primero.</p>
+              <fg-card [padding]="16">
+                <p class="t-body text-forge-400">Sin días configurados. Agregá días en tu rutina.</p>
+              </fg-card>
             }
           </div>
-        </div>
+        </section>
+
       } @else {
-        <div class="training-home__empty">
-          <p>No tenés ninguna rutina activa.</p>
-          <a routerLink="/routines">Configurar rutinas</a>
-        </div>
+        <!-- EMPTY STATE -->
+        <section data-empty-state>
+          <fg-card [padding]="20">
+            <div class="flex flex-col gap-3">
+              <h3 class="t-h3 text-forge-50">Sin rutina activa</h3>
+              <p class="t-body text-forge-300">Creá o activá una rutina para empezar.</p>
+              <a routerLink="/routines" fg-button variant="primary" size="lg" [full]="true">Configurar rutinas</a>
+            </div>
+          </fg-card>
+        </section>
       }
 
       @if (errorMessage()) {
-        <p class="training-home__error" role="alert">{{ errorMessage() }}</p>
+        <p class="text-destructive" role="alert">{{ errorMessage() }}</p>
       }
-    </div>
+    </section>
   `,
 })
 export class TrainingHomePage implements OnInit {
@@ -87,6 +218,24 @@ export class TrainingHomePage implements OnInit {
   readonly errorMessage = signal<string | null>(null);
   /** Discriminated union — null until init resolves. D-33. */
   readonly suggestedDay = signal<SuggestedDayResult | null>(null);
+
+  /** Computed week strip — 7 cells always, derived from trainingDays + schedule + local Date. ADR-34. */
+  readonly weekCells = computed<WeekCell[]>(() => {
+    const routine = this.activeRoutine();
+    const days = this.trainingDays();
+    const todayDow = dateToDayOfWeek(new Date());
+
+    return DAYS_OF_WEEK.map(dow => {
+      const dayId = routine?.schedule?.[dow];
+      const day = dayId ? days.find(d => d.id === dayId) : undefined;
+      return {
+        dow,
+        label: DOW_LABELS[dow],
+        dayLabel: day?.label ?? null,
+        isToday: dow === todayDow,
+      };
+    });
+  });
 
   ngOnInit(): void {
     void this.init();
