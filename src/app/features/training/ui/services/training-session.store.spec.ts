@@ -192,35 +192,56 @@ describe('TrainingSessionStore', () => {
   });
 
   describe('elapsedSeconds (D-3)', () => {
+    let fakeStore: TrainingSessionStore;
+    let fakeSessionRepo: StubSessionRepository;
+
     beforeEach(() => {
-      jest.useFakeTimers({ doNotFake: ['nextTick'] });
+      // Fake timers MUST be activated before TestBed creates the store
+      // so that the store's setInterval is registered with the fake scheduler.
+      jest.useFakeTimers();
+
+      fakeSessionRepo = new StubSessionRepository();
+      const fakeEventBus = new StubEventBus();
+
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          TrainingSessionStore,
+          { provide: SessionRepository, useValue: fakeSessionRepo },
+          { provide: EventBus, useValue: fakeEventBus },
+        ],
+      });
+      fakeStore = TestBed.inject(TrainingSessionStore);
     });
 
     afterEach(() => {
+      // Destroy the module to trigger DestroyRef before restoring timers.
+      TestBed.resetTestingModule();
       jest.useRealTimers();
     });
 
     it('returns 0 when activeSession is null (V-D3-Spec-1)', () => {
-      // activeSession is null by default in beforeEach
-      expect(store.elapsedSeconds()).toBe(0);
+      expect(fakeStore.elapsedSeconds()).toBe(0);
     });
 
     it('returns elapsed seconds >= 5 when session started 5s ago after advancing timers (V-D3-Spec-2)', async () => {
-      const startedAt = new Date(Date.now() - 5000);
+      // Set system time so Date.now() reflects the fake timeline
+      jest.setSystemTime(new Date('2026-01-01T10:00:00.000Z'));
+      const startedAt = new Date(Date.now() - 5000); // 5 seconds ago
       const session = makeSession({ startedAt });
-      sessionRepo.setActiveSession(session);
-      await store.loadActive();
+      fakeSessionRepo.setActiveSession(session);
+      await fakeStore.loadActive();
 
-      // Advance the internal tick interval by 1 second
+      // Advance by 1 tick (1 second) so the setInterval callback fires
       jest.advanceTimersByTime(1000);
-      // Re-read signal
-      expect(store.elapsedSeconds()).toBeGreaterThanOrEqual(5);
+      expect(fakeStore.elapsedSeconds()).toBeGreaterThanOrEqual(5);
     });
 
     it('calls clearInterval when store is destroyed (V-D3-Spec-3)', () => {
       const clearSpy = jest.spyOn(global, 'clearInterval');
-      TestBed.resetTestingModule();
+      TestBed.resetTestingModule(); // triggers DestroyRef.onDestroy
       expect(clearSpy).toHaveBeenCalled();
+      clearSpy.mockRestore();
     });
   });
 

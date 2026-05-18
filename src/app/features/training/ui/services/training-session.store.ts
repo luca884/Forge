@@ -1,4 +1,4 @@
-import { Injectable, inject, signal, computed } from '@angular/core';
+import { Injectable, inject, signal, computed, DestroyRef } from '@angular/core';
 import { Session } from '../../domain/session.entity';
 import { WorkedSet } from '../../domain/worked-set';
 import { SessionRepository } from '../../domain/session.repository';
@@ -22,7 +22,22 @@ export class TrainingSessionStore {
     return map;
   });
 
+  /** Private tick signal — incremented every second to drive elapsedSeconds recomputation. */
+  private readonly tick = signal(0);
+
+  /** Interval handle — must be cleared on destroy (CC-7). */
+  private readonly intervalHandle = setInterval(() => this.tick.update(n => n + 1), 1000);
+
+  /** Elapsed seconds since the active session started. Returns 0 when no session is active. */
+  readonly elapsedSeconds = computed(() => {
+    this.tick(); // creates reactive dependency — forces recomputation on each tick
+    const s = this.activeSession();
+    if (!s) return 0;
+    return Math.max(0, Math.floor((Date.now() - s.startedAt.getTime()) / 1000));
+  });
+
   constructor() {
+    inject(DestroyRef).onDestroy(() => clearInterval(this.intervalHandle));
     this.eventBus.subscribe('WorkedSetLogged', () => void this.refreshSets());
     this.eventBus.subscribe('WorkedSetEdited', () => void this.refreshSets());
     this.eventBus.subscribe('WorkedSetRemoved', () => void this.refreshSets());
