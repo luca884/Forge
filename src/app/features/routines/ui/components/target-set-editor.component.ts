@@ -13,7 +13,7 @@ import { TrackingType } from '@core/shared/domain/tracking-type';
         <h3 class="text-sm font-medium">Series objetivo</h3>
         <button
           type="button"
-          class="text-xs text-blue-600"
+          class="text-xs text-accent-500"
           (click)="addSet()"
         >
           + Agregar serie
@@ -26,7 +26,7 @@ import { TrackingType } from '@core/shared/domain/tracking-type';
             @case ('weight-reps') {
               <div class="flex gap-2">
                 <div class="flex-1">
-                  <label [for]="'set-' + i + '-reps'" class="text-xs text-gray-500">Reps</label>
+                  <label [for]="'set-' + i + '-reps'" class="text-xs text-forge-400">Reps</label>
                   <input
                     [id]="'set-' + i + '-reps'"
                     type="number"
@@ -37,7 +37,7 @@ import { TrackingType } from '@core/shared/domain/tracking-type';
                   />
                 </div>
                 <div class="flex-1">
-                  <label [for]="'set-' + i + '-weightKg'" class="text-xs text-gray-500">Peso (kg)</label>
+                  <label [for]="'set-' + i + '-weightKg'" class="text-xs text-forge-400">Peso (kg)</label>
                   <input
                     [id]="'set-' + i + '-weightKg'"
                     type="number"
@@ -53,7 +53,7 @@ import { TrackingType } from '@core/shared/domain/tracking-type';
             @case ('bodyweight-reps') {
               <div class="flex gap-2">
                 <div class="flex-1">
-                  <label [for]="'set-' + i + '-reps'" class="text-xs text-gray-500">Reps</label>
+                  <label [for]="'set-' + i + '-reps'" class="text-xs text-forge-400">Reps</label>
                   <input
                     [id]="'set-' + i + '-reps'"
                     type="number"
@@ -64,7 +64,7 @@ import { TrackingType } from '@core/shared/domain/tracking-type';
                   />
                 </div>
                 <div class="flex-1">
-                  <label [for]="'set-' + i + '-extraWeightKg'" class="text-xs text-gray-500">Peso extra (kg)</label>
+                  <label [for]="'set-' + i + '-extraWeightKg'" class="text-xs text-forge-400">Peso extra (kg)</label>
                   <input
                     [id]="'set-' + i + '-extraWeightKg'"
                     type="number"
@@ -79,7 +79,7 @@ import { TrackingType } from '@core/shared/domain/tracking-type';
             }
             @case ('time') {
               <div>
-                <label [for]="'set-' + i + '-durationSec'" class="text-xs text-gray-500">Duración (seg)</label>
+                <label [for]="'set-' + i + '-durationSec'" class="text-xs text-forge-400">Duración (seg)</label>
                 <input
                   [id]="'set-' + i + '-durationSec'"
                   type="number"
@@ -93,7 +93,7 @@ import { TrackingType } from '@core/shared/domain/tracking-type';
             @case ('distance-time') {
               <div class="flex gap-2">
                 <div class="flex-1">
-                  <label [for]="'set-' + i + '-distanceKm'" class="text-xs text-gray-500">Distancia (km)</label>
+                  <label [for]="'set-' + i + '-distanceKm'" class="text-xs text-forge-400">Distancia (km)</label>
                   <input
                     [id]="'set-' + i + '-distanceKm'"
                     type="number"
@@ -105,7 +105,7 @@ import { TrackingType } from '@core/shared/domain/tracking-type';
                   />
                 </div>
                 <div class="flex-1">
-                  <label [for]="'set-' + i + '-durationSec'" class="text-xs text-gray-500">Duración (seg)</label>
+                  <label [for]="'set-' + i + '-durationSec'" class="text-xs text-forge-400">Duración (seg)</label>
                   <input
                     [id]="'set-' + i + '-durationSec'"
                     type="number"

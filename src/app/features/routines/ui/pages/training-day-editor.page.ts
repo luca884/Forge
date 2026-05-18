@@ -14,7 +14,7 @@ import { TrainingDayRepository } from '../../domain/training-day.repository';
   template: `
     <div class="p-4">
       <div class="flex items-center gap-2 mb-4">
-        <button class="text-gray-600" (click)="back()">← Volver</button>
+        <button class="text-forge-300" (click)="back()">← Volver</button>
         <h1 class="text-xl font-bold">Editar día</h1>
       </div>
 
@@ -42,7 +42,7 @@ import { TrainingDayRepository } from '../../domain/training-day.repository';
         <button
           type="submit"
           [disabled]="form.invalid"
-          class="w-full bg-blue-600 text-white py-2 rounded disabled:opacity-50"
+          class="w-full bg-accent-500 text-forge-50 py-2 rounded disabled:opacity-50"
         >
           Guardar
         </button>
@@ -52,7 +52,7 @@ import { TrainingDayRepository } from '../../domain/training-day.repository';
         <div class="flex items-center justify-between mb-2">
           <h2 class="text-lg font-semibold">Ejercicios</h2>
           <button
-            class="text-sm bg-blue-600 text-white px-3 py-1 rounded"
+            class="text-sm bg-accent-500 text-forge-50 px-3 py-1 rounded"
             (click)="addExercise()"
           >
             + Agregar ejercicio
@@ -60,7 +60,7 @@ import { TrainingDayRepository } from '../../domain/training-day.repository';
         </div>
 
         @if ((day()?.exercises ?? []).length === 0) {
-          <p class="text-gray-500 text-sm">No hay ejercicios en este día.</p>
+          <p class="text-forge-400 text-sm">No hay ejercicios en este día.</p>
         }
 
         <ul class="space-y-2">
@@ -68,7 +68,7 @@ import { TrainingDayRepository } from '../../domain/training-day.repository';
             <li class="border rounded p-3 flex items-center justify-between">
               <div>
                 <span class="font-medium">Ejercicio {{ exercise.exerciseId }}</span>
-                <p class="text-sm text-gray-500">
+                <p class="text-sm text-forge-400">
                   {{ exercise.targetSets.length }} series objetivo
                 </p>
               </div>

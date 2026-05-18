@@ -12,7 +12,7 @@ import { AddExerciseToDayUseCase } from '../../domain/use-cases/add-exercise-to-
   template: `
     <div class="p-4">
       <div class="flex items-center gap-2 mb-4">
-        <button class="text-gray-600" (click)="back()">← Volver</button>
+        <button class="text-forge-300" (click)="back()">← Volver</button>
         <h1 class="text-xl font-bold">Elegir ejercicio</h1>
       </div>
 
@@ -24,20 +24,20 @@ import { AddExerciseToDayUseCase } from '../../domain/use-cases/add-exercise-to-
       />
 
       @if (exercises().length === 0) {
-        <p class="text-gray-500 text-center mt-8">No se encontraron ejercicios.</p>
+        <p class="text-forge-400 text-center mt-8">No se encontraron ejercicios.</p>
       }
 
       <ul class="space-y-2">
         @for (exercise of exercises(); track exercise.id) {
           <li
-            class="border rounded p-3 cursor-pointer hover:bg-gray-50"
+            class="border rounded p-3 cursor-pointer hover:bg-forge-900"
             tabindex="0"
             role="button"
             (click)="pickExercise(exercise)"
             (keydown.enter)="pickExercise(exercise)"
           >
             <div class="font-medium">{{ exercise.name }}</div>
-            <div class="text-sm text-gray-500">{{ exercise.muscleGroup }}</div>
+            <div class="text-sm text-forge-400">{{ exercise.muscleGroup }}</div>
           </li>
         }
       </ul>

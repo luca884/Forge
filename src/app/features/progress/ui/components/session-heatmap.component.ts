@@ -29,7 +29,7 @@ interface HeatmapCell {
         }
       </div>
       <p class="heatmap__legend">
-        <span class="heatmap__cell bg-gray-200"></span> 0
+        <span class="heatmap__cell bg-forge-800"></span> 0
         <span class="heatmap__cell bg-green-200"></span> 1
         <span class="heatmap__cell bg-green-400"></span> 2
         <span class="heatmap__cell bg-green-600"></span> 3+
@@ -55,7 +55,7 @@ interface HeatmapCell {
       border-radius: 2px;
       cursor: default;
     }
-    .bg-gray-200 { background-color: #e5e7eb; }
+    .bg-forge-800 { background-color: rgb(var(--forge-800)); }
     .bg-green-200 { background-color: #bbf7d0; }
     .bg-green-400 { background-color: #4ade80; }
     .bg-green-600 { background-color: #16a34a; }
@@ -95,7 +95,7 @@ export class SessionHeatmapComponent {
   }
 
   colorClass(count: number): string {
-    if (count === 0) return 'bg-gray-200';
+    if (count === 0) return 'bg-forge-800';
     if (count === 1) return 'bg-green-200';
     if (count === 2) return 'bg-green-400';
     return 'bg-green-600';

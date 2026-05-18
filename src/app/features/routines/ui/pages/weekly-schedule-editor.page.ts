@@ -32,12 +32,12 @@ const DOW_LABELS: Record<DayOfWeek, string> = {
   template: `
     <div class="p-4">
       <div class="flex items-center gap-2 mb-4">
-        <button type="button" class="text-gray-600" (click)="cancel()">← Volver</button>
+        <button type="button" class="text-forge-300" (click)="cancel()">← Volver</button>
         <h1 class="text-xl font-bold">Programa semanal</h1>
       </div>
 
       @if (loading()) {
-        <p class="text-gray-500">Cargando...</p>
+        <p class="text-forge-400">Cargando...</p>
       } @else {
         <form [formGroup]="form" (ngSubmit)="save()" class="space-y-3">
           @for (dow of daysOfWeek; track dow) {
@@ -68,14 +68,14 @@ const DOW_LABELS: Record<DayOfWeek, string> = {
             <button
               type="submit"
               [disabled]="saving()"
-              class="flex-1 bg-blue-600 text-white py-2 rounded disabled:opacity-50"
+              class="flex-1 bg-accent-500 text-forge-50 py-2 rounded disabled:opacity-50"
             >
               {{ saving() ? 'Guardando...' : 'Guardar' }}
             </button>
             <button
               type="button"
               (click)="cancel()"
-              class="flex-1 border border-gray-300 text-gray-700 py-2 rounded"
+              class="flex-1 border border-forge-700 text-forge-200 py-2 rounded"
             >
               Cancelar
             </button>

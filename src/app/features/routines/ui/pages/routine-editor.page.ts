@@ -23,7 +23,7 @@ import { TrainingDayRepository } from '../../domain/training-day.repository';
   template: `
     <div class="p-4">
       <div class="flex items-center gap-2 mb-4">
-        <button class="text-gray-600" (click)="back()">← Volver</button>
+        <button class="text-forge-300" (click)="back()">← Volver</button>
         <h1 class="text-xl font-bold">
           {{ routineId() ? 'Editar rutina' : 'Nueva rutina' }}
         </h1>
@@ -53,7 +53,7 @@ import { TrainingDayRepository } from '../../domain/training-day.repository';
         <button
           type="submit"
           [disabled]="form.invalid"
-          class="w-full bg-blue-600 text-white py-2 rounded disabled:opacity-50"
+          class="w-full bg-accent-500 text-forge-50 py-2 rounded disabled:opacity-50"
         >
           Guardar
         </button>
@@ -64,7 +64,7 @@ import { TrainingDayRepository } from '../../domain/training-day.repository';
           <div class="flex items-center justify-between mb-2">
             <h2 class="text-lg font-semibold">Días de entrenamiento</h2>
             <button
-              class="text-sm bg-blue-600 text-white px-3 py-1 rounded"
+              class="text-sm bg-accent-500 text-forge-50 px-3 py-1 rounded"
               (click)="addDay()"
             >
               + Agregar día
@@ -72,7 +72,7 @@ import { TrainingDayRepository } from '../../domain/training-day.repository';
           </div>
 
           @if (trainingDays().length === 0) {
-            <p class="text-gray-500 text-sm">No hay días de entrenamiento.</p>
+            <p class="text-forge-400 text-sm">No hay días de entrenamiento.</p>
           }
 
           <ul class="space-y-2">
@@ -81,7 +81,7 @@ import { TrainingDayRepository } from '../../domain/training-day.repository';
                 <span>{{ day.name }}</span>
                 <div class="flex gap-2">
                   <button
-                    class="text-sm text-blue-600"
+                    class="text-sm text-accent-500"
                     (click)="editDay(day)"
                   >
                     Editar

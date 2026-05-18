@@ -26,7 +26,7 @@ describe('SessionHeatmapComponent', () => {
   it('all cells are gray when heatmapData is empty', () => {
     const cells = component.cells;
     cells.forEach(cell => {
-      expect(component.colorClass(cell.count)).toBe('bg-gray-200');
+      expect(component.colorClass(cell.count)).toBe('bg-forge-800');
     });
   });
 
