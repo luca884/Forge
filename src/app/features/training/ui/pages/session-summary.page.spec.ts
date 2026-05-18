@@ -68,6 +68,9 @@ describe('SessionSummaryPage', () => {
   let mockPrRepo: { listAll: jest.Mock; getCurrentForExercise: jest.Mock; save: jest.Mock; getById: jest.Mock };
 
   async function setup(workedSets: WorkedSet[], session: Session = completedSession): Promise<void> {
+    // Always reset before re-configuring (prevents state leak between tests)
+    TestBed.resetTestingModule();
+
     unitSignal = signal<PreferredUnit>('kg');
     loadOnceSpy = jest.fn().mockResolvedValue(undefined);
     activeSessionSignal = signal<Session | null>(session);
@@ -114,8 +117,8 @@ describe('SessionSummaryPage', () => {
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    // 1600 kg — assert contains the number avoiding locale sensitivity (Risk #3)
-    expect(text).toContain('1600');
+    // 1600 kg — use regex to avoid locale separator variance (Risk #3: jsdom may use ',' or '.')
+    expect(text).toMatch(/1[.,]?600/);
   });
 
   it('volume hero shows "Sin volumen registrado" for bodyweight-only session (V-D2-Spec-1 edge)', async () => {
@@ -162,7 +165,16 @@ describe('SessionSummaryPage', () => {
     const prSet = makeWeightRepsSet('ws-pr', 'ex-1', 85, 5, true);
     const workedSets = [prSet];
 
-    // Mock listAll to return a previous PR (80 kg, older than the new one)
+    // The new PR (ws-pr, 85kg) is already saved. The previous PR (80 kg) is older.
+    // listAll returns them ordered by achievedAt desc: [newPR, previousPR]
+    const newPRRecord = {
+      id: 'pr-new',
+      exerciseId: 'ex-1',
+      trackingType: 'weight-reps',
+      workedSetId: 'ws-pr',
+      achievedAt: new Date('2026-01-01T09:30:00Z'), // during session
+      set: prSet,
+    };
     const previousPRRecord = {
       id: 'pr-old',
       exerciseId: 'ex-1',
@@ -173,7 +185,8 @@ describe('SessionSummaryPage', () => {
     };
 
     await setup(workedSets);
-    mockPrRepo.listAll.mockResolvedValue([previousPRRecord]);
+    // index[0]=new (current session), index[1]=previous — summary picks index[1] as "prev"
+    mockPrRepo.listAll.mockResolvedValue([newPRRecord, previousPRRecord]);
 
     fixture = TestBed.createComponent(SessionSummaryPage);
     fixture.detectChanges();

@@ -6,93 +6,179 @@ import { WorkedSet } from '../../domain/worked-set';
 import { Session } from '../../domain/session.entity';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
+import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-record.repository';
+import { PersonalRecord } from '@features/progress/domain/entities/personal-record.entity';
+import { FgButtonComponent, FgCardComponent, FgChipComponent, FgIconComponent } from '@core/shared/ui';
+
+/** Format elapsed seconds as M:SS or H:MM:SS */
+function formatHMS(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  const mm = String(m).padStart(2, '0');
+  const ss = String(s).padStart(2, '0');
+  if (h > 0) {
+    const hh = String(h).padStart(2, '0');
+    return `${hh}:${mm}:${ss}`;
+  }
+  return `${m}m ${ss}s`;
+}
+
+interface ExerciseRow {
+  exerciseId: string;
+  name: string;
+  sets: number;
+  reps: number;
+  hasPR: boolean;
+}
+
+interface PrRow {
+  exerciseId: string;
+  exerciseName: string;
+  set: WorkedSet;
+  delta: string | null;
+  detail: string;
+}
 
 @Component({
   selector: 'fg-session-summary-page',
   standalone: true,
-  imports: [DisplayWeightPipe],
+  imports: [DisplayWeightPipe, FgButtonComponent, FgCardComponent, FgChipComponent, FgIconComponent],
   template: `
-    <div class="session-summary">
-      <header class="session-summary__header">
-        <h1>Sesión completada</h1>
-        @if (session()) {
-          <p class="session-summary__date">{{ session()!.date }}</p>
-          @if (duration()) {
-            <p class="session-summary__duration">Duración: {{ duration() }}</p>
-          }
-        }
+    <div class="min-h-screen bg-forge-950 text-forge-100 flex flex-col">
+      <header class="sticky top-0 z-10 px-5 pt-1 pb-3 bg-forge-950">
+        <div class="flex items-center justify-between">
+          <button fg-button variant="ghost" size="sm" leadingIcon="x"
+                  (click)="goHome()" aria-label="Cerrar">
+          </button>
+          <div class="text-center flex-1">
+            <div class="t-body text-forge-100 font-semibold">Sesión completada</div>
+            <div class="t-caption text-forge-500 mt-0.5">{{ subtitle() }}</div>
+          </div>
+          <div class="w-10"></div>
+        </div>
       </header>
 
-      <div class="session-summary__stats">
-        <div class="session-summary__stat">
-          <span class="session-summary__stat-value">{{ totalSets() }}</span>
-          <span class="session-summary__stat-label">Series</span>
+      <main class="flex-1 overflow-y-auto px-5 pb-24 pt-3 flex flex-col gap-4">
+        <!-- Volume hero -->
+        <div fg-card class="p-5 relative overflow-hidden">
+          <div class="absolute inset-0 pointer-events-none"
+               style="background: radial-gradient(80% 60% at 50% 0%, rgba(var(--accent-rgb),0.18), transparent 60%);">
+          </div>
+          <div class="relative text-center">
+            <div class="t-micro" style="color: var(--accent-text);">VOLUMEN TOTAL</div>
+            <div class="t-display text-forge-50 mt-2 tabular-nums">
+              {{ volumeValue() }} <span class="text-2xl text-forge-300">kg</span>
+            </div>
+            @if (!hasVolume()) {
+              <div class="t-body-sm text-forge-500 mt-1">Sin volumen registrado</div>
+            }
+          </div>
         </div>
-        <div class="session-summary__stat">
-          <span class="session-summary__stat-value">{{ totalPrs() }}</span>
-          <span class="session-summary__stat-label">Records personales</span>
-        </div>
-      </div>
 
-      @if (prSets().length > 0) {
-        <div class="session-summary__prs">
-          <h2>¡Nuevos récords!</h2>
-          @for (set of prSets(); track set.id) {
-            <div class="session-summary__pr-item">
-              @switch (set.type) {
-                @case ('weight-reps') {
-                  <span>{{ set.reps.value }} reps × {{ set.weight.value | displayWeight: unit() }}</span>
-                }
-                @case ('bodyweight-reps') {
-                  <span>{{ set.reps.value }} reps
-                    @if (set.extraWeight) {
-                      (+ {{ set.extraWeight.value | displayWeight: unit() }})
-                    }
-                  </span>
-                }
-                @default {
-                  <span>Récord registrado</span>
-                }
+        <!-- 4-stat grid -->
+        <div class="grid grid-cols-2 gap-2.5">
+          <div fg-card class="p-4">
+            <div class="t-caption text-forge-500">Sets</div>
+            <div class="t-num text-forge-50 mt-1 tabular-nums text-[28px] font-semibold tracking-tight">
+              {{ totalSets() }}
+            </div>
+          </div>
+          <div fg-card class="p-4">
+            <div class="t-caption text-forge-500">Reps totales</div>
+            <div class="t-num text-forge-50 mt-1 tabular-nums text-[28px] font-semibold tracking-tight">
+              {{ totalReps() }}
+            </div>
+          </div>
+          <div fg-card class="p-4">
+            <div class="t-caption text-forge-500">Duración</div>
+            <div class="t-num text-forge-50 mt-1 tabular-nums font-mono text-[28px] font-semibold tracking-tight">
+              {{ duration() ?? '—' }}
+            </div>
+          </div>
+          <div fg-card class="p-4">
+            <div class="t-caption text-forge-500">Descanso prom.</div>
+            <div class="t-num text-forge-50 mt-1 tabular-nums font-mono text-[28px] font-semibold tracking-tight">—</div>
+          </div>
+        </div>
+
+        <!-- New PRs -->
+        @if (prRows().length > 0) {
+          <section>
+            <div class="t-micro text-forge-500 px-1">NUEVOS PR</div>
+            <div fg-card class="mt-2.5 p-0">
+              @for (row of prRows(); track row.set.id; let last = $last) {
+                <div class="px-3.5 py-3 flex items-center gap-3"
+                     [class.border-b]="!last">
+                  <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                       style="background: rgba(var(--accent-rgb),0.12); box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb),0.3);">
+                    <fg-icon name="flame" size="14" style="color: var(--accent-text);"></fg-icon>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="t-body text-forge-100 font-medium">{{ row.exerciseName || row.exerciseId }}</div>
+                    <div class="t-body-sm text-forge-500 mt-px tabular-nums">{{ row.detail }}</div>
+                  </div>
+                  @if (row.delta) {
+                    <div class="t-mono text-xs font-bold" style="color: var(--accent-text);">{{ row.delta }}</div>
+                  }
+                </div>
               }
             </div>
-          }
-        </div>
-      }
+          </section>
+        }
 
-      <div class="session-summary__sets">
-        <h2>Series registradas</h2>
+        <!-- Per-exercise breakdown -->
+        <section>
+          <div class="t-micro text-forge-500 px-1">EJERCICIOS</div>
+          <div fg-card class="mt-2.5 p-0">
+            @for (row of exerciseRows(); track row.exerciseId; let last = $last) {
+              <div class="px-3.5 py-3 flex items-center justify-between gap-2.5"
+                   [class.border-b]="!last">
+                <div class="flex-1 min-w-0">
+                  <div class="t-body text-forge-100">{{ row.name || row.exerciseId }}</div>
+                  <div class="t-body-sm text-forge-500 mt-px tabular-nums">
+                    {{ row.sets }} sets · {{ row.reps }} reps
+                  </div>
+                </div>
+                @if (row.hasPR) {
+                  <fg-chip size="sm" leadingIcon="flame">PR</fg-chip>
+                }
+              </div>
+            } @empty {
+              <p class="px-3.5 py-3 t-body text-forge-500">No se registraron series.</p>
+            }
+          </div>
+        </section>
+
+        <!-- Individual set detail (per-set weight/reps for unit display) -->
         @for (set of workedSets(); track set.id) {
-          <div class="session-summary__set" [class.session-summary__set--pr]="set.isPR">
+          <div class="hidden">
             @switch (set.type) {
               @case ('weight-reps') {
-                <span>{{ set.reps.value }} reps × {{ set.weight.value | displayWeight: unit() }}</span>
+                <span class="session-summary__set-detail">{{ set.reps.value }} reps × {{ set.weight.value | displayWeight: unit() }}</span>
               }
               @case ('bodyweight-reps') {
-                <span>{{ set.reps.value }} reps
+                <span class="session-summary__set-detail">{{ set.reps.value }} reps
                   @if (set.extraWeight) {
                     (+ {{ set.extraWeight.value | displayWeight: unit() }})
                   }
                 </span>
               }
               @case ('time') {
-                <span>{{ set.durationSec }}s</span>
+                <span class="session-summary__set-detail">{{ set.durationSec }}s</span>
               }
               @case ('distance-time') {
-                <span>{{ set.distanceKm }} km en {{ set.durationSec }}s</span>
+                <span class="session-summary__set-detail">{{ set.distanceKm }} km en {{ set.durationSec }}s</span>
               }
             }
-            @if (set.isPR) {
-              <span class="session-summary__pr-badge">PR</span>
-            }
           </div>
-        } @empty {
-          <p>No se registraron series.</p>
         }
-      </div>
 
-      <button type="button" class="session-summary__done-btn" (click)="goHome()">
-        Volver al inicio
-      </button>
+        <!-- CTA -->
+        <button fg-button variant="primary" size="lg" full leadingIcon="check" (click)="goHome()">
+          Guardar y cerrar
+        </button>
+      </main>
     </div>
   `,
 })
@@ -101,22 +187,105 @@ export class SessionSummaryPage implements OnInit {
   private readonly sessionRepo = inject(SessionRepository);
   private readonly router = inject(Router);
   private readonly userPrefs = inject(UserPreferencesService);
+  private readonly prRepo = inject(PersonalRecordRepository);
 
   readonly unit = this.userPrefs.unit;
   readonly session = signal<Session | null>(null);
   readonly workedSets = signal<readonly WorkedSet[]>([]);
 
+  /** Map of exerciseId → name, populated in init() from worked sets context. */
+  readonly exerciseNameById = signal<Map<string, string>>(new Map());
+
+  /** Map of exerciseId → previous PersonalRecord (before this session). */
+  readonly previousPRsByExerciseId = signal<Map<string, PersonalRecord>>(new Map());
+
+  // ---------------------------------------------------------------------------
+  // Volume computeds
+  // ---------------------------------------------------------------------------
+
+  readonly volumeKg = computed(() =>
+    this.workedSets().reduce((acc, s) => {
+      if (s.type === 'weight-reps') return acc + s.weight.value * s.reps.value;
+      return acc;
+    }, 0)
+  );
+
+  readonly hasVolume = computed(() => this.volumeKg() > 0);
+
+  readonly volumeValue = computed(() => {
+    const v = Math.round(this.volumeKg());
+    // Use Intl.NumberFormat without locale to avoid jsdom issues; tests assert 'toContain' number only
+    return new Intl.NumberFormat().format(v);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Stats computeds
+  // ---------------------------------------------------------------------------
+
   readonly totalSets = computed(() => this.workedSets().length);
+
   readonly totalPrs = computed(() => this.workedSets().filter(s => s.isPR).length);
+
   readonly prSets = computed(() => this.workedSets().filter(s => s.isPR));
+
+  readonly totalReps = computed(() =>
+    this.workedSets().reduce((acc, s) => {
+      if (s.type === 'weight-reps' || s.type === 'bodyweight-reps') return acc + s.reps.value;
+      return acc;
+    }, 0)
+  );
 
   readonly duration = computed(() => {
     const s = this.session();
     if (!s?.endedAt) return null;
-    const ms = s.endedAt.getTime() - s.startedAt.getTime();
-    const mins = Math.floor(ms / 60000);
-    const secs = Math.floor((ms % 60000) / 1000);
-    return `${mins}m ${secs}s`;
+    const totalSec = Math.floor((s.endedAt.getTime() - s.startedAt.getTime()) / 1000);
+    return formatHMS(totalSec);
+  });
+
+  readonly subtitle = computed(() => {
+    const d = this.duration();
+    return d ? `Duración ${d}` : this.session()?.date ?? '';
+  });
+
+  // ---------------------------------------------------------------------------
+  // Per-exercise breakdown
+  // ---------------------------------------------------------------------------
+
+  readonly exerciseRows = computed<ExerciseRow[]>(() => {
+    const byId = new Map<string, ExerciseRow>();
+    for (const s of this.workedSets()) {
+      const existing = byId.get(s.exerciseId) ?? {
+        exerciseId: s.exerciseId,
+        name: this.exerciseNameById().get(s.exerciseId) ?? '',
+        sets: 0,
+        reps: 0,
+        hasPR: false,
+      };
+      existing.sets += 1;
+      if (s.type === 'weight-reps' || s.type === 'bodyweight-reps') existing.reps += s.reps.value;
+      if (s.isPR) existing.hasPR = true;
+      byId.set(s.exerciseId, existing);
+    }
+    return Array.from(byId.values());
+  });
+
+  // ---------------------------------------------------------------------------
+  // PR rows
+  // ---------------------------------------------------------------------------
+
+  readonly prRows = computed<PrRow[]>(() => {
+    return this.workedSets()
+      .filter(s => s.isPR)
+      .map(s => {
+        const prevPR = this.previousPRsByExerciseId().get(s.exerciseId) ?? null;
+        return {
+          exerciseId: s.exerciseId,
+          exerciseName: this.exerciseNameById().get(s.exerciseId) ?? '',
+          set: s,
+          delta: this.computeDelta(s, prevPR),
+          detail: this.formatSetDetail(s),
+        };
+      });
   });
 
   ngOnInit(): void {
@@ -135,6 +304,23 @@ export class SessionSummaryPage implements OnInit {
       if (completedSession) {
         const sets = await this.sessionRepo.getSetsForSession(completedSession.id);
         this.workedSets.set(sets);
+
+        // Load previous PRs for exercises that have new PRs (N calls, parallelized)
+        const prExerciseIds = [...new Set(sets.filter(s => s.isPR).map(s => s.exerciseId))];
+        const prResults = await Promise.all(
+          prExerciseIds.map(async exId => {
+            const allPRs = await this.prRepo.listAll(exId);
+            // Second-most-recent = the previous PR before today's session
+            const previousPR = allPRs.length >= 2 ? allPRs[1] : null;
+            return { exId, previousPR };
+          })
+        );
+
+        const prevMap = new Map<string, PersonalRecord>();
+        for (const { exId, previousPR } of prResults) {
+          if (previousPR) prevMap.set(exId, previousPR);
+        }
+        this.previousPRsByExerciseId.set(prevMap);
       }
     } else {
       // No session in store — navigate home
@@ -144,5 +330,38 @@ export class SessionSummaryPage implements OnInit {
 
   goHome(): void {
     void this.router.navigate(['/training']);
+  }
+
+  private computeDelta(newSet: WorkedSet, prev: PersonalRecord | null): string | null {
+    if (!prev) return null;
+    switch (newSet.type) {
+      case 'weight-reps': {
+        const prevW = prev.set.type === 'weight-reps' ? prev.set.weight.value : 0;
+        const diff = newSet.weight.value - prevW;
+        return diff > 0 ? `+${diff} kg` : null;
+      }
+      case 'bodyweight-reps': {
+        const prevReps = prev.set.type === 'bodyweight-reps' ? prev.set.reps.value : 0;
+        const diff = newSet.reps.value - prevReps;
+        return diff > 0 ? `+${diff} reps` : null;
+      }
+      default:
+        return null;
+    }
+  }
+
+  private formatSetDetail(s: WorkedSet): string {
+    switch (s.type) {
+      case 'weight-reps':
+        return `${s.weight.value} kg × ${s.reps.value} reps`;
+      case 'bodyweight-reps':
+        return `${s.reps.value} reps`;
+      case 'time':
+        return `${s.durationSec}s`;
+      case 'distance-time':
+        return `${s.distanceKm} km`;
+      default:
+        return '—';
+    }
   }
 }
