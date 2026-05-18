@@ -7,6 +7,13 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { PrCelebrationComponent } from './pr-celebration.component';
 import type { WorkedSet } from '../../domain/worked-set';
 
+// Internal Angular component metadata exposed via the ɵcmp static field.
+// Only the shape we read in R14 invariant tests is typed.
+interface CompiledComponentMeta {
+  readonly template?: (...args: unknown[]) => unknown;
+  readonly styles?: readonly string[];
+}
+
 const weightRepsSet: WorkedSet = {
   id: 'ws-1',
   sessionId: 's-1',
@@ -57,7 +64,7 @@ describe('PrCelebrationComponent', () => {
     fixture.detectChanges();
     let emitted = false;
     fixture.componentInstance.dismissed.subscribe(() => (emitted = true));
-    const btn = (fixture.nativeElement as HTMLElement).querySelector('button[aria-label="Cerrar"]') as HTMLButtonElement | null;
+    const btn = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('button[aria-label="Cerrar"]');
     expect(btn).toBeTruthy();
     btn!.click();
     expect(emitted).toBe(true);
@@ -70,7 +77,7 @@ describe('PrCelebrationComponent', () => {
     fixture.componentInstance.visible = true;
     fixture.componentInstance.set = weightRepsSet;
     fixture.detectChanges();
-    const wrapper = (fixture.nativeElement as HTMLElement).querySelector('.bg-forge-850') as HTMLElement | null;
+    const wrapper = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.bg-forge-850');
     expect(wrapper).toBeTruthy();
   });
 
@@ -112,7 +119,7 @@ describe('PrCelebrationComponent', () => {
   it('R14 SOURCE: template must NOT contain --accent- references', () => {
     // After TestBed.configureTestingModule (in beforeEach), ɵcmp is compiled and available.
     // Access the JIT-compiled template function source as a proxy for template content.
-    const meta = (PrCelebrationComponent as any).ɵcmp;
+    const meta = (PrCelebrationComponent as unknown as { ɵcmp?: CompiledComponentMeta }).ɵcmp;
     // ɵcmp.template is the compiled render function — its source encodes all bindings
     const templateFnStr = meta?.template?.toString() ?? '';
     expect(templateFnStr).not.toMatch(/--accent-/);
@@ -125,9 +132,9 @@ describe('PrCelebrationComponent', () => {
   });
 
   it('R14 SOURCE: component styles must NOT contain accent token references', () => {
-    const meta = (PrCelebrationComponent as any).ɵcmp;
+    const meta = (PrCelebrationComponent as unknown as { ɵcmp?: CompiledComponentMeta }).ɵcmp;
     if (meta?.styles) {
-      const styles = (meta.styles as string[]).join('\n');
+      const styles = meta.styles.join('\n');
       expect(styles).not.toMatch(/--accent-/);
       expect(styles).not.toMatch(/\baccent-\d/);
     }

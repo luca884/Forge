@@ -57,7 +57,7 @@ describe('RestTimerComponent', () => {
     // ── VISUAL STRUCTURE TESTS (PINNED variant, D-2) ────────────────────────
 
     it('renders the pinned bar container when remaining is not null', () => {
-      const container = (fixture.nativeElement as HTMLElement).querySelector('div') as HTMLElement | null;
+      const container = (fixture.nativeElement as HTMLElement).querySelector('div');
       expect(container).toBeTruthy();
     });
 
@@ -65,13 +65,13 @@ describe('RestTimerComponent', () => {
       const el = fixture.nativeElement as HTMLElement;
       // The component uses inline styles for backdrop-blur (component-scoped CSS .rest-timer-pinned)
       // We verify the outer div is present and has a role attribute
-      const bar = el.querySelector('[role="status"]') as HTMLElement | null;
+      const bar = el.querySelector<HTMLElement>('[role="status"]');
       expect(bar).toBeTruthy();
     });
 
     it('pulsing dot element is present', () => {
       const el = fixture.nativeElement as HTMLElement;
-      const dot = el.querySelector('.dot-pulse') as HTMLElement | null;
+      const dot = el.querySelector<HTMLElement>('.dot-pulse');
       expect(dot).toBeTruthy();
     });
 
@@ -87,18 +87,18 @@ describe('RestTimerComponent', () => {
     });
 
     it('"Saltar" button is present', () => {
-      const btn = (fixture.nativeElement as HTMLElement).querySelector('button') as HTMLButtonElement | null;
+      const btn = (fixture.nativeElement as HTMLElement).querySelector('button');
       expect(btn).toBeTruthy();
       expect(btn!.textContent?.trim()).toBe('Saltar');
     });
 
     it('progress bar element is present at bottom of container', () => {
-      const bar = (fixture.nativeElement as HTMLElement).querySelector('.progress-bar') as HTMLElement | null;
+      const bar = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.progress-bar');
       expect(bar).toBeTruthy();
     });
 
     it('progress fill element is present inside progress bar', () => {
-      const fill = (fixture.nativeElement as HTMLElement).querySelector('.progress-fill') as HTMLElement | null;
+      const fill = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.progress-fill');
       expect(fill).toBeTruthy();
     });
 
@@ -158,7 +158,7 @@ describe('RestTimerComponent', () => {
     });
 
     it('bar is hidden when remaining() is null', () => {
-      const bar = (fixture.nativeElement as HTMLElement).querySelector('[role="status"]') as HTMLElement | null;
+      const bar = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('[role="status"]');
       expect(bar).toBeNull();
     });
 

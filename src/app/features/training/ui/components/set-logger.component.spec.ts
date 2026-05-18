@@ -5,6 +5,7 @@
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { SetLoggerComponent } from './set-logger.component';
+import type { LogSetInput } from '../../domain/use-cases/log-set.use-case';
 
 describe('SetLoggerComponent', () => {
   let fixture: ComponentFixture<SetLoggerComponent>;
@@ -31,8 +32,8 @@ describe('SetLoggerComponent', () => {
     fixture.componentRef.setInput('trackingType', 'weight-reps');
     fixture.detectChanges();
 
-    let emitted: any = null;
-    fixture.componentInstance.setLogged.subscribe((v: any) => (emitted = v));
+    const captured: LogSetInput[] = [];
+    fixture.componentInstance.setLogged.subscribe((v: LogSetInput) => captured.push(v));
 
     // Set form values
     fixture.componentInstance.form.patchValue({ weightKg: 80, reps: 8 });
@@ -43,12 +44,14 @@ describe('SetLoggerComponent', () => {
     form.dispatchEvent(new Event('submit'));
     fixture.detectChanges();
 
-    expect(emitted).toBeTruthy();
-    expect(emitted.type).toBe('weight-reps');
-    expect(emitted.weightKgValue).toBe(80);
-    expect(emitted.repsValue).toBe(8);
-    expect(emitted.sessionId).toBe('s-1');
-    expect(emitted.exerciseId).toBe('ex-1');
+    expect(captured).toHaveLength(1);
+    expect(captured[0]).toMatchObject({
+      type: 'weight-reps',
+      weightKgValue: 80,
+      repsValue: 8,
+      sessionId: 's-1',
+      exerciseId: 'ex-1',
+    });
   });
 
   it('prefillWeightKg patches form control weightKg on init', () => {
@@ -84,7 +87,7 @@ describe('SetLoggerComponent', () => {
     fixture.componentRef.setInput('exerciseId', 'ex-1');
     fixture.componentRef.setInput('state', 'idle');
     fixture.detectChanges();
-    const btn = (fixture.nativeElement as HTMLElement).querySelector('button[fg-button]') as HTMLButtonElement | null;
+    const btn = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('button[fg-button]');
     expect(btn).toBeTruthy();
   });
 
@@ -95,7 +98,7 @@ describe('SetLoggerComponent', () => {
     fixture.detectChanges();
 
     // The button host has Tailwind classes from VARIANT_CLASSES['accent_soft']
-    const btn = (fixture.nativeElement as HTMLElement).querySelector('button[fg-button]') as HTMLButtonElement | null;
+    const btn = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('button[fg-button]');
     expect(btn).toBeTruthy();
     // accent_soft variant applies bg-accent-500/12 class
     expect(btn!.className).toContain('bg-accent-500/12');

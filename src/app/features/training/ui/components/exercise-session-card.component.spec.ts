@@ -124,7 +124,7 @@ describe('ExerciseSessionCardComponent', () => {
     fixture.componentRef.setInput('sessionId', 's-1');
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
-    const nameEl = el.querySelector('.t-h3') as HTMLElement | null;
+    const nameEl = el.querySelector<HTMLElement>('.t-h3');
     expect(nameEl).toBeTruthy();
     expect(nameEl!.textContent).toContain('Sentadilla');
   });
@@ -137,7 +137,7 @@ describe('ExerciseSessionCardComponent', () => {
     fixture.componentRef.setInput('sessionId', 's-1');
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
-    const counter = el.querySelector('.text-accent-300') as HTMLElement | null;
+    const counter = el.querySelector<HTMLElement>('.text-accent-300');
     expect(counter).toBeTruthy();
     expect(counter!.textContent).toContain('1/1');
   });
@@ -150,7 +150,7 @@ describe('ExerciseSessionCardComponent', () => {
     fixture.componentRef.setInput('sessionId', 's-1');
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
-    const counter = el.querySelector('.text-forge-300') as HTMLElement | null;
+    const counter = el.querySelector<HTMLElement>('.text-forge-300');
     expect(counter).toBeTruthy();
     expect(counter!.textContent).toContain('1/2');
   });
