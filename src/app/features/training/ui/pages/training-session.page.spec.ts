@@ -344,8 +344,11 @@ describe('TrainingSessionPage', () => {
     // The incomplete exercise must have fg-exercise-session-card with [expanded]="true"
     const sessionCards = fixture.debugElement.queryAll(By.css('fg-exercise-session-card'));
     expect(sessionCards.length).toBeGreaterThanOrEqual(1);
-    // At least one card should have [expanded] binding true (for incomplete exercise)
-    const expandedCard = sessionCards.find(card => card.attributes['ng-reflect-expanded'] === 'true' || card.componentInstance?.expanded?.() === true);
+    // At least one card should have [expanded] binding true (for incomplete exercise).
+    // ng-reflect-expanded is a dev-mode attribute serialization of the input binding.
+    const expandedCard = sessionCards.find(
+      (card) => card.attributes['ng-reflect-expanded'] === 'true',
+    );
     expect(expandedCard).toBeDefined();
   });
 

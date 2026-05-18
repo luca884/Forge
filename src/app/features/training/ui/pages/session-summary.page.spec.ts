@@ -221,10 +221,9 @@ describe('SessionSummaryPage', () => {
     fixture.detectChanges();
 
     // 2 exercise groups — assert that the page shows 2 exercise rows
-    const comp = fixture.componentInstance as any;
-    expect(comp.exerciseRows().length).toBe(2);
+    const rows = fixture.componentInstance.exerciseRows();
+    expect(rows).toHaveLength(2);
     // Each group should have 3 sets
-    const rows: Array<{ exerciseId: string; sets: number }> = comp.exerciseRows();
     expect(rows.find((r) => r.exerciseId === 'ex-1')?.sets).toBe(3);
     expect(rows.find((r) => r.exerciseId === 'ex-2')?.sets).toBe(3);
   });
