@@ -201,3 +201,14 @@
 .forge-frame *, .forge-frame *::before, .forge-frame *::after { box-sizing: border-box; }
 .forge-frame button, .forge-frame input, .forge-frame textarea { font-family: inherit; }
 .forge-frame:focus-within :focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; border-radius: var(--r-sm); }
+
+/* ─── Keyframes globales (D-8) ─────────────────────────────────────── */
+/* Definidos a nivel global por bug histórico de Safari con :host (ADR-31) */
+@keyframes forge-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@keyframes forge-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
