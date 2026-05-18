@@ -88,6 +88,10 @@ describe('TrainingSessionPage', () => {
   let fixture: ComponentFixture<TrainingSessionPage>;
   let unitSignal: ReturnType<typeof signal<PreferredUnit>>;
   let loadOnceSpy: jest.Mock;
+  let activeSessionSignal: ReturnType<typeof signal<unknown>>;
+  let workedSetsSignal: ReturnType<typeof signal<unknown[]>>;
+  let setsByExerciseSignal: ReturnType<typeof signal<Map<string, unknown[]>>>;
+  let elapsedSecondsSignal: ReturnType<typeof signal<number>>;
   let mockStore: {
     activeSession: ReturnType<typeof signal<unknown>>;
     workedSets: ReturnType<typeof signal<unknown[]>>;
@@ -111,13 +115,18 @@ describe('TrainingSessionPage', () => {
     unitSignal = signal<PreferredUnit>('lb');
     loadOnceSpy = jest.fn().mockResolvedValue(undefined);
 
+    activeSessionSignal = signal(null);
+    workedSetsSignal = signal([]);
+    setsByExerciseSignal = signal(new Map());
+    elapsedSecondsSignal = signal(0);
+
     mockStore = {
-      activeSession: signal(null),
-      workedSets: signal([]),
-      setsByExercise: signal(new Map()),
+      activeSession: activeSessionSignal,
+      workedSets: workedSetsSignal,
+      setsByExercise: setsByExerciseSignal,
       loadActive: jest.fn().mockResolvedValue(undefined),
       refreshSets: jest.fn().mockResolvedValue(undefined),
-      elapsedSeconds: signal(0),
+      elapsedSeconds: elapsedSecondsSignal,
     };
 
     // Extended mock — includes getCurrentForExercise required by D-5
@@ -178,7 +187,7 @@ describe('TrainingSessionPage', () => {
   // --- D-1: Header with elapsed time (V-D1-Spec-1) ---
 
   it('header contains formatted elapsed time from store.elapsedSeconds (V-D1-Spec-1)', async () => {
-    mockStore.elapsedSeconds = signal(125); // 2m 5s
+    elapsedSecondsSignal.set(125); // 2m 5s
     fixture = TestBed.createComponent(TrainingSessionPage);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -199,13 +208,17 @@ describe('TrainingSessionPage', () => {
 
     mockDayRepo.getById.mockResolvedValue({ exercises: [exInDay] });
     mockExerciseRepo.getById.mockResolvedValue(exercise);
-    mockStore.activeSession = signal(makeSession());
-    mockStore.setsByExercise = signal(new Map([[exerciseId, loggedSets]]));
-    mockStore.workedSets = signal(loggedSets);
+    activeSessionSignal.set(makeSession());
+    setsByExerciseSignal.set(new Map([[exerciseId, loggedSets]]));
+    workedSetsSignal.set(loggedSets);
 
     fixture = TestBed.createComponent(TrainingSessionPage);
     fixture.detectChanges();
     await fixture.whenStable();
+    // Extra flushes for sequential async calls in init() (loadActive → refreshSets → getById loops)
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
@@ -227,7 +240,18 @@ describe('TrainingSessionPage', () => {
 
     mockDayRepo.getById.mockResolvedValue({ exercises: [exInDay] });
     mockExerciseRepo.getById.mockResolvedValue(exercise);
-    mockStore.activeSession = signal(makeSession());
+    activeSessionSignal.set(makeSession());
+
+    // Override component-level providers to inject mock LogSetUseCase
+    // (component declares providers: [LogSetUseCase] so TestBed-level mock is bypassed)
+    TestBed.overrideComponent(TrainingSessionPage, {
+      set: {
+        providers: [
+          { provide: LogSetUseCase, useValue: mockLogSetUseCase },
+          { provide: CompleteSessionUseCase, useValue: { execute: jest.fn() } },
+        ],
+      },
+    });
 
     // Previous PR: 80 kg
     mockPrRepo.getCurrentForExercise.mockResolvedValue({
@@ -256,6 +280,12 @@ describe('TrainingSessionPage', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
+    // Directly populate exercisesWithData so the name lookup works synchronously
+    fixture.componentInstance.exercisesWithData.set([
+      { exercise: exercise as any, exerciseInDay: exInDay as any },
+    ]);
+    fixture.detectChanges();
+
     // Trigger onSetLogged
     await fixture.componentInstance.onSetLogged({
       sessionId: 'session-1',
@@ -266,7 +296,11 @@ describe('TrainingSessionPage', () => {
     });
     fixture.detectChanges();
 
-    // Assert PrCelebrationComponent inputs
+    // Check signals directly
+    expect(fixture.componentInstance.latestPrExerciseName()).toBe('Sentadilla');
+    expect(fixture.componentInstance.latestPrDelta()).toBe('+5 kg');
+
+    // Also check that PrCelebrationComponent receives the inputs
     const prComp = fixture.debugElement.query(By.directive(PrCelebrationComponent))?.componentInstance as PrCelebrationComponent | undefined;
     expect(prComp).toBeDefined();
     expect(prComp!.exerciseName()).toBe('Sentadilla');
@@ -292,8 +326,8 @@ describe('TrainingSessionPage', () => {
     mockExerciseRepo.getById
       .mockResolvedValueOnce(completedExercise)
       .mockResolvedValueOnce(incompleteExercise);
-    mockStore.activeSession = signal(makeSession());
-    mockStore.setsByExercise = signal(new Map([
+    activeSessionSignal.set(makeSession());
+    setsByExerciseSignal.set(new Map([
       [completedId, completedSets],
       [incompleteId, incompleteSets],
     ]));
@@ -301,6 +335,10 @@ describe('TrainingSessionPage', () => {
     fixture = TestBed.createComponent(TrainingSessionPage);
     fixture.detectChanges();
     await fixture.whenStable();
+    // Extra flushes for sequential async calls in init() (loadActive → refreshSets → getById loops)
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
     fixture.detectChanges();
 
     // The incomplete exercise must have fg-exercise-session-card with [expanded]="true"
