@@ -1,7 +1,6 @@
 /**
- * SessionSummaryPage spec (D-4).
- * TDD strict — RED before implementation.
- * Verifies unit-aware weight rendering via UserPreferencesService mock.
+ * SessionSummaryPage spec (D-2) — TDD strict.
+ * Verifies volume hero, 4-stat grid, PR section, per-exercise breakdown.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
@@ -13,17 +12,11 @@ import type { PreferredUnit } from '@features/profile/domain/value-objects/prefe
 import type { Session } from '../../domain/session.entity';
 import type { WorkedSet } from '../../domain/worked-set';
 import { Router } from '@angular/router';
+import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-record.repository';
 
-const weightRepsSet: WorkedSet = {
-  id: 'ws-1',
-  sessionId: 's-1',
-  exerciseId: 'ex-1',
-  type: 'weight-reps',
-  reps: { value: 5 } as any,
-  weight: { value: 100 } as any,
-  isPR: false,
-  createdAt: new Date('2026-01-01'),
-};
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
 
 const completedSession: Session = {
   id: 's-1',
@@ -37,50 +30,237 @@ const completedSession: Session = {
   updatedAt: new Date('2026-01-01'),
 };
 
+function makeWeightRepsSet(id: string, exerciseId: string, weightKg: number, reps: number, isPR = false): WorkedSet {
+  return {
+    id,
+    sessionId: 's-1',
+    exerciseId,
+    type: 'weight-reps',
+    reps: { value: reps } as any,
+    weight: { value: weightKg } as any,
+    isPR,
+    createdAt: new Date('2026-01-01'),
+  } as WorkedSet;
+}
+
+function makeBodyweightSet(id: string, exerciseId: string, reps: number): WorkedSet {
+  return {
+    id,
+    sessionId: 's-1',
+    exerciseId,
+    type: 'bodyweight-reps',
+    reps: { value: reps } as any,
+    isPR: false,
+    createdAt: new Date('2026-01-01'),
+  } as WorkedSet;
+}
+
+// ---------------------------------------------------------------------------
+// Suite
+// ---------------------------------------------------------------------------
+
 describe('SessionSummaryPage', () => {
   let fixture: ComponentFixture<SessionSummaryPage>;
   let unitSignal: ReturnType<typeof signal<PreferredUnit>>;
   let loadOnceSpy: jest.Mock;
+  let activeSessionSignal: ReturnType<typeof signal<Session | null>>;
+  let mockSessionRepo: { getById: jest.Mock; getSetsForSession: jest.Mock };
+  let mockPrRepo: { listAll: jest.Mock; getCurrentForExercise: jest.Mock; save: jest.Mock; getById: jest.Mock };
 
-  beforeEach(async () => {
-    unitSignal = signal<PreferredUnit>('lb');
+  async function setup(workedSets: WorkedSet[], session: Session = completedSession): Promise<void> {
+    unitSignal = signal<PreferredUnit>('kg');
     loadOnceSpy = jest.fn().mockResolvedValue(undefined);
+    activeSessionSignal = signal<Session | null>(session);
 
-    const mockStore = {
-      activeSession: signal(completedSession),
-      workedSets: signal([]),
-      setsByExercise: signal(new Map()),
+    mockSessionRepo = {
+      getById: jest.fn().mockResolvedValue(session),
+      getSetsForSession: jest.fn().mockResolvedValue(workedSets),
     };
 
-    const mockSessionRepo = {
-      getById: jest.fn().mockResolvedValue(completedSession),
-      getSetsForSession: jest.fn().mockResolvedValue([weightRepsSet]),
+    mockPrRepo = {
+      listAll: jest.fn().mockResolvedValue([]),
+      getCurrentForExercise: jest.fn().mockResolvedValue(null),
+      save: jest.fn(),
+      getById: jest.fn().mockResolvedValue(null),
     };
 
     await TestBed.configureTestingModule({
       imports: [SessionSummaryPage],
       providers: [
         { provide: UserPreferencesService, useValue: { unit: unitSignal, loadOnce: loadOnceSpy } },
-        { provide: TrainingSessionStore, useValue: mockStore },
+        { provide: TrainingSessionStore, useValue: { activeSession: activeSessionSignal, workedSets: signal(workedSets), setsByExercise: signal(new Map()) } },
         { provide: SessionRepository, useValue: mockSessionRepo },
         { provide: Router, useValue: { navigate: jest.fn() } },
+        { provide: PersonalRecordRepository, useValue: mockPrRepo },
       ],
     }).compileComponents();
-  });
+  }
 
-  it('calls loadOnce() during ngOnInit', async () => {
+  // --- V-D2-Spec-1: Volume hero ---
+
+  it('volume hero displays computed weight-reps sum (V-D2-Spec-1)', async () => {
+    // 2 sets: 80kg × 10 reps = 800, 80kg × 10 reps = 800 → total 1600
+    const workedSets = [
+      makeWeightRepsSet('ws-1', 'ex-1', 80, 10),
+      makeWeightRepsSet('ws-2', 'ex-1', 80, 10),
+    ];
+    await setup(workedSets);
+
     fixture = TestBed.createComponent(SessionSummaryPage);
     fixture.detectChanges();
-    // Allow microtasks to flush
+    await fixture.whenStable();
+    await Promise.resolve();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    // 1600 kg — assert contains the number avoiding locale sensitivity (Risk #3)
+    expect(text).toContain('1600');
+  });
+
+  it('volume hero shows "Sin volumen registrado" for bodyweight-only session (V-D2-Spec-1 edge)', async () => {
+    const workedSets = [makeBodyweightSet('ws-1', 'ex-1', 15)];
+    await setup(workedSets);
+
+    fixture = TestBed.createComponent(SessionSummaryPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await Promise.resolve();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Sin volumen registrado');
+  });
+
+  // --- V-D2-Spec-2: 4-stat grid ---
+
+  it('renders 4 stat tiles and avg-rest tile shows "—" (V-D2-Spec-2)', async () => {
+    const workedSets = [makeWeightRepsSet('ws-1', 'ex-1', 80, 10)];
+    await setup(workedSets);
+
+    fixture = TestBed.createComponent(SessionSummaryPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await Promise.resolve();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    // 4 stat labels must be present
+    expect(text).toContain('Sets');
+    expect(text).toContain('Reps totales');
+    expect(text).toContain('Duración');
+    expect(text).toContain('Descanso prom.');
+    // avg-rest shows em dash
+    expect(text).toContain('—');
+  });
+
+  // --- V-D2-Spec-3: PR section shows delta chip ---
+
+  it('PR section shows delta chip "+5 kg" when previousPR exists (V-D2-Spec-3)', async () => {
+    const prSet = makeWeightRepsSet('ws-pr', 'ex-1', 85, 5, true);
+    const workedSets = [prSet];
+
+    // Mock listAll to return a previous PR (80 kg, older than the new one)
+    const previousPRRecord = {
+      id: 'pr-old',
+      exerciseId: 'ex-1',
+      trackingType: 'weight-reps',
+      workedSetId: 'ws-old',
+      achievedAt: new Date('2026-01-01T08:00:00Z'), // before session
+      set: makeWeightRepsSet('ws-old', 'ex-1', 80, 5, true),
+    };
+
+    await setup(workedSets);
+    mockPrRepo.listAll.mockResolvedValue([previousPRRecord]);
+
+    fixture = TestBed.createComponent(SessionSummaryPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('+5 kg');
+  });
+
+  // --- V-D2-Spec-4: Per-exercise breakdown groups sets ---
+
+  it('breakdown renders one card per exercise with correct set count (V-D2-Spec-4)', async () => {
+    const ex1sets = [
+      makeWeightRepsSet('ws-1', 'ex-1', 80, 10),
+      makeWeightRepsSet('ws-2', 'ex-1', 80, 10),
+      makeWeightRepsSet('ws-3', 'ex-1', 80, 10),
+    ];
+    const ex2sets = [
+      makeWeightRepsSet('ws-4', 'ex-2', 60, 12),
+      makeWeightRepsSet('ws-5', 'ex-2', 60, 12),
+      makeWeightRepsSet('ws-6', 'ex-2', 60, 12),
+    ];
+    const workedSets = [...ex1sets, ...ex2sets];
+    await setup(workedSets);
+
+    fixture = TestBed.createComponent(SessionSummaryPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    fixture.detectChanges();
+
+    // 2 exercise groups — assert that the page shows 2 exercise rows
+    const comp = fixture.componentInstance as any;
+    expect(comp.exerciseRows().length).toBe(2);
+    // Each group should have 3 sets
+    const rows: Array<{ exerciseId: string; sets: number }> = comp.exerciseRows();
+    expect(rows.find((r) => r.exerciseId === 'ex-1')?.sets).toBe(3);
+    expect(rows.find((r) => r.exerciseId === 'ex-2')?.sets).toBe(3);
+  });
+
+  // --- CTA button text ---
+
+  it('CTA button shows "Guardar y cerrar"', async () => {
+    await setup([]);
+    fixture = TestBed.createComponent(SessionSummaryPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Guardar y cerrar');
+  });
+
+  // --- CC-8: No raw hex in template ---
+
+  it('template HTML contains zero raw hex color literals (CC-8)', async () => {
+    await setup([]);
+    fixture = TestBed.createComponent(SessionSummaryPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const html = (fixture.nativeElement as HTMLElement).innerHTML;
+    const hexMatches = html.match(/#[0-9a-fA-F]{3,6}\b/g) ?? [];
+    expect(hexMatches).toHaveLength(0);
+  });
+
+  // --- Existing unit tests (preserved) ---
+
+  it('calls loadOnce() during ngOnInit', async () => {
+    await setup([]);
+    fixture = TestBed.createComponent(SessionSummaryPage);
+    fixture.detectChanges();
     await Promise.resolve();
     expect(loadOnceSpy).toHaveBeenCalledTimes(1);
   });
 
   it('renders weight-reps set with unit="lb" showing lb value', async () => {
+    const workedSets = [makeWeightRepsSet('ws-1', 'ex-1', 100, 5)];
+    await setup(workedSets);
+    unitSignal.set('lb');
+
     fixture = TestBed.createComponent(SessionSummaryPage);
     fixture.detectChanges();
     await fixture.whenStable();
-    // Flush remaining microtasks from chained promises
     await Promise.resolve();
     await Promise.resolve();
     fixture.detectChanges();
@@ -89,7 +269,10 @@ describe('SessionSummaryPage', () => {
   });
 
   it('renders weight-reps set with unit="kg" showing kg value (default)', async () => {
+    const workedSets = [makeWeightRepsSet('ws-1', 'ex-1', 100, 5)];
+    await setup(workedSets);
     unitSignal.set('kg');
+
     fixture = TestBed.createComponent(SessionSummaryPage);
     fixture.detectChanges();
     await fixture.whenStable();
