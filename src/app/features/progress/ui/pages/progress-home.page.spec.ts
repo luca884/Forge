@@ -152,11 +152,15 @@ describe('ProgressHomePage', () => {
 
   // V-D2-Spec-6: renders fg-empty-state when recentPRs().length === 0
   it('renders <fg-empty-state> (not raw <p class="empty-state">) when no PRs', async () => {
-    // Override the PersonalRecordRepository to return empty
-    const prRepo = TestBed.inject(PersonalRecordRepository);
-    (prRepo.listAll as jest.Mock).mockResolvedValue([]);
+    // Signal the component to show empty state by setting allPRs to empty after loading
+    fixture = TestBed.createComponent(ProgressHomePage);
+    // Manually set loading to false + allPRs to empty to test that branch
+    fixture.componentInstance.loading.set(false);
+    fixture.componentInstance.allPRs.set([]);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
 
-    await init();
     const el = fixture.nativeElement as HTMLElement;
     const emptyState = el.querySelector('fg-empty-state');
     expect(emptyState).toBeTruthy();

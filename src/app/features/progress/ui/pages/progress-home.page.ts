@@ -14,115 +14,93 @@ import { ExerciseRepository } from '@features/exercises/domain/exercise.reposito
 import { Exercise } from '@features/exercises/domain/exercise.entity';
 import { formatTrackingValue } from '../helpers/format-tracking-value';
 import { SessionHeatmapComponent } from '../components/session-heatmap.component';
+import {
+  FgPageHeaderComponent,
+  FgCardComponent,
+  FgSkeletonComponent,
+  FgEmptyStateComponent,
+  FgButtonComponent,
+  type PageHeaderAction,
+} from '@core/shared/ui';
 
 @Component({
   selector: 'fg-progress-home-page',
   standalone: true,
-  imports: [SessionHeatmapComponent],
+  imports: [
+    SessionHeatmapComponent,
+    FgPageHeaderComponent,
+    FgCardComponent,
+    FgSkeletonComponent,
+    FgEmptyStateComponent,
+    FgButtonComponent,
+  ],
   providers: [
     GetAllPersonalRecordsUseCase,
     GetSessionHeatmapUseCase,
   ],
   template: `
-    <div class="progress-home">
-      <h1>Progreso</h1>
+    <fg-page-header
+      title="Progreso"
+      [subtitle]="headerSubtitle()"
+      [trailingActions]="trailingActions"
+    ></fg-page-header>
 
-      <section class="heatmap-section">
-        <h2>Actividad (últimas 12 semanas)</h2>
-        <fg-session-heatmap [heatmapData]="heatmapData()" />
-      </section>
+    <div class="px-4 pt-3 pb-6 flex flex-col gap-4">
+      <!-- Heatmap card -->
+      <fg-card>
+        <div class="t-micro text-forge-500 mb-3">ÚLTIMAS 12 SEMANAS</div>
+        <fg-session-heatmap [heatmapData]="heatmapData()"></fg-session-heatmap>
+      </fg-card>
 
-      <div class="stats-cards">
-        <div class="stat-card">
-          <span class="stat-value">{{ totalPRs() }}</span>
-          <span class="stat-label">PRs totales</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-value">{{ prsThisWeek() }}</span>
-          <span class="stat-label">PRs esta semana</span>
-        </div>
+      <!-- Stat cards (2-up grid) -->
+      <div class="grid grid-cols-2 gap-3">
+        <fg-card>
+          <div class="t-h2 text-forge-50 tabular-nums">{{ totalPRs() }}</div>
+          <div class="t-caption text-forge-500 mt-1">PRs totales</div>
+        </fg-card>
+        <fg-card>
+          <div class="t-h2 text-accent-300 tabular-nums">{{ prsThisWeek() }}</div>
+          <div class="t-caption text-forge-500 mt-1">PRs esta semana</div>
+        </fg-card>
       </div>
 
-      <section class="recent-prs">
-        <h2>Últimos PRs</h2>
-
+      <!-- Recent PRs section -->
+      <section>
+        <div class="t-micro text-forge-500 mb-2">ÚLTIMOS PRS</div>
         @if (loading()) {
-          <p class="loading">Cargando...</p>
+          <fg-card>
+            <fg-skeleton [height]="48"></fg-skeleton>
+          </fg-card>
         } @else if (recentPRs().length === 0) {
-          <p class="empty-state">Aún no tenés PRs registrados. ¡A entrenar!</p>
+          <fg-empty-state
+            icon="dumbbell"
+            title="Aún no tenés PRs"
+            body="Registra tu primer entrenamiento para empezar."
+          ></fg-empty-state>
         } @else {
-          <ul class="pr-list">
+          <fg-card [padding]="0">
             @for (pr of recentPRs(); track pr.id) {
-              <li
-                class="pr-item"
-                role="button"
-                tabindex="0"
+              <button
+                type="button"
+                class="w-full px-4 py-3 flex items-center justify-between
+                       text-left border-b border-forge-800 last:border-b-0"
                 (click)="navigateToExercise(pr.exerciseId)"
-                (keydown.enter)="navigateToExercise(pr.exerciseId)"
-                (keydown.space)="navigateToExercise(pr.exerciseId)"
               >
-                <div class="pr-item__name">{{ exerciseName(pr.exerciseId) }}</div>
-                <div class="pr-item__value">{{ formatValue(pr) }}</div>
-                <div class="pr-item__date">{{ formatDate(pr.achievedAt) }}</div>
-              </li>
+                <span class="t-body text-forge-100">{{ exerciseName(pr.exerciseId) }}</span>
+                <span class="t-body-sm text-accent-300 tabular-nums">{{ formatValue(pr) }}</span>
+              </button>
             }
-          </ul>
-          <button class="view-all-btn" (click)="navigateToPRList()">Ver todos los PRs</button>
+          </fg-card>
+          <button
+            fg-button
+            variant="ghost"
+            size="sm"
+            class="mt-2 w-full"
+            (click)="navigateToPRList()"
+          >Ver todos los PRs</button>
         }
       </section>
     </div>
-  `,
-  styles: `
-    .progress-home {
-      padding: 1rem;
-    }
-    h1 { font-size: 1.5rem; margin-bottom: 1rem; }
-    h2 { font-size: 1.1rem; margin-bottom: 0.75rem; }
-
-    .heatmap-section { margin-bottom: 1.5rem; }
-
-    .stats-cards {
-      display: flex;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-    }
-    .stat-card {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 1rem;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-    }
-    .stat-value { font-size: 2rem; font-weight: bold; color: #4CAF50; }
-    .stat-label { font-size: 0.8rem; color: #666; }
-
-    .pr-list { list-style: none; padding: 0; margin: 0; }
-    .pr-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.75rem;
-      border-bottom: 1px solid #f0f0f0;
-      cursor: pointer;
-    }
-    .pr-item:hover { background: #f9f9f9; }
-    .pr-item__name { font-weight: 500; flex: 1; }
-    .pr-item__value { color: #4CAF50; font-weight: bold; margin: 0 1rem; }
-    .pr-item__date { font-size: 0.8rem; color: #888; }
-
-    .loading, .empty-state { color: #888; text-align: center; padding: 2rem 0; }
-    .view-all-btn {
-      margin-top: 1rem;
-      width: 100%;
-      padding: 0.5rem;
-      border: 1px solid #4CAF50;
-      border-radius: 4px;
-      background: transparent;
-      color: #4CAF50;
-      cursor: pointer;
-    }
   `,
 })
 export class ProgressHomePage implements OnInit {
@@ -144,6 +122,24 @@ export class ProgressHomePage implements OnInit {
     weekStart.setDate(now.getDate() - 7);
     return this.allPRs().filter((pr) => pr.achievedAt >= weekStart).length;
   });
+
+  readonly headerSubtitle = computed<string | undefined>(() => {
+    const total = this.totalPRs();
+    if (total === 0) return undefined;
+    return `${total} PR · ${this.prsThisWeek()} esta semana`;
+  });
+
+  readonly trailingActions: ReadonlyArray<PageHeaderAction> = [
+    {
+      icon: 'calendar',
+      ariaLabel: 'Calendario',
+      click: () => this.openCalendar(),
+    },
+  ];
+
+  openCalendar(): void {
+    // noop — slice D conectará
+  }
 
   ngOnInit(): void {
     void this.init();
