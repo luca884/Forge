@@ -10,6 +10,7 @@ import {
   FgEmptyStateComponent,
   FgIconComponent,
   FgInputComponent,
+  FgPageHeaderComponent,
   FgSkeletonComponent,
   FgToastComponent,
 } from './index';
@@ -21,6 +22,7 @@ import type {
   InputSize,
   InputType,
   InputMode,
+  PageHeaderAction,
   ToastKind,
 } from './index';
 
@@ -48,6 +50,10 @@ describe('core/shared/ui barrel (index.ts)', () => {
 
     it('exports FgInputComponent', () => {
       expect(FgInputComponent).toBeDefined();
+    });
+
+    it('exports FgPageHeaderComponent', () => {
+      expect(FgPageHeaderComponent).toBeDefined();
     });
 
     it('exports FgSkeletonComponent', () => {
@@ -93,6 +99,15 @@ describe('core/shared/ui barrel (index.ts)', () => {
     it('ToastKind type is usable', () => {
       const k: ToastKind = 'success';
       expect(k).toBe('success');
+    });
+
+    it('PageHeaderAction type is usable', () => {
+      const action: PageHeaderAction = {
+        icon: 'calendar',
+        ariaLabel: 'Ver calendario',
+        click: () => {},
+      };
+      expect(action.ariaLabel).toBe('Ver calendario');
     });
   });
 });

@@ -5,5 +5,6 @@ export { FgChipComponent } from './chip/chip.component';
 export { FgEmptyStateComponent } from './empty-state/empty-state.component';
 export { FgIconComponent, ICONS, type IconName } from './icon';
 export { FgInputComponent, type InputSize, type InputType, type InputMode } from './input/input.component';
+export { FgPageHeaderComponent, type PageHeaderAction } from './page-header/page-header.component';
 export { FgSkeletonComponent } from './skeleton/skeleton.component';
 export { FgToastComponent, type ToastKind } from './toast/toast.component';
