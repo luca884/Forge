@@ -191,6 +191,39 @@ describe('TrainingSessionStore', () => {
     });
   });
 
+  describe('elapsedSeconds (D-3)', () => {
+    beforeEach(() => {
+      jest.useFakeTimers({ doNotFake: ['nextTick'] });
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('returns 0 when activeSession is null (V-D3-Spec-1)', () => {
+      // activeSession is null by default in beforeEach
+      expect(store.elapsedSeconds()).toBe(0);
+    });
+
+    it('returns elapsed seconds >= 5 when session started 5s ago after advancing timers (V-D3-Spec-2)', async () => {
+      const startedAt = new Date(Date.now() - 5000);
+      const session = makeSession({ startedAt });
+      sessionRepo.setActiveSession(session);
+      await store.loadActive();
+
+      // Advance the internal tick interval by 1 second
+      jest.advanceTimersByTime(1000);
+      // Re-read signal
+      expect(store.elapsedSeconds()).toBeGreaterThanOrEqual(5);
+    });
+
+    it('calls clearInterval when store is destroyed (V-D3-Spec-3)', () => {
+      const clearSpy = jest.spyOn(global, 'clearInterval');
+      TestBed.resetTestingModule();
+      expect(clearSpy).toHaveBeenCalled();
+    });
+  });
+
   describe('event-driven refresh', () => {
     it('refreshes sets when WorkedSetLogged event fires', async () => {
       const session = makeSession();
