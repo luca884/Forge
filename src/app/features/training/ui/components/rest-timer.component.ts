@@ -7,12 +7,10 @@ import {
   signal,
 } from '@angular/core';
 import { RestTimerService } from '../services/rest-timer.service';
-import { FgIconComponent } from '@core/shared/ui';
 
 @Component({
   selector: 'fg-rest-timer',
   standalone: true,
-  imports: [FgIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [`
     .rest-timer-pinned {

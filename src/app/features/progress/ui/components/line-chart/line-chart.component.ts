@@ -232,7 +232,20 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   private lineColor(idx: number): string {
-    const colors: string[] = ['#4CAF50', '#2196F3', '#FF9800', '#9C27B0'];
-    return colors[idx % colors.length] ?? '#4CAF50';
+    // Primary series resolves to the live --accent-rgb token (consistent with
+    // applyAccentGradient and the rest of the design system). Secondary series
+    // fall back to a fixed multi-hue palette — the design system does not
+    // expose more chart-color tokens yet (R20 fallback path for jsdom).
+    if (idx === 0 && this.canvasRef) {
+      try {
+        const parentEl = this.canvasRef.nativeElement.parentElement ?? this.canvasRef.nativeElement;
+        const accentRgb = getComputedStyle(parentEl).getPropertyValue('--accent-rgb').trim();
+        if (accentRgb) return `rgb(${accentRgb})`;
+      } catch {
+        // jsdom / no layout engine — fall through to palette
+      }
+    }
+    const palette: string[] = ['#4CAF50', '#2196F3', '#FF9800', '#9C27B0'];
+    return palette[idx % palette.length] ?? '#4CAF50';
   }
 }
