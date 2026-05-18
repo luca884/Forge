@@ -151,6 +151,18 @@ describe('ProgressHomePage', () => {
     expect(el.textContent).toContain('PRs esta semana');
   });
 
+  // Skeleton loading state — renders <fg-skeleton> while loading() is true
+  it('renders <fg-skeleton> inside fg-card while loading() is true', () => {
+    fixture = TestBed.createComponent(ProgressHomePage);
+    // Loading defaults to true on init — render BEFORE any async init completes
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const skeleton = el.querySelector('fg-skeleton');
+    expect(skeleton).toBeTruthy();
+    const skeletonInsideCard = skeleton?.closest('fg-card');
+    expect(skeletonInsideCard).toBeTruthy();
+  });
+
   // V-D2-Spec-6: renders fg-empty-state when recentPRs().length === 0
   it('renders <fg-empty-state> (not raw <p class="empty-state">) when no PRs', async () => {
     // Signal the component to show empty state by setting allPRs to empty after loading
