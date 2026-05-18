@@ -14,7 +14,6 @@ import { WorkedSet } from '../../domain/worked-set';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-record.repository';
 import { PersonalRecord } from '@features/progress/domain/entities/personal-record.entity';
-import { TrackingType } from '@core/shared/domain/tracking-type';
 import { FgButtonComponent } from '@core/shared/ui';
 import { FgIconComponent } from '@core/shared/ui';
 
@@ -214,7 +213,7 @@ export class TrainingSessionPage implements OnInit {
     if (!day) return;
 
     if (day.name) {
-      this.dayLabel.set(day.name as string);
+      this.dayLabel.set(day.name);
     }
 
     const exercisesWithData: ExerciseWithData[] = [];
@@ -232,7 +231,7 @@ export class TrainingSessionPage implements OnInit {
       // D-5: capture previous PR BEFORE executing (ADR-38)
       const previousPR = await this.prRepo.getCurrentForExercise(
         input.exerciseId,
-        input.type as TrackingType,
+        input.type,
       );
 
       const set = await this.logSetUseCase.execute(input);
