@@ -114,6 +114,7 @@
   /* === Z-INDEX === */
   /* ── Z-index ────────────────────────────────────────────────────────── */
   --z-header: 10;
+  --z-page-header: 15;
   --z-bottomnav: 20;
   --z-timer-pinned: 25;
   --z-sheet-backdrop: 40;
