@@ -151,8 +151,9 @@ describe('PRListPage', () => {
     });
 
     it('filteredPRs filters to last 30 days when activeFilter is recent-30d', async () => {
-      jest.useFakeTimers();
+      // Set system time before creating component so computed runs with correct Date.now()
       jest.setSystemTime(new Date('2026-01-15'));
+      jest.useFakeTimers({ now: new Date('2026-01-15') });
 
       listAllMock.mockResolvedValue([
         makePR({ id: 'pr-recent', achievedAt: new Date('2026-01-10') }),  // within 30d
@@ -161,7 +162,9 @@ describe('PRListPage', () => {
 
       fixture = TestBed.createComponent(PRListPage);
       fixture.detectChanges();
-      await fixture.whenStable();
+      // Use Promise.resolve chain instead of whenStable() to avoid fake timer deadlock
+      await Promise.resolve();
+      await Promise.resolve();
       await Promise.resolve();
       fixture.detectChanges();
 
@@ -172,8 +175,8 @@ describe('PRListPage', () => {
     });
 
     it('renders empty state with 30d copy when Recientes filter yields no PRs', async () => {
-      jest.useFakeTimers();
       jest.setSystemTime(new Date('2026-01-15'));
+      jest.useFakeTimers({ now: new Date('2026-01-15') });
 
       listAllMock.mockResolvedValue([
         makePR({ id: 'pr-old', achievedAt: new Date('2025-11-01') }),
@@ -181,7 +184,8 @@ describe('PRListPage', () => {
 
       fixture = TestBed.createComponent(PRListPage);
       fixture.detectChanges();
-      await fixture.whenStable();
+      await Promise.resolve();
+      await Promise.resolve();
       await Promise.resolve();
       fixture.detectChanges();
 
@@ -198,9 +202,14 @@ describe('PRListPage', () => {
       await fixture.whenStable();
       await Promise.resolve();
       fixture.detectChanges();
-      const btn = (fixture.nativeElement as HTMLElement).querySelector('button[type="button"]');
-      expect(btn).toBeTruthy();
-      (btn as HTMLElement).click();
+      // Find all buttons and click the one that navigates to exercise (not the page-header back button)
+      const buttons = (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('button[type="button"]');
+      // The PR card button is rendered inside fg-card, after the page-header buttons
+      const prCardBtn = Array.from(buttons).find(
+        (b) => b.className.includes('w-full') || b.closest('fg-card') !== null,
+      );
+      expect(prCardBtn).toBeTruthy();
+      prCardBtn!.click();
       fixture.detectChanges();
       expect(routerNavigateSpy).toHaveBeenCalledWith(['/progress/exercise', 'ex-1']);
     });
