@@ -17,7 +17,7 @@ Si algo aqui contradice el vault, **el vault gana** — actualiza este archivo.
 - **TDD desde dia 1** en `domain/` (value objects, use cases, domain services).
 - **Commits en espanol**, formato conventional. Ejemplo: `feat(training): agrega LogSetUseCase`.
 - **NUNCA** agregar `Co-Authored-By: Claude` (ni similar) en commits.
-- **Nunca** corras `ng build` despues de cambios salvo que se pida explicito (regla Luca).
+- **Nunca** corras `ng build` como post-cambio automatico (regla Luca). Excepcion: si el slice toca templates, `ng build` o `npm start` son el gate canonico de validacion (ver seccion Testing abajo) — eso SI esta permitido.
 
 ## Arquitectura — recordatorio rapido
 
@@ -39,3 +39,17 @@ Si algo aqui contradice el vault, **el vault gana** — actualiza este archivo.
 - Co-located: `foo.ts` + `foo.spec.ts` lado a lado.
 - Strict TDD activo (post-bootstrap). Runner: `npm test`.
 - `fake-indexeddb/auto` esta registrado en `setup-jest.ts` para repositorios con Dexie.
+
+### Gate canonico de templates — Jest NO valida `strictTemplates`
+
+`npm test` (Jest / `jest-preset-angular` + `ts-jest`) **NO valida `strictTemplates` ni binding errors de Angular**. Aunque `tsconfig.json` tenga `"strictTemplates": true`, jest-preset-angular lo ignora al transpilar.
+
+Solo `ngc` (el compilador real de Angular) los detecta. Usarlo via:
+
+- `npm start` (`ng serve`) — falla al boot si hay binding errors. Gate rapido en desarrollo.
+- `npm run build:prod` — gate canonico: strictTemplates + produccion (tree-shaking, AOT completo).
+- `npm run e2e` — corre `ng serve` internamente; sirve como gate de templates indirecto.
+
+**Regla**: antes de cerrar un slice que toca templates (bindings, `@Input`, `@Output`, pipes, directivas), corra `npm start` o `ng build` para confirmar que compila. Tests Jest en verde NO son suficientes.
+
+Origen: slice `e2e-foundation` (archive #564, commit `67716d4`) — 6 errores latentes de templates introducidos en slice 3 WIP no fueron detectados por 869 tests Jest verdes durante semanas. Aparecieron solo al correr `ng serve` durante setup de E2E.
