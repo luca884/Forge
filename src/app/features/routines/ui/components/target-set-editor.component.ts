@@ -1,12 +1,18 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
-import { ReactiveFormsModule } from '@angular/forms';
-import { TargetSet } from '../../domain/target-set';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  input,
+  output,
+} from '@angular/core';
+import { TargetSet, assertNeverTargetSet } from '../../domain/target-set';
 import { TrackingType } from '@core/shared/domain/tracking-type';
+
+type SetField = 'reps' | 'weightKg' | 'extraWeightKg' | 'durationSec' | 'distanceKm';
 
 @Component({
   selector: 'fg-target-set-editor',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="space-y-2">
       <div class="flex items-center justify-between">
@@ -20,9 +26,9 @@ import { TrackingType } from '@core/shared/domain/tracking-type';
         </button>
       </div>
 
-      @for (set of targetSets; track $index; let i = $index) {
+      @for (set of targetSets(); track $index; let i = $index) {
         <div class="border rounded p-2 space-y-1">
-          @switch (trackingType) {
+          @switch (trackingType()) {
             @case ('weight-reps') {
               <div class="flex gap-2">
                 <div class="flex-1">
@@ -131,27 +137,48 @@ import { TrackingType } from '@core/shared/domain/tracking-type';
   `,
 })
 export class TargetSetEditorComponent {
-  @Input() trackingType: TrackingType = 'weight-reps';
-  @Input() targetSets: TargetSet[] = [];
-  @Output() targetSetsChange = new EventEmitter<TargetSet[]>();
+  readonly trackingType = input<TrackingType>('weight-reps');
+  readonly targetSets = input<readonly TargetSet[]>([]);
+  readonly targetSetsChange = output<TargetSet[]>();
 
-  getSetField(index: number, field: string): number | undefined {
-    const set = this.targetSets[index] as unknown as Record<string, unknown>;
-    return set ? (set[field] as number | undefined) : undefined;
+  protected getSetField(index: number, field: SetField): number | undefined {
+    const set = this.targetSets()[index];
+    if (!set) return undefined;
+    switch (set.type) {
+      case 'weight-reps':
+        if (field === 'reps') return set.reps;
+        if (field === 'weightKg') return set.weightKg;
+        return undefined;
+      case 'bodyweight-reps':
+        if (field === 'reps') return set.reps;
+        if (field === 'extraWeightKg') return set.extraWeightKg;
+        return undefined;
+      case 'time':
+        if (field === 'durationSec') return set.durationSec;
+        return undefined;
+      case 'distance-time':
+        if (field === 'distanceKm') return set.distanceKm;
+        if (field === 'durationSec') return set.durationSec;
+        return undefined;
+      default:
+        return assertNeverTargetSet(set);
+    }
   }
 
-  updateSetField(index: number, field: string, event: Event): void {
-    const value = parseFloat((event.target as HTMLInputElement).value);
-    const updatedSets = this.targetSets.map((s, i) => {
+  protected updateSetField(index: number, field: SetField, event: Event): void {
+    const raw = (event.target as HTMLInputElement).value;
+    const value = parseFloat(raw);
+    const next = isNaN(value) ? undefined : value;
+    const updated = this.targetSets().map((s, i) => {
       if (i !== index) return s;
-      return { ...s, [field]: isNaN(value) ? undefined : value } as TargetSet;
+      return { ...s, [field]: next } as TargetSet;
     });
-    this.targetSetsChange.emit(updatedSets);
+    this.targetSetsChange.emit(updated);
   }
 
-  addSet(): void {
+  protected addSet(): void {
     let newSet: TargetSet;
-    switch (this.trackingType) {
+    switch (this.trackingType()) {
       case 'weight-reps':
         newSet = { type: 'weight-reps', reps: 0, weightKg: undefined };
         break;
@@ -165,10 +192,10 @@ export class TargetSetEditorComponent {
         newSet = { type: 'distance-time', distanceKm: 0, durationSec: 0 };
         break;
     }
-    this.targetSetsChange.emit([...this.targetSets, newSet]);
+    this.targetSetsChange.emit([...this.targetSets(), newSet]);
   }
 
-  removeSet(index: number): void {
-    this.targetSetsChange.emit(this.targetSets.filter((_, i) => i !== index));
+  protected removeSet(index: number): void {
+    this.targetSetsChange.emit(this.targetSets().filter((_, i) => i !== index));
   }
 }
