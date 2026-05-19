@@ -217,4 +217,59 @@ describe('SetLoggerComponent', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Set logueado');
   });
+
+  // ── WEIGHT VALIDATOR min(0.1) — carry-over E1 ─────────────────────────────
+
+  it('form is INVALID when weightKg=0 for weight-reps (peso debe ser > 0)', () => {
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('exerciseId', 'ex-1');
+    fixture.componentRef.setInput('trackingType', 'weight-reps');
+    fixture.detectChanges();
+
+    // Default initial value is 0 — should be invalid after fixing min to 0.1
+    fixture.componentInstance.form.controls.weightKg.setValue(0);
+    expect(fixture.componentInstance.form.controls.weightKg.valid).toBe(false);
+  });
+
+  it('form is VALID when weightKg=0.5 for weight-reps', () => {
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('exerciseId', 'ex-1');
+    fixture.componentRef.setInput('trackingType', 'weight-reps');
+    fixture.detectChanges();
+
+    fixture.componentInstance.form.controls.weightKg.setValue(0.5);
+    expect(fixture.componentInstance.form.controls.weightKg.valid).toBe(true);
+  });
+
+  it('submit button is disabled when weightKg=0', () => {
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('exerciseId', 'ex-1');
+    fixture.componentRef.setInput('trackingType', 'weight-reps');
+    fixture.componentRef.setInput('prefillReps', 8);
+    fixture.detectChanges();
+
+    fixture.componentInstance.form.controls.weightKg.setValue(0);
+    fixture.detectChanges();
+
+    const btn = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('button[fg-button][type="submit"]');
+    expect(btn).toBeTruthy();
+    expect(btn!.disabled).toBe(true);
+  });
+
+  it('setLogged does NOT emit when weightKg=0 (submit guard)', () => {
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('exerciseId', 'ex-1');
+    fixture.componentRef.setInput('trackingType', 'weight-reps');
+    fixture.componentRef.setInput('prefillReps', 8);
+    fixture.detectChanges();
+
+    const captured: LogSetInput[] = [];
+    fixture.componentInstance.setLogged.subscribe((v: LogSetInput) => captured.push(v));
+
+    // weight=0 → form invalid → submit should not emit
+    fixture.componentInstance.form.controls.weightKg.setValue(0);
+    fixture.componentInstance.onSubmit();
+
+    expect(captured).toHaveLength(0);
+  });
 });
