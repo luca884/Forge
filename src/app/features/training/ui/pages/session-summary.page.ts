@@ -8,7 +8,7 @@ import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
 import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-record.repository';
 import { PersonalRecord } from '@features/progress/domain/entities/personal-record.entity';
-import { FgButtonComponent, FgChipComponent, FgIconComponent } from '@core/shared/ui';
+import { FgButtonComponent, FgCardComponent, FgChipComponent, FgIconComponent } from '@core/shared/ui';
 
 /** Format elapsed seconds as M:SS or H:MM:SS */
 function formatHMS(totalSeconds: number): string {
@@ -43,7 +43,7 @@ interface PrRow {
 @Component({
   selector: 'fg-session-summary-page',
   standalone: true,
-  imports: [DisplayWeightPipe, FgButtonComponent, FgChipComponent, FgIconComponent],
+  imports: [DisplayWeightPipe, FgButtonComponent, FgCardComponent, FgChipComponent, FgIconComponent],
   template: `
     <div class="min-h-screen bg-forge-950 text-forge-100 flex flex-col">
       <header class="sticky top-0 z-10 px-5 pt-1 pb-3 bg-forge-950">
@@ -61,7 +61,7 @@ interface PrRow {
 
       <main class="flex-1 overflow-y-auto px-5 pb-24 pt-3 flex flex-col gap-4">
         <!-- Volume hero -->
-        <div fg-card class="p-5 relative overflow-hidden">
+        <fg-card [padding]="20" class="relative overflow-hidden">
           <div class="absolute inset-0 pointer-events-none"
                style="background: radial-gradient(80% 60% at 50% 0%, rgba(var(--accent-rgb),0.18), transparent 60%);">
           </div>
@@ -74,39 +74,39 @@ interface PrRow {
               <div class="t-body-sm text-forge-500 mt-1">Sin volumen registrado</div>
             }
           </div>
-        </div>
+        </fg-card>
 
         <!-- 4-stat grid -->
         <div class="grid grid-cols-2 gap-2.5">
-          <div fg-card class="p-4">
+          <fg-card>
             <div class="t-caption text-forge-500">Sets</div>
             <div class="t-num text-forge-50 mt-1 tabular-nums text-[28px] font-semibold tracking-tight">
               {{ totalSets() }}
             </div>
-          </div>
-          <div fg-card class="p-4">
+          </fg-card>
+          <fg-card>
             <div class="t-caption text-forge-500">Reps totales</div>
             <div class="t-num text-forge-50 mt-1 tabular-nums text-[28px] font-semibold tracking-tight">
               {{ totalReps() }}
             </div>
-          </div>
-          <div fg-card class="p-4">
+          </fg-card>
+          <fg-card>
             <div class="t-caption text-forge-500">Duración</div>
             <div class="t-num text-forge-50 mt-1 tabular-nums font-mono text-[28px] font-semibold tracking-tight">
               {{ duration() ?? '—' }}
             </div>
-          </div>
-          <div fg-card class="p-4">
+          </fg-card>
+          <fg-card>
             <div class="t-caption text-forge-500">Descanso prom.</div>
             <div class="t-num text-forge-50 mt-1 tabular-nums font-mono text-[28px] font-semibold tracking-tight">—</div>
-          </div>
+          </fg-card>
         </div>
 
         <!-- New PRs -->
         @if (prRows().length > 0) {
           <section>
             <div class="t-micro text-forge-500 px-1">NUEVOS PR</div>
-            <div fg-card class="mt-2.5 p-0">
+            <fg-card [padding]="0" class="mt-2.5">
               @for (row of prRows(); track row.set.id; let last = $last) {
                 <div class="px-3.5 py-3 flex items-center gap-3"
                      [class.border-b]="!last">
@@ -123,14 +123,14 @@ interface PrRow {
                   }
                 </div>
               }
-            </div>
+            </fg-card>
           </section>
         }
 
         <!-- Per-exercise breakdown -->
         <section>
           <div class="t-micro text-forge-500 px-1">EJERCICIOS</div>
-          <div fg-card class="mt-2.5 p-0">
+          <fg-card [padding]="0" class="mt-2.5">
             @for (row of exerciseRows(); track row.exerciseId; let last = $last) {
               <div class="px-3.5 py-3 flex items-center justify-between gap-2.5"
                    [class.border-b]="!last">
@@ -147,7 +147,7 @@ interface PrRow {
             } @empty {
               <p class="px-3.5 py-3 t-body text-forge-500">No se registraron series.</p>
             }
-          </div>
+          </fg-card>
         </section>
 
         <!-- Individual set detail (per-set weight/reps for unit display) -->
