@@ -23,6 +23,7 @@ import { EditRoutineUseCase } from '../../domain/use-cases/edit-routine.use-case
 import { AddTrainingDayUseCase } from '../../domain/use-cases/add-training-day.use-case';
 import { RemoveTrainingDayUseCase } from '../../domain/use-cases/remove-training-day.use-case';
 import { TrainingDayRepository } from '../../domain/training-day.repository';
+import { RoutineRepository } from '../../domain/routine.repository';
 
 @Component({
   selector: 'fg-routine-editor-page',
@@ -142,6 +143,7 @@ export class RoutineEditorPage implements OnInit {
   private readonly addTrainingDay = inject(AddTrainingDayUseCase);
   private readonly removeTrainingDay = inject(RemoveTrainingDayUseCase);
   private readonly dayRepo = inject(TrainingDayRepository);
+  private readonly routineRepo = inject(RoutineRepository);
 
   readonly routineId = signal<string | null>(null);
   readonly trainingDays = signal<TrainingDay[]>([]);
@@ -170,7 +172,15 @@ export class RoutineEditorPage implements OnInit {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.routineId.set(id);
+      void this.loadRoutine(id);
       void this.loadDays(id);
+    }
+  }
+
+  async loadRoutine(id: string): Promise<void> {
+    const routine = await this.routineRepo.getById(id);
+    if (routine) {
+      this.form.patchValue({ name: routine.name, description: routine.description ?? '' });
     }
   }
 
