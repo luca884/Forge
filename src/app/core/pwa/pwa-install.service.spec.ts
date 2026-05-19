@@ -16,11 +16,12 @@ describe('PwaInstallService', () => {
 
   beforeEach(() => {
     // Capture event listeners so we can fire them manually
-    addEventListenerSpy = jest
-      .spyOn(window, 'addEventListener')
-      .mockImplementation((type: string, listener: EventListenerOrEventListenerObject) => {
+    addEventListenerSpy = jest.spyOn(window, 'addEventListener');
+    addEventListenerSpy.mockImplementation(
+      (type: string, listener: EventListenerOrEventListenerObject) => {
         listeners.set(type, listener as EventListener);
-      });
+      },
+    );
 
     TestBed.configureTestingModule({});
     service = TestBed.inject(PwaInstallService);

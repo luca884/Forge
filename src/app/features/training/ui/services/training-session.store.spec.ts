@@ -238,7 +238,7 @@ describe('TrainingSessionStore', () => {
     });
 
     it('calls clearInterval when store is destroyed (V-D3-Spec-3)', () => {
-      const clearSpy = jest.spyOn(global, 'clearInterval');
+      const clearSpy: jest.SpyInstance = jest.spyOn(global, 'clearInterval');
       TestBed.resetTestingModule(); // triggers DestroyRef.onDestroy
       expect(clearSpy).toHaveBeenCalled();
       clearSpy.mockRestore();
