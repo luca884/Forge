@@ -208,7 +208,7 @@ export class SetLoggerComponent implements OnInit {
 
   readonly form = this.fb.group({
     reps: [0, [Validators.min(0)]],
-    weightKg: [0, [Validators.min(0)]],
+    weightKg: [0, [Validators.min(0.1)]],
     extraWeightKg: [null as number | null],
     durationSec: [0, [Validators.min(0)]],
     distanceKm: [0, [Validators.min(0)]],

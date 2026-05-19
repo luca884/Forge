@@ -248,8 +248,11 @@ export class TrainingSessionPage implements OnInit {
         this.latestPrDelta.set(this.formatDelta(set, previousPR));
         this.prVisible.set(true);
       }
-    } catch {
-      // Error handling — silently skip in v1
+    } catch (err) {
+      // Defensive — should not happen if form validator min(0.1) is in place (carry-over E1)
+      if (typeof ngDevMode !== 'undefined' && ngDevMode) {
+        console.error('[TrainingSessionPage] onSetLogged error (should be unreachable):', err);
+      }
     }
   }
 
