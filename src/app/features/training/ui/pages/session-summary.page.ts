@@ -8,7 +8,7 @@ import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
 import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-record.repository';
 import { PersonalRecord } from '@features/progress/domain/entities/personal-record.entity';
-import { FgButtonComponent, FgCardComponent, FgChipComponent, FgIconComponent } from '@core/shared/ui';
+import { FgButtonComponent, FgChipComponent, FgIconComponent } from '@core/shared/ui';
 
 /** Format elapsed seconds as M:SS or H:MM:SS */
 function formatHMS(totalSeconds: number): string {
@@ -43,7 +43,7 @@ interface PrRow {
 @Component({
   selector: 'fg-session-summary-page',
   standalone: true,
-  imports: [DisplayWeightPipe, FgButtonComponent, FgCardComponent, FgChipComponent, FgIconComponent],
+  imports: [DisplayWeightPipe, FgButtonComponent, FgChipComponent, FgIconComponent],
   template: `
     <div class="min-h-screen bg-forge-950 text-forge-100 flex flex-col">
       <header class="sticky top-0 z-10 px-5 pt-1 pb-3 bg-forge-950">
