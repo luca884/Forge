@@ -3,6 +3,8 @@ import { RoutineRepository } from '../domain/routine.repository';
 import { DexieRoutineRepository } from '../data/dexie-routine.repository';
 import { TrainingDayRepository } from '../domain/training-day.repository';
 import { DexieTrainingDayRepository } from '../data/dexie-training-day.repository';
+import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
+import { DexieExerciseRepository } from '@features/exercises/data/dexie-exercise.repository';
 
 export default [
   {
@@ -10,6 +12,7 @@ export default [
     providers: [
       { provide: RoutineRepository, useClass: DexieRoutineRepository },
       { provide: TrainingDayRepository, useClass: DexieTrainingDayRepository },
+      { provide: ExerciseRepository, useClass: DexieExerciseRepository },
     ],
     children: [
       {
