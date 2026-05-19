@@ -17,10 +17,11 @@ interface Fixtures {
 export const test = base.extend<Fixtures>({
   cleanDb: [
     async ({ page: _page }, use) => {
-      // Navigate to about:blank so the browser context has an origin where
-      // indexedDB is accessible. The delete happens before the app boots,
-      // so no Dexie connection is open — `onblocked` should not fire.
-      await _page.goto('about:blank');
+      // Navigate to the app origin so IndexedDB is accessible.
+      // about:blank does not have IDB access (SecurityError in Chromium).
+      // A goto('/') boots the app briefly, but the DB delete happens immediately
+      // after — no Dexie connection has time to establish and `onblocked` should not fire.
+      await _page.goto('/');
       await _page.evaluate(
         () =>
           new Promise<void>((resolve, reject) => {
