@@ -1,10 +1,11 @@
 /**
- * PRListPage spec (D-7).
+ * PRListPage spec (D-7, D-2 redesign).
  * TDD strict — RED before implementation.
  * Verifies unit-aware formatting via UserPreferencesService mock.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { signal } from '@angular/core';
+import { signal, NO_ERRORS_SCHEMA } from '@angular/core';
+import { By } from '@angular/platform-browser';
 import { PRListPage } from './pr-list.page';
 // GetAllPersonalRecordsUseCase is in component providers — not mocked at TestBed level
 import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
@@ -48,6 +49,7 @@ describe('PRListPage', () => {
 
     await TestBed.configureTestingModule({
       imports: [PRListPage],
+      schemas: [NO_ERRORS_SCHEMA],
       providers: [
         { provide: UserPreferencesService, useValue: { unit: unitSignal, loadOnce: loadOnceSpy } },
         // GetAllPersonalRecordsUseCase is in component providers[] so component creates its own instance.
@@ -85,5 +87,122 @@ describe('PRListPage', () => {
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('100 kg');
+  });
+
+  describe('redesign D-2', () => {
+    let routerNavigateSpy: jest.Mock;
+    let listAllMock: jest.Mock;
+
+    function makePR(overrides: Partial<PersonalRecord>): PersonalRecord {
+      const set: WorkedSet = {
+        id: 'ws-default',
+        sessionId: 's-1',
+        exerciseId: 'ex-1',
+        type: 'weight-reps',
+        reps: { value: 5 } as any,
+        weight: { value: 100 } as any,
+        isPR: true,
+        createdAt: new Date('2026-01-01'),
+      } as WorkedSet;
+      return {
+        id: 'pr-default',
+        exerciseId: 'ex-1',
+        set,
+        achievedAt: new Date('2026-01-01'),
+        trackingType: 'weight-reps',
+        workedSetId: 'ws-default',
+        ...overrides,
+      };
+    }
+
+    beforeEach(() => {
+      routerNavigateSpy = TestBed.inject(Router).navigate as jest.Mock;
+      listAllMock = TestBed.inject(PersonalRecordRepository).listAll as jest.Mock;
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('renders fg-page-header with "Records personales" title', async () => {
+      fixture = TestBed.createComponent(PRListPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await Promise.resolve();
+      fixture.detectChanges();
+      const header = fixture.debugElement.query(By.css('fg-page-header'));
+      expect(header).toBeTruthy();
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('Records personales');
+    });
+
+    it('tapping Recientes chip sets activeFilter to recent-30d', async () => {
+      fixture = TestBed.createComponent(PRListPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await Promise.resolve();
+      fixture.detectChanges();
+      const chips = fixture.debugElement.queryAll(By.css('fg-chip'));
+      const recientesChip = chips.find(
+        (c) => c.nativeElement.textContent.trim() === 'Recientes',
+      );
+      expect(recientesChip).toBeTruthy();
+      recientesChip!.triggerEventHandler('tap', undefined);
+      expect(fixture.componentInstance.activeFilter()).toBe('recent-30d');
+    });
+
+    it('filteredPRs filters to last 30 days when activeFilter is recent-30d', async () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-01-15'));
+
+      listAllMock.mockResolvedValue([
+        makePR({ id: 'pr-recent', achievedAt: new Date('2026-01-10') }),  // within 30d
+        makePR({ id: 'pr-old', achievedAt: new Date('2025-11-01') }),     // older than 30d
+      ]);
+
+      fixture = TestBed.createComponent(PRListPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await Promise.resolve();
+      fixture.detectChanges();
+
+      fixture.componentInstance.setFilter('recent-30d');
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.filteredPRs().length).toBe(1);
+    });
+
+    it('renders empty state with 30d copy when Recientes filter yields no PRs', async () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-01-15'));
+
+      listAllMock.mockResolvedValue([
+        makePR({ id: 'pr-old', achievedAt: new Date('2025-11-01') }),
+      ]);
+
+      fixture = TestBed.createComponent(PRListPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await Promise.resolve();
+      fixture.detectChanges();
+
+      fixture.componentInstance.setFilter('recent-30d');
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.textContent).toContain('Sin PRs en los últimos 30 días');
+    });
+
+    it('clicking PR card button navigates to exercise page', async () => {
+      fixture = TestBed.createComponent(PRListPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await Promise.resolve();
+      fixture.detectChanges();
+      const btn = (fixture.nativeElement as HTMLElement).querySelector('button[type="button"]');
+      expect(btn).toBeTruthy();
+      (btn as HTMLElement).click();
+      fixture.detectChanges();
+      expect(routerNavigateSpy).toHaveBeenCalledWith(['/progress/exercise', 'ex-1']);
+    });
   });
 });
