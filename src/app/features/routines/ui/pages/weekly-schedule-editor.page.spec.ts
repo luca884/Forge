@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { WeeklyScheduleEditorPage } from './weekly-schedule-editor.page';
@@ -180,25 +180,41 @@ describe('WeeklyScheduleEditorPage', () => {
       );
     });
 
-    it('fakeAsync: save success → successMessage visible + navigate(["/routines","r-1"]) AFTER tick(1000)', fakeAsync(async () => {
-      const { fixture, navigateSpy } = makeFixture();
-      await flush(fixture);
+    it('save success → successMessage visible inmediatamente, navigate llamado tras 1000ms timeout', async () => {
+      // Strategy: spy on setTimeout to capture the callback, then call it manually.
+      // This avoids fakeAsync/tick incompatibility with Jest mock Promises.
+      let capturedCallback: (() => void) | null = null;
+      const setTimeoutSpy: jest.SpyInstance = jest.spyOn(global, 'setTimeout');
+      setTimeoutSpy.mockImplementation((fn: TimerHandler) => {
+        capturedCallback = fn as () => void;
+        return 0 as unknown as ReturnType<typeof setTimeout>;
+      });
 
-      fixture.componentInstance.trailingActions[0]!.click();
-      await flush(fixture);
+      try {
+        const { fixture, navigateSpy } = makeFixture();
+        await flush(fixture);
 
-      // successMessage should be set before tick(1000)
-      expect(fixture.componentInstance.successMessage()).toBeTruthy();
-      const successP = fixture.debugElement.query(By.css('p[role="status"]'));
-      expect(successP).toBeTruthy();
+        // Trigger save
+        fixture.componentInstance.trailingActions[0]!.click();
+        await flush(fixture);
 
-      // navigate NOT yet called
-      expect(navigateSpy).not.toHaveBeenCalled();
+        // successMessage should be set (save completed, setTimeout captured but not yet called)
+        expect(fixture.componentInstance.successMessage()).toBeTruthy();
+        const successP = fixture.debugElement.query(By.css('p[role="status"]'));
+        expect(successP).toBeTruthy();
 
-      tick(1000);
-      fixture.detectChanges();
-      expect(navigateSpy).toHaveBeenCalledWith(['/routines', 'r-1']);
-    }));
+        // navigate NOT yet called
+        expect(navigateSpy).not.toHaveBeenCalled();
+
+        // Call the captured callback (simulates 1000ms passing)
+        expect(capturedCallback).not.toBeNull();
+        capturedCallback!();
+        fixture.detectChanges();
+        expect(navigateSpy).toHaveBeenCalledWith(['/routines', 'r-1']);
+      } finally {
+        setTimeoutSpy.mockRestore();
+      }
+    });
 
     it('save rejects → errorMessage visible, router.navigate NOT called', async () => {
       const { fixture, setScheduleSpy, navigateSpy } = makeFixture();

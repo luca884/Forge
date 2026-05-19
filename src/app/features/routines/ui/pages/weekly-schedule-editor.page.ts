@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TrainingDay } from '../../domain/training-day.entity';
@@ -6,6 +6,12 @@ import { TrainingDayRepository } from '../../domain/training-day.repository';
 import { RoutineRepository } from '../../domain/routine.repository';
 import { SetWeeklyScheduleUseCase } from '../../domain/use-cases/set-weekly-schedule.use-case';
 import { WeeklySchedule, DAYS_OF_WEEK, DayOfWeek } from '../../domain/value-objects/weekly-schedule';
+import {
+  FgPageHeaderComponent,
+  FgSkeletonComponent,
+  FgCardComponent,
+  type PageHeaderAction,
+} from '@core/shared/ui';
 
 const DOW_LABELS: Record<DayOfWeek, string> = {
   monday: 'Lunes',
@@ -27,26 +33,33 @@ const DOW_LABELS: Record<DayOfWeek, string> = {
 @Component({
   selector: 'fg-weekly-schedule-editor-page',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, FgPageHeaderComponent, FgSkeletonComponent, FgCardComponent],
   providers: [SetWeeklyScheduleUseCase],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="p-4">
-      <div class="flex items-center gap-2 mb-4">
-        <button type="button" class="text-forge-300" (click)="cancel()">← Volver</button>
-        <h1 class="text-xl font-bold">Programa semanal</h1>
-      </div>
+    <fg-page-header
+      title="Programa semanal"
+      leadingIcon="chevron-left"
+      [trailingActions]="trailingActions"
+      (leadingClick)="cancel()"
+    ></fg-page-header>
 
+    <div class="px-4 pt-3 pb-6">
       @if (loading()) {
-        <p class="text-forge-400">Cargando...</p>
+        <fg-card>
+          <fg-skeleton [height]="44"></fg-skeleton>
+        </fg-card>
       } @else {
-        <form [formGroup]="form" (ngSubmit)="save()" class="space-y-3">
+        <form [formGroup]="form" class="flex flex-col gap-3">
           @for (dow of daysOfWeek; track dow) {
             <div class="flex items-center gap-3">
-              <label [for]="'schedule-' + dow" class="w-28 text-sm font-medium">{{ dowLabel(dow) }}</label>
+              <label [for]="'schedule-' + dow" class="t-body-sm text-forge-300 w-28 flex-shrink-0">
+                {{ dowLabel(dow) }}
+              </label>
               <select
                 [id]="'schedule-' + dow"
                 [formControlName]="dow"
-                class="flex-1 border rounded p-2 text-sm"
+                class="h-11 flex-1 rounded-md bg-forge-900 px-3 text-forge-50 text-[15px] ring-1 ring-inset ring-forge-800 outline-none focus:ring-accent-500"
               >
                 <option [value]="''">— Día de descanso —</option>
                 @for (day of trainingDays(); track day.id) {
@@ -57,29 +70,12 @@ const DOW_LABELS: Record<DayOfWeek, string> = {
           }
 
           @if (errorMessage()) {
-            <p class="text-red-500 text-sm" role="alert">{{ errorMessage() }}</p>
+            <p role="alert" class="t-body-sm text-destructive-500">{{ errorMessage() }}</p>
           }
 
           @if (successMessage()) {
-            <p class="text-green-600 text-sm" role="status">{{ successMessage() }}</p>
+            <p role="status" class="t-body-sm text-accent-300">{{ successMessage() }}</p>
           }
-
-          <div class="flex gap-3 mt-4">
-            <button
-              type="submit"
-              [disabled]="saving()"
-              class="flex-1 bg-accent-500 text-forge-50 py-2 rounded disabled:opacity-50"
-            >
-              {{ saving() ? 'Guardando...' : 'Guardar' }}
-            </button>
-            <button
-              type="button"
-              (click)="cancel()"
-              class="flex-1 border border-forge-700 text-forge-200 py-2 rounded"
-            >
-              Cancelar
-            </button>
-          </div>
         </form>
       }
     </div>
@@ -89,6 +85,7 @@ export class WeeklyScheduleEditorPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  // Direct repo access — aceptado en proposal slice F §verification
   private readonly routineRepo = inject(RoutineRepository);
   private readonly dayRepo = inject(TrainingDayRepository);
   private readonly setScheduleUseCase = inject(SetWeeklyScheduleUseCase);
@@ -109,6 +106,10 @@ export class WeeklyScheduleEditorPage implements OnInit {
     saturday: [''],
     sunday: [''],
   });
+
+  readonly trailingActions: readonly PageHeaderAction[] = [
+    { icon: 'check', ariaLabel: 'Guardar programa', click: () => { void this.save(); } },
+  ];
 
   private routineId!: string;
 
