@@ -51,7 +51,7 @@ export interface PageHeaderAction {
         }
       </div>
       <div class="fg-page-header__titles">
-        <div class="t-h1 text-forge-50">{{ title() }}</div>
+        <h1 class="t-h1 text-forge-50">{{ title() }}</h1>
         @if (subtitle(); as s) {
           <div class="t-body-sm text-forge-500 mt-0.5">{{ s }}</div>
         }
