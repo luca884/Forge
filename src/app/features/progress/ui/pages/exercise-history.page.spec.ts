@@ -1,10 +1,11 @@
 /**
- * ExerciseHistoryPage spec (D-8).
+ * ExerciseHistoryPage spec (D-8, D-1 redesign).
  * TDD strict — RED before implementation.
  * Verifies unit-aware rendering via UserPreferencesService mock.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
+import { By } from '@angular/platform-browser';
 import { ExerciseHistoryPage } from './exercise-history.page';
 import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
@@ -139,5 +140,115 @@ describe('ExerciseHistoryPage', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     expect(fixture.componentInstance.unit()).toBe('lb');
+  });
+
+  describe('redesign D-1', () => {
+    let routerNavigateSpy: jest.Mock;
+    let getAllWorkedSetsMock: jest.Mock;
+
+    function makeSet(overrides: Partial<WorkedSet>): WorkedSet {
+      return {
+        id: 'ws-default',
+        sessionId: 's-1',
+        exerciseId: 'ex-1',
+        type: 'weight-reps',
+        reps: { value: 5 } as any,
+        weight: { value: 100 } as any,
+        isPR: false,
+        createdAt: new Date('2026-01-01'),
+        ...overrides,
+      } as WorkedSet;
+    }
+
+    beforeEach(() => {
+      routerNavigateSpy = TestBed.inject(Router).navigate as jest.Mock;
+      getAllWorkedSetsMock = TestBed.inject(SessionRepository).getAllWorkedSetsForExercise as jest.Mock;
+    });
+
+    it('renders fg-page-header after init', async () => {
+      fixture = TestBed.createComponent(ExerciseHistoryPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      fixture.detectChanges();
+      const header = fixture.debugElement.query(By.css('fg-page-header'));
+      expect(header).toBeTruthy();
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('Historial');
+    });
+
+    it('leadingClick on fg-page-header navigates to /progress', async () => {
+      fixture = TestBed.createComponent(ExerciseHistoryPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      fixture.detectChanges();
+      const header = fixture.debugElement.query(By.css('fg-page-header'));
+      header.triggerEventHandler('leadingClick', undefined);
+      expect(routerNavigateSpy).toHaveBeenCalledWith(['/progress']);
+    });
+
+    it('groupedHistory groups sets by sessionId', async () => {
+      getAllWorkedSetsMock.mockResolvedValue([
+        makeSet({ id: 'ws-a', sessionId: 's-1', createdAt: new Date('2026-01-01') }),
+        makeSet({ id: 'ws-b', sessionId: 's-1', createdAt: new Date('2026-01-01') }),
+        makeSet({ id: 'ws-c', sessionId: 's-2', createdAt: new Date('2026-01-02') }),
+      ]);
+      fixture = TestBed.createComponent(ExerciseHistoryPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      fixture.detectChanges();
+      expect(fixture.componentInstance.groupedHistory().length).toBe(2);
+    });
+
+    it('renders fg-chip with "PR" text when session hasPR', async () => {
+      getAllWorkedSetsMock.mockResolvedValue([
+        makeSet({ id: 'ws-pr', sessionId: 's-pr', isPR: true, createdAt: new Date('2026-01-03') }),
+      ]);
+      fixture = TestBed.createComponent(ExerciseHistoryPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      fixture.detectChanges();
+      const chip = fixture.debugElement.query(By.css('fg-chip'));
+      expect(chip).toBeTruthy();
+      expect(chip.nativeElement.textContent.trim()).toBe('PR');
+    });
+
+    it('does not render fg-chip when no set in session is a PR', async () => {
+      getAllWorkedSetsMock.mockResolvedValue([
+        makeSet({ id: 'ws-no-pr', sessionId: 's-1', isPR: false, createdAt: new Date('2026-01-01') }),
+      ]);
+      fixture = TestBed.createComponent(ExerciseHistoryPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      fixture.detectChanges();
+      const chip = fixture.debugElement.query(By.css('fg-chip'));
+      expect(chip).toBeNull();
+    });
+
+    it('renders fg-empty-state when history is empty', async () => {
+      getAllWorkedSetsMock.mockResolvedValue([]);
+      fixture = TestBed.createComponent(ExerciseHistoryPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      fixture.detectChanges();
+      const emptyState = fixture.debugElement.query(By.css('fg-empty-state'));
+      expect(emptyState).toBeTruthy();
+    });
   });
 });
