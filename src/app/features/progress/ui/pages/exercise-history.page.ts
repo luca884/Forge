@@ -28,14 +28,14 @@ import {
   FgEmptyStateComponent,
 } from '@core/shared/ui';
 
-/** Session grouping — local type, single-file use. */
-type SessionGroup = {
+/** Session grouping — local interface, single-file use. */
+interface SessionGroup {
   readonly sessionId: string;
   /** first-set timestamp semantics; if needed in future, promote to GetSessionsForExerciseUseCase */
   readonly date: Date;
   readonly sets: readonly WorkedSet[];
   readonly hasPR: boolean;
-};
+}
 
 @Component({
   selector: 'fg-exercise-history-page',
@@ -156,9 +156,10 @@ export class ExerciseHistoryPage implements OnInit {
     }
     const groups: SessionGroup[] = [];
     for (const [sessionId, sets] of byId) {
+      if (sets.length === 0) continue;
       groups.push({
         sessionId,
-        date: sets[0].createdAt,
+        date: sets[0]!.createdAt,
         sets,
         hasPR: sets.some((s) => s.isPR),
       });

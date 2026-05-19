@@ -116,7 +116,9 @@ describe('PRListPage', () => {
     }
 
     beforeEach(() => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       routerNavigateSpy = TestBed.inject(Router).navigate as jest.Mock;
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       listAllMock = TestBed.inject(PersonalRecordRepository).listAll as jest.Mock;
     });
 
@@ -143,7 +145,7 @@ describe('PRListPage', () => {
       fixture.detectChanges();
       const chips = fixture.debugElement.queryAll(By.css('fg-chip'));
       const recientesChip = chips.find(
-        (c) => c.nativeElement.textContent.trim() === 'Recientes',
+        (c) => (c.nativeElement as HTMLElement).textContent?.trim() === 'Recientes',
       );
       expect(recientesChip).toBeTruthy();
       recientesChip!.triggerEventHandler('tap', undefined);

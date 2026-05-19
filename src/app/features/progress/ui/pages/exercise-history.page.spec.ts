@@ -163,7 +163,9 @@ describe('ExerciseHistoryPage', () => {
     }
 
     beforeEach(() => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       routerNavigateSpy = TestBed.inject(Router).navigate as jest.Mock;
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       getAllWorkedSetsMock = TestBed.inject(SessionRepository).getAllWorkedSetsForExercise as jest.Mock;
     });
 
@@ -222,7 +224,7 @@ describe('ExerciseHistoryPage', () => {
       fixture.detectChanges();
       const chips = fixture.debugElement.queryAll(By.css('fg-chip'));
       const prChip = chips.find(
-        (c) => c.nativeElement.textContent.trim() === 'PR',
+        (c) => (c.nativeElement as HTMLElement).textContent?.trim() === 'PR',
       );
       expect(prChip).toBeTruthy();
     });
@@ -240,7 +242,7 @@ describe('ExerciseHistoryPage', () => {
       fixture.detectChanges();
       const chips = fixture.debugElement.queryAll(By.css('fg-chip'));
       const prChip = chips.find(
-        (c) => c.nativeElement.textContent.trim() === 'PR',
+        (c) => (c.nativeElement as HTMLElement).textContent?.trim() === 'PR',
       );
       expect(prChip).toBeUndefined();
     });
