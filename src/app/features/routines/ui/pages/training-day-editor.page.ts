@@ -1,87 +1,118 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  inject,
+  signal,
+} from '@angular/core';
+import {
+  FormBuilder,
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { TrainingDay, ExerciseInDay } from '../../domain/training-day.entity';
+import {
+  FgPageHeaderComponent,
+  FgInputComponent,
+  FgCardComponent,
+  FgEmptyStateComponent,
+  FgButtonComponent,
+  FgIconComponent,
+  type PageHeaderAction,
+} from '@core/shared/ui';
+import {
+  GetTrainingDayWithExercisesUseCase,
+  type TrainingDayView,
+  type ExerciseInDayView,
+} from '../../domain/use-cases/get-training-day-with-exercises.use-case';
 import { EditTrainingDayUseCase } from '../../domain/use-cases/edit-training-day.use-case';
 import { RemoveExerciseFromDayUseCase } from '../../domain/use-cases/remove-exercise-from-day.use-case';
-import { TrainingDayRepository } from '../../domain/training-day.repository';
 
 @Component({
   selector: 'fg-training-day-editor-page',
   standalone: true,
-  imports: [ReactiveFormsModule],
-  providers: [EditTrainingDayUseCase, RemoveExerciseFromDayUseCase],
+  imports: [
+    ReactiveFormsModule,
+    FgPageHeaderComponent,
+    FgInputComponent,
+    FgCardComponent,
+    FgEmptyStateComponent,
+    FgButtonComponent,
+    FgIconComponent,
+  ],
+  providers: [
+    GetTrainingDayWithExercisesUseCase,
+    EditTrainingDayUseCase,
+    RemoveExerciseFromDayUseCase,
+  ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="p-4">
-      <div class="flex items-center gap-2 mb-4">
-        <button class="text-forge-300" (click)="back()">← Volver</button>
-        <h1 class="text-xl font-bold">Editar día</h1>
-      </div>
+    <fg-page-header
+      title="Editar día"
+      leadingIcon="chevron-left"
+      [trailingActions]="trailingActions"
+      (leadingClick)="back()"
+    ></fg-page-header>
 
-      <form [formGroup]="form" (ngSubmit)="save()" class="space-y-4 mb-6">
-        <div>
-          <label for="day-name" class="block text-sm font-medium mb-1">Nombre del día</label>
-          <input
-            id="day-name"
-            formControlName="name"
-            class="w-full border rounded p-2"
-            placeholder="Ej: Día A"
-          />
-        </div>
-
-        <div>
-          <label for="day-label" class="block text-sm font-medium mb-1">Etiqueta (opcional)</label>
-          <input
-            id="day-label"
-            formControlName="label"
-            class="w-full border rounded p-2"
-            placeholder="Ej: Push, Pull, Legs..."
-          />
-        </div>
-
-        <button
-          type="submit"
-          [disabled]="form.invalid"
-          class="w-full bg-accent-500 text-forge-50 py-2 rounded disabled:opacity-50"
-        >
-          Guardar
-        </button>
+    <div class="px-4 pt-3 pb-6 flex flex-col gap-6">
+      <form [formGroup]="form" class="flex flex-col gap-4">
+        <fg-input
+          label="Nombre del día"
+          formControlName="name"
+          placeholder="Ej: Día A"
+          [error]="submitAttempted() && nameControl.invalid ? 'El nombre es obligatorio' : undefined"
+        ></fg-input>
+        <fg-input
+          label="Etiqueta (opcional)"
+          formControlName="label"
+          placeholder="Ej: Push, Pull, Legs..."
+        ></fg-input>
       </form>
 
-      <div>
-        <div class="flex items-center justify-between mb-2">
-          <h2 class="text-lg font-semibold">Ejercicios</h2>
-          <button
-            class="text-sm bg-accent-500 text-forge-50 px-3 py-1 rounded"
-            (click)="addExercise()"
-          >
-            + Agregar ejercicio
-          </button>
-        </div>
+      <section class="flex flex-col gap-3">
+        <h2 class="t-h3 text-forge-100">Ejercicios</h2>
 
         @if ((day()?.exercises ?? []).length === 0) {
-          <p class="text-forge-400 text-sm">No hay ejercicios en este día.</p>
+          <fg-empty-state
+            icon="dumbbell"
+            title="Sin ejercicios"
+            body="Agregá tu primer ejercicio a este día."
+          ></fg-empty-state>
+        } @else {
+          @for (exercise of day()?.exercises ?? []; track exercise.exerciseId) {
+            <fg-card>
+              <div class="flex items-center justify-between">
+                <div>
+                  <span class="t-body text-forge-100">{{ exercise.exerciseName }}</span>
+                  <p class="t-body-sm text-forge-400">
+                    {{ exercise.targetSets.length }} series objetivo
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  (click)="removeExercise(exercise)"
+                  [attr.aria-label]="'Quitar ' + exercise.exerciseName"
+                  class="w-9 h-9 inline-flex items-center justify-center rounded-md text-destructive-500 hover:bg-forge-850"
+                >
+                  <fg-icon name="trash" [size]="18"></fg-icon>
+                </button>
+              </div>
+            </fg-card>
+          }
         }
 
-        <ul class="space-y-2">
-          @for (exercise of day()?.exercises ?? []; track exercise.exerciseId) {
-            <li class="border rounded p-3 flex items-center justify-between">
-              <div>
-                <span class="font-medium">Ejercicio {{ exercise.exerciseId }}</span>
-                <p class="text-sm text-forge-400">
-                  {{ exercise.targetSets.length }} series objetivo
-                </p>
-              </div>
-              <button
-                class="text-sm text-red-500"
-                (click)="removeExercise(exercise)"
-              >
-                Quitar
-              </button>
-            </li>
-          }
-        </ul>
-      </div>
+        <button
+          fg-button
+          variant="ghost"
+          [leadingIcon]="'plus'"
+          (click)="addExercise()"
+          class="self-end"
+        >
+          Agregar ejercicio
+        </button>
+      </section>
     </div>
   `,
 })
@@ -89,20 +120,29 @@ export class TrainingDayEditorPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly getDayWithExercises = inject(GetTrainingDayWithExercisesUseCase);
   private readonly editTrainingDay = inject(EditTrainingDayUseCase);
   private readonly removeExerciseFromDay = inject(RemoveExerciseFromDayUseCase);
-  private readonly dayRepo = inject(TrainingDayRepository);
 
-  day = signal<TrainingDay | null>(null);
-  routineId = signal<string>('');
-  dayId = signal<string>('');
+  readonly day = signal<TrainingDayView | null>(null);
+  readonly routineId = signal<string>('');
+  readonly dayId = signal<string>('');
+  readonly submitAttempted = signal(false);
+
+  readonly trailingActions: readonly PageHeaderAction[] = [
+    { icon: 'check', ariaLabel: 'Guardar día', click: () => { void this.save(); } },
+  ];
 
   /* eslint-disable @typescript-eslint/unbound-method */
-  form: FormGroup = this.fb.group({
+  readonly form: FormGroup = this.fb.group({
     name: ['', [Validators.required]],
     label: [''],
   });
   /* eslint-enable @typescript-eslint/unbound-method */
+
+  protected get nameControl(): FormControl<string> {
+    return this.form.controls['name'] as FormControl<string>;
+  }
 
   ngOnInit(): void {
     const rId = this.route.snapshot.paramMap.get('routineId') ?? '';
@@ -113,7 +153,7 @@ export class TrainingDayEditorPage implements OnInit {
   }
 
   async loadDay(): Promise<void> {
-    const d = await this.dayRepo.getById(this.dayId());
+    const d = await this.getDayWithExercises.execute({ trainingDayId: this.dayId() });
     if (d) {
       this.day.set(d);
       this.form.patchValue({ name: d.name, label: d.label ?? '' });
@@ -121,6 +161,7 @@ export class TrainingDayEditorPage implements OnInit {
   }
 
   async save(): Promise<void> {
+    this.submitAttempted.set(true);
     if (this.form.invalid) return;
     const { name, label } = this.form.value as { name: string; label: string };
     await this.editTrainingDay.execute({
@@ -141,7 +182,7 @@ export class TrainingDayEditorPage implements OnInit {
     ]);
   }
 
-  async removeExercise(exercise: ExerciseInDay): Promise<void> {
+  async removeExercise(exercise: ExerciseInDayView): Promise<void> {
     await this.removeExerciseFromDay.execute({
       dayId: this.dayId(),
       exerciseId: exercise.exerciseId,

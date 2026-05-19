@@ -60,7 +60,7 @@ function makeFixture(opts: {
         : (opts.dayId ?? 'd-1'),
   };
 
-  TestBed.configureTestingModule({
+  void TestBed.configureTestingModule({
     imports: [TrainingDayEditorPage, ReactiveFormsModule],
     providers: [
       { provide: Router, useValue: { navigate: navigateSpy } },
@@ -133,7 +133,7 @@ describe('TrainingDayEditorPage', () => {
       const { fixture } = makeFixture({ view });
       await flush(fixture);
 
-      const text = fixture.nativeElement.textContent as string;
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
       expect(text).toContain('Bench Press');
       expect(text).not.toMatch(/Ejercicio [0-9a-f-]{8,}/);
     });
@@ -152,7 +152,7 @@ describe('TrainingDayEditorPage', () => {
       const { fixture } = makeFixture({ view });
       await flush(fixture);
 
-      const text = fixture.nativeElement.textContent as string;
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
       expect(text).toContain('[Ejercicio eliminado]');
       expect(text).not.toMatch(/Ejercicio [0-9a-f-]{8,}/);
     });
@@ -191,10 +191,10 @@ describe('TrainingDayEditorPage', () => {
 
       const buttons = fixture.debugElement.queryAll(By.css('button[fg-button]'));
       const addBtn = buttons.find(b =>
-        (b.nativeElement.textContent as string).includes('Agregar ejercicio'),
+        ((b.nativeElement as HTMLElement).textContent ?? '').includes('Agregar ejercicio'),
       );
       expect(addBtn).toBeTruthy();
-      addBtn!.nativeElement.click();
+      (addBtn!.nativeElement as HTMLButtonElement).click();
 
       expect(navigateSpy).toHaveBeenCalledWith([
         '/routines',
@@ -266,7 +266,7 @@ describe('TrainingDayEditorPage', () => {
         By.css('button[aria-label^="Quitar"]'),
       );
       expect(removeBtn).toBeTruthy();
-      removeBtn.nativeElement.click();
+      (removeBtn.nativeElement as HTMLButtonElement).click();
       await fixture.whenStable();
 
       expect(removeSpy).toHaveBeenCalledWith({ dayId: 'd-1', exerciseId: 'ex-1' });
