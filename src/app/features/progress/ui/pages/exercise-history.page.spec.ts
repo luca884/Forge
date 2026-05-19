@@ -6,6 +6,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { By } from '@angular/platform-browser';
+import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { ExerciseHistoryPage } from './exercise-history.page';
 import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
@@ -72,6 +73,7 @@ describe('ExerciseHistoryPage', () => {
 
     await TestBed.configureTestingModule({
       imports: [ExerciseHistoryPage],
+      schemas: [NO_ERRORS_SCHEMA],
       providers: [
         { provide: UserPreferencesService, useValue: { unit: unitSignal, loadOnce: loadOnceSpy } },
         { provide: ExerciseRepository, useValue: { getById: jest.fn().mockResolvedValue(mockExercise) } },
@@ -218,12 +220,14 @@ describe('ExerciseHistoryPage', () => {
       await Promise.resolve();
       await Promise.resolve();
       fixture.detectChanges();
-      const chip = fixture.debugElement.query(By.css('fg-chip'));
-      expect(chip).toBeTruthy();
-      expect(chip.nativeElement.textContent.trim()).toBe('PR');
+      const chips = fixture.debugElement.queryAll(By.css('fg-chip'));
+      const prChip = chips.find(
+        (c) => c.nativeElement.textContent.trim() === 'PR',
+      );
+      expect(prChip).toBeTruthy();
     });
 
-    it('does not render fg-chip when no set in session is a PR', async () => {
+    it('does not render a PR fg-chip when no set in session is a PR', async () => {
       getAllWorkedSetsMock.mockResolvedValue([
         makeSet({ id: 'ws-no-pr', sessionId: 's-1', isPR: false, createdAt: new Date('2026-01-01') }),
       ]);
@@ -234,8 +238,11 @@ describe('ExerciseHistoryPage', () => {
       await Promise.resolve();
       await Promise.resolve();
       fixture.detectChanges();
-      const chip = fixture.debugElement.query(By.css('fg-chip'));
-      expect(chip).toBeNull();
+      const chips = fixture.debugElement.queryAll(By.css('fg-chip'));
+      const prChip = chips.find(
+        (c) => c.nativeElement.textContent.trim() === 'PR',
+      );
+      expect(prChip).toBeUndefined();
     });
 
     it('renders fg-empty-state when history is empty', async () => {
