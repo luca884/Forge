@@ -12,8 +12,7 @@ test.describe('J2 — Create routine', () => {
     await page.goto('/routines/new');
     await page.waitForLoadState('networkidle');
 
-    // fg-page-header renders title as <div>, not a semantic heading — use text scope
-    await expect(page.locator('fg-page-header').getByText('Nueva rutina', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Nueva rutina' })).toBeVisible();
     await expect(page.getByLabel('Nombre')).toBeVisible();
     await expect(page.getByLabel('Nombre')).toHaveValue('');
     await expect(page.getByRole('button', { name: 'Guardar rutina' })).toBeVisible();
@@ -64,7 +63,7 @@ test.describe('J3 — Add training day', () => {
     await page.goto('/routines/r-1');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.locator('fg-page-header').getByText('Editar rutina', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Editar rutina' })).toBeVisible();
     await expect(page.getByLabel('Nombre')).toHaveValue('Pierna');
     await expect(page.getByText('Sin días aún')).toBeVisible();
     await expect(page.getByRole('button', { name: /Agregar día/ })).toBeVisible();
@@ -116,7 +115,7 @@ test.describe('J4 — Pick exercise (full UI)', () => {
     await page.goto('/routines/r-1/days/d-1');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.locator('fg-page-header').getByText('Editar día', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Editar día' })).toBeVisible();
     await expect(page.getByText('Sin ejercicios')).toBeVisible();
     await expect(page.getByRole('button', { name: /Agregar ejercicio/ })).toBeVisible();
   });
@@ -193,7 +192,7 @@ test.describe('J5 — Weekly schedule', () => {
     await page.goto('/routines/r-1/schedule');
     await page.waitForLoadState('networkidle');
 
-    await expect(page.locator('fg-page-header').getByText('Programa semanal', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Programa semanal' })).toBeVisible();
     expect(await page.locator('select').count()).toBe(7);
 
     // All selects default to '' (rest day)
