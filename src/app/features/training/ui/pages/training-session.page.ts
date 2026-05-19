@@ -216,9 +216,12 @@ export class TrainingSessionPage implements OnInit {
       this.dayLabel.set(day.name);
     }
 
+    const allExercises = await this.exerciseRepo.getAll();
+    const exerciseById = new Map(allExercises.map(e => [e.id, e]));
+
     const exercisesWithData: ExerciseWithData[] = [];
     for (const exInDay of day.exercises) {
-      const exercise = await this.exerciseRepo.getById(exInDay.exerciseId);
+      const exercise = exerciseById.get(exInDay.exerciseId);
       if (exercise) {
         exercisesWithData.push({ exercise, exerciseInDay: exInDay });
       }

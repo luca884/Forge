@@ -109,7 +109,7 @@ describe('TrainingSessionPage', () => {
   };
   let mockLogSetUseCase: { execute: jest.Mock };
   let mockDayRepo: { getById: jest.Mock };
-  let mockExerciseRepo: { getById: jest.Mock };
+  let mockExerciseRepo: { getAll: jest.Mock };
 
   beforeEach(async () => {
     unitSignal = signal<PreferredUnit>('lb');
@@ -141,7 +141,7 @@ describe('TrainingSessionPage', () => {
     mockLogSetUseCase = { execute: jest.fn() };
 
     mockDayRepo = { getById: jest.fn().mockResolvedValue(null) };
-    mockExerciseRepo = { getById: jest.fn().mockResolvedValue(null) };
+    mockExerciseRepo = { getAll: jest.fn().mockResolvedValue([]) };
 
     await TestBed.configureTestingModule({
       imports: [TrainingSessionPage],
@@ -207,7 +207,7 @@ describe('TrainingSessionPage', () => {
     const loggedSets = Array.from({ length: 3 }, () => makeWorkedSet(exerciseId));
 
     mockDayRepo.getById.mockResolvedValue({ exercises: [exInDay] });
-    mockExerciseRepo.getById.mockResolvedValue(exercise);
+    mockExerciseRepo.getAll.mockResolvedValue([exercise]);
     activeSessionSignal.set(makeSession());
     setsByExerciseSignal.set(new Map([[exerciseId, loggedSets]]));
     workedSetsSignal.set(loggedSets);
@@ -215,7 +215,7 @@ describe('TrainingSessionPage', () => {
     fixture = TestBed.createComponent(TrainingSessionPage);
     fixture.detectChanges();
     await fixture.whenStable();
-    // Extra flushes for sequential async calls in init() (loadActive → refreshSets → getById loops)
+    // Extra flushes for sequential async calls in init() (loadActive → refreshSets → getAll)
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
@@ -239,7 +239,7 @@ describe('TrainingSessionPage', () => {
     const exInDay = makeExerciseInDay(exerciseId, 3);
 
     mockDayRepo.getById.mockResolvedValue({ exercises: [exInDay] });
-    mockExerciseRepo.getById.mockResolvedValue(exercise);
+    mockExerciseRepo.getAll.mockResolvedValue([exercise]);
     activeSessionSignal.set(makeSession());
 
     // Override component-level providers to inject mock LogSetUseCase
@@ -323,9 +323,7 @@ describe('TrainingSessionPage', () => {
     const incompleteSets = [makeWorkedSet(incompleteId)];
 
     mockDayRepo.getById.mockResolvedValue({ exercises: [completedInDay, incompleteInDay] });
-    mockExerciseRepo.getById
-      .mockResolvedValueOnce(completedExercise)
-      .mockResolvedValueOnce(incompleteExercise);
+    mockExerciseRepo.getAll.mockResolvedValue([completedExercise, incompleteExercise]);
     activeSessionSignal.set(makeSession());
     setsByExerciseSignal.set(new Map([
       [completedId, completedSets],
