@@ -8,6 +8,7 @@ import { AddTrainingDayUseCase } from '../../domain/use-cases/add-training-day.u
 import { RemoveTrainingDayUseCase } from '../../domain/use-cases/remove-training-day.use-case';
 import { TrainingDayRepository } from '../../domain/training-day.repository';
 import { TrainingDay } from '../../domain/training-day.entity';
+import { RoutineRepository } from '../../domain/routine.repository';
 
 const makeDay = (id: string, name: string, routineId = 'r-1'): TrainingDay => ({
   id,
@@ -27,7 +28,12 @@ async function flush(fixture: ComponentFixture<RoutineEditorPage>): Promise<void
   fixture.detectChanges();
 }
 
-function makeFixture(opts: { id?: string; days?: TrainingDay[] } = {}): {
+function makeFixture(opts: {
+  id?: string;
+  days?: TrainingDay[];
+  routineName?: string;
+  routineDescription?: string;
+} = {}): {
   fixture: ComponentFixture<RoutineEditorPage>;
   navigateSpy: jest.Mock;
   createSpy: jest.Mock;
@@ -35,6 +41,7 @@ function makeFixture(opts: { id?: string; days?: TrainingDay[] } = {}): {
   addDaySpy: jest.Mock;
   removeDaySpy: jest.Mock;
   dayRepoSpy: { getByRoutineId: jest.Mock };
+  routineRepoSpy: { getById: jest.Mock };
 } {
   const navigateSpy = jest.fn().mockResolvedValue(true);
   const createSpy = jest.fn().mockResolvedValue({
@@ -57,6 +64,20 @@ function makeFixture(opts: { id?: string; days?: TrainingDay[] } = {}): {
   const dayRepoSpy = {
     getByRoutineId: jest.fn().mockResolvedValue(opts.days ?? []),
   };
+  const routineRepoSpy = {
+    getById: jest.fn().mockResolvedValue(
+      opts.id
+        ? {
+            id: opts.id,
+            name: opts.routineName ?? '',
+            description: opts.routineDescription ?? '',
+            isActive: false,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }
+        : null,
+    ),
+  };
 
   void TestBed.configureTestingModule({
     imports: [RoutineEditorPage],
@@ -76,6 +97,7 @@ function makeFixture(opts: { id?: string; days?: TrainingDay[] } = {}): {
           { provide: AddTrainingDayUseCase, useValue: { execute: addDaySpy } },
           { provide: RemoveTrainingDayUseCase, useValue: { execute: removeDaySpy } },
           { provide: TrainingDayRepository, useValue: dayRepoSpy },
+          { provide: RoutineRepository, useValue: routineRepoSpy },
         ],
       },
     })
@@ -83,7 +105,7 @@ function makeFixture(opts: { id?: string; days?: TrainingDay[] } = {}): {
 
   const fixture = TestBed.createComponent(RoutineEditorPage);
 
-  return { fixture, navigateSpy, createSpy, editSpy, addDaySpy, removeDaySpy, dayRepoSpy };
+  return { fixture, navigateSpy, createSpy, editSpy, addDaySpy, removeDaySpy, dayRepoSpy, routineRepoSpy };
 }
 
 describe('RoutineEditorPage', () => {
@@ -168,6 +190,26 @@ describe('RoutineEditorPage', () => {
       await flush(fixture);
       const emptyState = fixture.debugElement.query(By.css('fg-empty-state'));
       expect(emptyState).toBeNull();
+    });
+
+    it('prefilla el campo name con el nombre de la rutina existente', async () => {
+      const { fixture } = makeFixture({ id: 'r-1', routineName: 'Pierna A', routineDescription: 'Foco cuádriceps' });
+      await flush(fixture);
+      expect(fixture.componentInstance.nameControl.value).toBe('Pierna A');
+    });
+
+    it('prefilla el campo description con la descripción de la rutina existente', async () => {
+      const { fixture } = makeFixture({ id: 'r-1', routineName: 'Pierna A', routineDescription: 'Foco cuádriceps' });
+      await flush(fixture);
+      const textarea = fixture.debugElement.query(By.css('textarea'));
+      expect((textarea.nativeElement as HTMLTextAreaElement).value).toBe('Foco cuádriceps');
+    });
+
+    it('NO prefilla en create mode (sin :id param)', async () => {
+      const { fixture, routineRepoSpy } = makeFixture({ routineName: 'Pierna A' });
+      await flush(fixture);
+      expect(routineRepoSpy.getById).not.toHaveBeenCalled();
+      expect(fixture.componentInstance.nameControl.value).toBe('');
     });
   });
 
