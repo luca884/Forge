@@ -1,46 +1,75 @@
-import { Component, OnInit, inject, signal, effect } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Exercise } from '@features/exercises/domain/exercise.entity';
 import { GetExercisesUseCase } from '@features/exercises/domain/use-cases/get-exercises.use-case';
-
+import {
+  FgPageHeaderComponent,
+  FgInputComponent,
+  FgCardComponent,
+  FgEmptyStateComponent,
+} from '@core/shared/ui';
 import { AddExerciseToDayUseCase } from '../../domain/use-cases/add-exercise-to-day.use-case';
 
 @Component({
   selector: 'fg-exercise-picker-page',
   standalone: true,
+  imports: [
+    ReactiveFormsModule,
+    FgPageHeaderComponent,
+    FgInputComponent,
+    FgCardComponent,
+    FgEmptyStateComponent,
+  ],
   providers: [GetExercisesUseCase, AddExerciseToDayUseCase],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="p-4">
-      <div class="flex items-center gap-2 mb-4">
-        <button class="text-forge-300" (click)="back()">← Volver</button>
-        <h1 class="text-xl font-bold">Elegir ejercicio</h1>
-      </div>
+    <fg-page-header
+      title="Elegir ejercicio"
+      leadingIcon="chevron-left"
+      (leadingClick)="back()"
+    ></fg-page-header>
 
-      <input
-        class="w-full border rounded p-2 mb-4"
+    <div class="px-4 pt-3 pb-6 flex flex-col gap-4">
+      <fg-input
+        label="Buscar"
         placeholder="Buscar ejercicio..."
-        [value]="searchQuery()"
-        (input)="onSearchInput($event)"
-      />
+        [formControl]="searchControl"
+      ></fg-input>
 
       @if (exercises().length === 0) {
-        <p class="text-forge-400 text-center mt-8">No se encontraron ejercicios.</p>
+        <fg-empty-state
+          icon="dumbbell"
+          title="Sin resultados"
+          body="No se encontraron ejercicios."
+        ></fg-empty-state>
+      } @else {
+        <ul class="flex flex-col gap-2" role="list">
+          @for (exercise of exercises(); track exercise.id) {
+            <li>
+              <fg-card>
+                <button
+                  type="button"
+                  (click)="pickExercise(exercise)"
+                  class="w-full text-left flex flex-col gap-0.5 outline-none focus-visible:ring-2 focus-visible:ring-accent-500 rounded-md"
+                  [attr.aria-label]="'Elegir ' + exercise.name"
+                >
+                  <span class="t-body text-forge-100">{{ exercise.name }}</span>
+                  <span class="t-body-sm text-forge-400">{{ exercise.muscleGroup }}</span>
+                </button>
+              </fg-card>
+            </li>
+          }
+        </ul>
       }
-
-      <ul class="space-y-2">
-        @for (exercise of exercises(); track exercise.id) {
-          <li
-            class="border rounded p-3 cursor-pointer hover:bg-forge-900"
-            tabindex="0"
-            role="button"
-            (click)="pickExercise(exercise)"
-            (keydown.enter)="pickExercise(exercise)"
-          >
-            <div class="font-medium">{{ exercise.name }}</div>
-            <div class="text-sm text-forge-400">{{ exercise.muscleGroup }}</div>
-          </li>
-        }
-      </ul>
     </div>
   `,
 })
@@ -50,26 +79,26 @@ export class ExercisePickerPage implements OnInit {
   private readonly getExercises = inject(GetExercisesUseCase);
   private readonly addExerciseToDay = inject(AddExerciseToDayUseCase);
 
-  exercises = signal<Exercise[]>([]);
-  searchQuery = signal('');
-  routineId = signal('');
-  dayId = signal('');
+  readonly exercises = signal<Exercise[]>([]);
+  readonly searchQuery = signal('');
+  readonly routineId = signal('');
+  readonly dayId = signal('');
+
+  readonly searchControl = new FormControl('', { nonNullable: true });
 
   constructor() {
     effect(() => {
       const query = this.searchQuery();
       void this.loadExercises(query);
     });
+    this.searchControl.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe(value => this.searchQuery.set(value));
   }
 
   ngOnInit(): void {
     this.routineId.set(this.route.snapshot.paramMap.get('routineId') ?? '');
     this.dayId.set(this.route.snapshot.paramMap.get('dayId') ?? '');
-  }
-
-  onSearchInput(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.searchQuery.set(input.value);
   }
 
   async loadExercises(search: string): Promise<void> {
