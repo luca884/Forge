@@ -1,47 +1,51 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  input,
+  output,
+} from '@angular/core';
 import { Routine } from '../../domain/routine.entity';
+import { FgCardComponent, FgChipComponent, FgIconComponent } from '@core/shared/ui';
 
 @Component({
   selector: 'fg-routine-card',
   standalone: true,
+  imports: [FgCardComponent, FgChipComponent, FgIconComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div
-      [class]="'border rounded p-3' + (routine.isActive ? ' border-accent-500 bg-accent-500/10' : '')"
-    >
-      <div class="flex items-center justify-between">
-        <div>
-          <span class="font-medium">{{ routine.name }}</span>
-          @if (routine.isActive) {
-            <span class="ml-2 text-xs bg-accent-500 text-forge-50 px-2 py-0.5 rounded-full">
-              Activa
-            </span>
-          }
-          @if (routine.description) {
-            <p class="text-sm text-forge-400 mt-0.5">{{ routine.description }}</p>
-          }
+    <fg-card>
+      <button
+        type="button"
+        class="w-full text-left flex items-start justify-between gap-3"
+        [attr.aria-label]="'Abrir rutina ' + routine().name"
+        (click)="onClick()"
+      >
+        <div class="flex-1 min-w-0">
+          <div class="t-h3 text-forge-50 truncate">{{ routine().name }}</div>
+          <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+            <fg-chip size="sm">{{ dayLabel() }}</fg-chip>
+            @if (routine().isActive) {
+              <fg-chip size="sm" [active]="true">Activa</fg-chip>
+            }
+          </div>
         </div>
-        <div class="flex gap-2">
-          @if (!routine.isActive) {
-            <button
-              class="text-sm text-accent-500"
-              (click)="activate.emit(routine)"
-            >
-              Activar
-            </button>
-          }
-          <button
-            class="text-sm text-forge-300"
-            (click)="edit.emit(routine)"
-          >
-            Editar
-          </button>
-        </div>
-      </div>
-    </div>
+        <fg-icon name="chevron-right" [size]="18"></fg-icon>
+      </button>
+    </fg-card>
   `,
 })
 export class RoutineCardComponent {
-  @Input({ required: true }) routine!: Routine;
-  @Output() edit = new EventEmitter<Routine>();
-  @Output() activate = new EventEmitter<Routine>();
+  readonly routine = input.required<Routine>();
+  readonly dayCount = input<number>(0);
+  readonly cardClick = output<Routine>();
+
+  protected readonly dayLabel = computed(() => {
+    const n = this.dayCount();
+    return n === 1 ? '1 día' : `${n} días`;
+  });
+
+  protected onClick(): void {
+    this.cardClick.emit(this.routine());
+  }
 }
