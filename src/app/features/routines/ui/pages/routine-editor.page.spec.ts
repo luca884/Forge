@@ -58,7 +58,7 @@ function makeFixture(opts: { id?: string; days?: TrainingDay[] } = {}): {
     getByRoutineId: jest.fn().mockResolvedValue(opts.days ?? []),
   };
 
-  TestBed.configureTestingModule({
+  void TestBed.configureTestingModule({
     imports: [RoutineEditorPage],
     providers: [
       { provide: Router, useValue: { navigate: navigateSpy } },
@@ -189,7 +189,7 @@ describe('RoutineEditorPage', () => {
         (btn.nativeElement as HTMLButtonElement).textContent?.trim().includes('Programa semanal'),
       );
       expect(scheduleBtn).toBeTruthy();
-      scheduleBtn!.nativeElement.click();
+      (scheduleBtn!.nativeElement as HTMLButtonElement).click();
       fixture.detectChanges();
       expect(navigateSpy).toHaveBeenCalledWith(['/routines', 'r-1', 'schedule']);
     });
@@ -200,7 +200,7 @@ describe('RoutineEditorPage', () => {
       await flush(fixture);
       const editBtn = fixture.debugElement.query(By.css('button[aria-label^="Editar día"]'));
       expect(editBtn).toBeTruthy();
-      editBtn.nativeElement.click();
+      (editBtn.nativeElement as HTMLButtonElement).click();
       fixture.detectChanges();
       expect(navigateSpy).toHaveBeenCalledWith(['/routines', 'r-1', 'days', 'd-1']);
     });
@@ -225,10 +225,7 @@ describe('RoutineEditorPage', () => {
       await flush(fixture);
       const input = fixture.debugElement.query(By.css('fg-input'));
       expect(input).toBeTruthy();
-      // error input should be truthy (non-null string)
-      const errorSpan = fixture.debugElement.query(By.css('fg-input span.text-destructive-500'));
-      // If the DS input renders the error span, it should be visible
-      // Just verify the component binding: submitAttempted=true + invalid control
+      // Verify the component binding: submitAttempted=true + invalid control produces error
       expect(fixture.componentInstance.submitAttempted()).toBe(true);
       expect(fixture.componentInstance.nameControl.invalid).toBe(true);
     });
@@ -262,14 +259,14 @@ describe('RoutineEditorPage', () => {
     it('click "Agregar día" → addDaySpy llamado con routineId, dayRepo.getByRoutineId llamado de nuevo', async () => {
       const { fixture, addDaySpy, dayRepoSpy } = makeFixture({ id: 'r-1' });
       await flush(fixture);
-      const initialCallCount = dayRepoSpy.getByRoutineId.mock.calls.length as number;
+      const initialCallCount = dayRepoSpy.getByRoutineId.mock.calls.length;
       const addBtn = fixture.debugElement
         .queryAll(By.css('button[fg-button]'))
         .find((btn) =>
           (btn.nativeElement as HTMLButtonElement).textContent?.trim().includes('Agregar día'),
         );
       expect(addBtn).toBeTruthy();
-      addBtn!.nativeElement.click();
+      (addBtn!.nativeElement as HTMLButtonElement).click();
       await flush(fixture);
       expect(addDaySpy).toHaveBeenCalled();
       expect(dayRepoSpy.getByRoutineId.mock.calls.length).toBeGreaterThan(initialCallCount);
@@ -281,7 +278,7 @@ describe('RoutineEditorPage', () => {
       await flush(fixture);
       const removeBtn = fixture.debugElement.query(By.css('button[aria-label^="Eliminar día"]'));
       expect(removeBtn).toBeTruthy();
-      removeBtn.nativeElement.click();
+      (removeBtn.nativeElement as HTMLButtonElement).click();
       await flush(fixture);
       expect(removeDaySpy).toHaveBeenCalledWith('d-1');
     });
@@ -294,7 +291,7 @@ describe('RoutineEditorPage', () => {
       // We verify via component metadata
       const { fixture } = makeFixture();
       fixture.detectChanges();
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const changeDetection = (RoutineEditorPage as any).__annotations__?.[0]?.changeDetection ?? -1;
       // ChangeDetectionStrategy.OnPush = 0
       expect(changeDetection).toBe(0);
@@ -303,7 +300,7 @@ describe('RoutineEditorPage', () => {
     it('GetAllRoutinesUseCase NÃO está en providers del component', () => {
       const { fixture } = makeFixture();
       fixture.detectChanges();
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const providers: unknown[] = (RoutineEditorPage as any).__annotations__?.[0]?.providers ?? [];
       const hasGetAll = providers.some(
         (p) => p === 'GetAllRoutinesUseCase' || (typeof p === 'function' && p.name === 'GetAllRoutinesUseCase'),
