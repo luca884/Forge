@@ -23,7 +23,7 @@ import { FgIconComponent } from '@core/shared/ui';
         <!-- Flame icon circle -->
         <div class="w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center relative"
              style="background: var(--pr-warm); box-shadow: 0 0 24px rgba(var(--pr-warm-rgb), 0.45), inset 0 0 0 1px rgba(255,255,255,0.2);">
-          <fg-icon name="flame" size="26" class="text-white"></fg-icon>
+          <fg-icon name="flame" [size]="26" class="text-white"></fg-icon>
         </div>
 
         <!-- Body -->
@@ -55,7 +55,7 @@ import { FgIconComponent } from '@core/shared/ui';
                 (click)="onDismiss()"
                 class="text-forge-500 hover:text-forge-300 relative flex-shrink-0"
                 aria-label="Cerrar">
-          <fg-icon name="x" size="16"></fg-icon>
+          <fg-icon name="x" [size]="16"></fg-icon>
         </button>
       </div>
     }

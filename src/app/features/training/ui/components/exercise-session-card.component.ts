@@ -34,7 +34,7 @@ import { FgIconComponent } from '@core/shared/ui';
             </span>
           </div>
         </div>
-        <fg-icon name="chevron-down" size="18"
+        <fg-icon name="chevron-down" [size]="18"
                  class="text-forge-600 transition-transform"
                  [class.rotate-180]="expanded()"></fg-icon>
       </header>
@@ -48,7 +48,7 @@ import { FgIconComponent } from '@core/shared/ui';
                  [class.border-b-0]="last && pendingSlots().length === 0">
               <!-- Done indicator dot -->
               <div class="w-6 h-6 rounded-full bg-accent-500 text-white flex items-center justify-center flex-shrink-0">
-                <fg-icon name="check" size="12"></fg-icon>
+                <fg-icon name="check" [size]="12"></fg-icon>
               </div>
               <!-- Weight × reps -->
               <div class="flex-1 font-sans text-[15px] font-medium tabular-nums text-forge-200">

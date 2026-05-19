@@ -112,7 +112,7 @@ interface PrRow {
                      [class.border-b]="!last">
                   <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                        style="background: rgba(var(--accent-rgb),0.12); box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb),0.3);">
-                    <fg-icon name="flame" size="14" style="color: var(--accent-text);"></fg-icon>
+                    <fg-icon name="flame" [size]="14" style="color: var(--accent-text);"></fg-icon>
                   </div>
                   <div class="flex-1 min-w-0">
                     <div class="t-body text-forge-100 font-medium">{{ row.exerciseName || row.exerciseId }}</div>
@@ -175,7 +175,7 @@ interface PrRow {
         }
 
         <!-- CTA -->
-        <button fg-button variant="primary" size="lg" full leadingIcon="check" (click)="goHome()">
+        <button fg-button variant="primary" size="lg" [full]="true" leadingIcon="check" (click)="goHome()">
           Guardar y cerrar
         </button>
       </main>

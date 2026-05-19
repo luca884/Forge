@@ -50,14 +50,14 @@ import { FgIconComponent } from '@core/shared/ui';
                 <span class="t-caption text-forge-500">Peso</span>
                 <div class="flex items-center justify-between gap-3 w-full px-1">
                   <button type="button" class="stepper-btn" (click)="decrement('weightKg', 2.5)" aria-label="Disminuir peso">
-                    <fg-icon name="minus" size="16"></fg-icon>
+                    <fg-icon name="minus" [size]="16"></fg-icon>
                   </button>
                   <div class="text-center flex-1 min-w-0">
                     <div class="t-num text-[32px] font-semibold text-forge-50 tracking-[-0.025em] leading-none tabular-nums">{{ form.controls.weightKg.value }}</div>
                     <div class="t-caption text-forge-600 mt-0.5">kg</div>
                   </div>
                   <button type="button" class="stepper-btn" (click)="increment('weightKg', 2.5)" aria-label="Aumentar peso">
-                    <fg-icon name="plus" size="16"></fg-icon>
+                    <fg-icon name="plus" [size]="16"></fg-icon>
                   </button>
                 </div>
               </div>
@@ -65,14 +65,14 @@ import { FgIconComponent } from '@core/shared/ui';
                 <span class="t-caption text-forge-500">Reps</span>
                 <div class="flex items-center justify-between gap-3 w-full px-1">
                   <button type="button" class="stepper-btn" (click)="decrement('reps', 1)" aria-label="Disminuir reps">
-                    <fg-icon name="minus" size="16"></fg-icon>
+                    <fg-icon name="minus" [size]="16"></fg-icon>
                   </button>
                   <div class="text-center flex-1 min-w-0">
                     <div class="t-num text-[32px] font-semibold text-forge-50 tracking-[-0.025em] leading-none tabular-nums">{{ form.controls.reps.value }}</div>
                     <div class="t-caption text-forge-600 mt-0.5">reps</div>
                   </div>
                   <button type="button" class="stepper-btn" (click)="increment('reps', 1)" aria-label="Aumentar reps">
-                    <fg-icon name="plus" size="16"></fg-icon>
+                    <fg-icon name="plus" [size]="16"></fg-icon>
                   </button>
                 </div>
               </div>
@@ -84,14 +84,14 @@ import { FgIconComponent } from '@core/shared/ui';
                 <span class="t-caption text-forge-500">Extra (kg)</span>
                 <div class="flex items-center justify-between gap-3 w-full px-1">
                   <button type="button" class="stepper-btn" (click)="decrement('extraWeightKg', 2.5)" aria-label="Disminuir peso extra">
-                    <fg-icon name="minus" size="16"></fg-icon>
+                    <fg-icon name="minus" [size]="16"></fg-icon>
                   </button>
                   <div class="text-center flex-1 min-w-0">
                     <div class="t-num text-[32px] font-semibold text-forge-50 tracking-[-0.025em] leading-none tabular-nums">{{ form.controls.extraWeightKg.value ?? 0 }}</div>
                     <div class="t-caption text-forge-600 mt-0.5">kg</div>
                   </div>
                   <button type="button" class="stepper-btn" (click)="increment('extraWeightKg', 2.5)" aria-label="Aumentar peso extra">
-                    <fg-icon name="plus" size="16"></fg-icon>
+                    <fg-icon name="plus" [size]="16"></fg-icon>
                   </button>
                 </div>
               </div>
@@ -99,14 +99,14 @@ import { FgIconComponent } from '@core/shared/ui';
                 <span class="t-caption text-forge-500">Reps</span>
                 <div class="flex items-center justify-between gap-3 w-full px-1">
                   <button type="button" class="stepper-btn" (click)="decrement('reps', 1)" aria-label="Disminuir reps">
-                    <fg-icon name="minus" size="16"></fg-icon>
+                    <fg-icon name="minus" [size]="16"></fg-icon>
                   </button>
                   <div class="text-center flex-1 min-w-0">
                     <div class="t-num text-[32px] font-semibold text-forge-50 tracking-[-0.025em] leading-none tabular-nums">{{ form.controls.reps.value }}</div>
                     <div class="t-caption text-forge-600 mt-0.5">reps</div>
                   </div>
                   <button type="button" class="stepper-btn" (click)="increment('reps', 1)" aria-label="Aumentar reps">
-                    <fg-icon name="plus" size="16"></fg-icon>
+                    <fg-icon name="plus" [size]="16"></fg-icon>
                   </button>
                 </div>
               </div>
@@ -118,14 +118,14 @@ import { FgIconComponent } from '@core/shared/ui';
                 <span class="t-caption text-forge-500">Duración</span>
                 <div class="flex items-center justify-between gap-3 w-full px-1">
                   <button type="button" class="stepper-btn" (click)="decrement('durationSec', 5)" aria-label="Disminuir duración">
-                    <fg-icon name="minus" size="16"></fg-icon>
+                    <fg-icon name="minus" [size]="16"></fg-icon>
                   </button>
                   <div class="text-center flex-1 min-w-0">
                     <div class="t-num text-[32px] font-semibold text-forge-50 tracking-[-0.025em] leading-none tabular-nums">{{ form.controls.durationSec.value }}</div>
                     <div class="t-caption text-forge-600 mt-0.5">seg</div>
                   </div>
                   <button type="button" class="stepper-btn" (click)="increment('durationSec', 5)" aria-label="Aumentar duración">
-                    <fg-icon name="plus" size="16"></fg-icon>
+                    <fg-icon name="plus" [size]="16"></fg-icon>
                   </button>
                 </div>
               </div>
@@ -137,14 +137,14 @@ import { FgIconComponent } from '@core/shared/ui';
                 <span class="t-caption text-forge-500">Distancia</span>
                 <div class="flex items-center justify-between gap-3 w-full px-1">
                   <button type="button" class="stepper-btn" (click)="decrement('distanceKm', 0.5)" aria-label="Disminuir distancia">
-                    <fg-icon name="minus" size="16"></fg-icon>
+                    <fg-icon name="minus" [size]="16"></fg-icon>
                   </button>
                   <div class="text-center flex-1 min-w-0">
                     <div class="t-num text-[32px] font-semibold text-forge-50 tracking-[-0.025em] leading-none tabular-nums">{{ form.controls.distanceKm.value }}</div>
                     <div class="t-caption text-forge-600 mt-0.5">km</div>
                   </div>
                   <button type="button" class="stepper-btn" (click)="increment('distanceKm', 0.5)" aria-label="Aumentar distancia">
-                    <fg-icon name="plus" size="16"></fg-icon>
+                    <fg-icon name="plus" [size]="16"></fg-icon>
                   </button>
                 </div>
               </div>
@@ -152,14 +152,14 @@ import { FgIconComponent } from '@core/shared/ui';
                 <span class="t-caption text-forge-500">Duración</span>
                 <div class="flex items-center justify-between gap-3 w-full px-1">
                   <button type="button" class="stepper-btn" (click)="decrement('durationSec', 5)" aria-label="Disminuir duración">
-                    <fg-icon name="minus" size="16"></fg-icon>
+                    <fg-icon name="minus" [size]="16"></fg-icon>
                   </button>
                   <div class="text-center flex-1 min-w-0">
                     <div class="t-num text-[32px] font-semibold text-forge-50 tracking-[-0.025em] leading-none tabular-nums">{{ form.controls.durationSec.value }}</div>
                     <div class="t-caption text-forge-600 mt-0.5">seg</div>
                   </div>
                   <button type="button" class="stepper-btn" (click)="increment('durationSec', 5)" aria-label="Aumentar duración">
-                    <fg-icon name="plus" size="16"></fg-icon>
+                    <fg-icon name="plus" [size]="16"></fg-icon>
                   </button>
                 </div>
               </div>
@@ -169,7 +169,7 @@ import { FgIconComponent } from '@core/shared/ui';
 
         @if (lastSet()) {
           <div class="t-body-sm text-forge-500 mb-2.5 flex items-center gap-1.5">
-            <fg-icon name="history" size="12"></fg-icon>
+            <fg-icon name="history" [size]="12"></fg-icon>
             <span class="tabular-nums">{{ lastSet() }}</span>
           </div>
         }

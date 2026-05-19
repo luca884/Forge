@@ -105,7 +105,7 @@ function formatHMS(totalSeconds: number): string {
                   {{ targetLabel(item) }}
                 </div>
               </div>
-              <fg-icon name="chevron-down" size="16" class="text-forge-700"></fg-icon>
+              <fg-icon name="chevron-down" [size]="16" class="text-forge-700"></fg-icon>
             </button>
           } @else {
             <fg-exercise-session-card
@@ -126,7 +126,7 @@ function formatHMS(totalSeconds: number): string {
 
         <!-- CTA -->
         <div class="mt-4">
-          <button fg-button variant="ghost" size="md" full leadingIcon="check"
+          <button fg-button variant="ghost" size="md" [full]="true" leadingIcon="check"
                   (click)="completeSession()" [disabled]="completing()">
             {{ completing() ? 'Completando...' : 'Terminar sesión' }}
           </button>

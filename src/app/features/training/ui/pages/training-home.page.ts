@@ -91,7 +91,7 @@ const DOW_LABELS: Record<DayOfWeek, string> = {
                     leadingIcon="zap"
                     (click)="startSession(day)"
                     [disabled]="loading()"
-                    aria-label="Empezar sesión de {{ day.name }}"
+                    [attr.aria-label]="'Empezar sesión de ' + day.name"
                   >Empezar sesión</button>
                 </div>
               }
@@ -191,7 +191,7 @@ const DOW_LABELS: Record<DayOfWeek, string> = {
             <div class="flex flex-col gap-3">
               <h3 class="t-h3 text-forge-50">Sin rutina activa</h3>
               <p class="t-body text-forge-300">Creá o activá una rutina para empezar.</p>
-              <a routerLink="/routines" fg-button variant="primary" size="lg" [full]="true">Configurar rutinas</a>
+              <a routerLink="/routines" fg-button variant="primary" size="lg" class="w-full">Configurar rutinas</a>
             </div>
           </fg-card>
         </section>
