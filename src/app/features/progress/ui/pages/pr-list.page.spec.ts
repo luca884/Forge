@@ -10,6 +10,7 @@ import { PRListPage } from './pr-list.page';
 // GetAllPersonalRecordsUseCase is in component providers — not mocked at TestBed level
 import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
+import { ToastService } from '@core/shared/ui';
 import type { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
 import type { PersonalRecord } from '../../domain/entities/personal-record.entity';
 import type { WorkedSet } from '@features/training/domain/worked-set';
@@ -66,6 +67,22 @@ describe('PRListPage', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     expect(loadOnceSpy).toHaveBeenCalledTimes(1);
+  });
+
+  // P3-3: toast.error shown when init() fails
+  it('calls toast.error when init() rejects (P3-3)', async () => {
+    const prRepo = TestBed.inject(PersonalRecordRepository) as unknown as { listAll: jest.Mock };
+    prRepo.listAll.mockRejectedValue(new Error('db error'));
+
+    const toastService = TestBed.inject(ToastService);
+    const errorSpy = jest.spyOn(toastService, 'error');
+
+    fixture = TestBed.createComponent(PRListPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await Promise.resolve();
+
+    expect(errorSpy).toHaveBeenCalledWith('No se pudieron cargar los records', 'Intentá de nuevo');
   });
 
   it('renders a weight-reps PR with unit="lb" showing lb value', async () => {

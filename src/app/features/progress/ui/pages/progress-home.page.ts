@@ -20,6 +20,7 @@ import {
   FgSkeletonComponent,
   FgEmptyStateComponent,
   FgButtonComponent,
+  ToastService,
   type PageHeaderAction,
 } from '@core/shared/ui';
 
@@ -108,6 +109,7 @@ export class ProgressHomePage implements OnInit {
   private readonly getSessionHeatmap = inject(GetSessionHeatmapUseCase);
   private readonly exerciseRepo = inject(ExerciseRepository);
   private readonly router = inject(Router);
+  private readonly toast = inject(ToastService);
 
   readonly loading = signal(true);
   readonly allPRs = signal<PersonalRecord[]>([]);
@@ -156,6 +158,8 @@ export class ProgressHomePage implements OnInit {
       this.heatmapData.set(heatmap);
       const map = new Map<string, Exercise>(exercises.map((e) => [e.id, e]));
       this.exerciseMap.set(map);
+    } catch {
+      this.toast.error('No se pudo cargar el progreso', 'Intentá de nuevo');
     } finally {
       this.loading.set(false);
     }

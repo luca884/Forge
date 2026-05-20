@@ -9,6 +9,7 @@ import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-rec
 import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
 import { Router } from '@angular/router';
 import { SessionRepository } from '@features/training/domain/session.repository';
+import { ToastService } from '@core/shared/ui';
 import type { PersonalRecord } from '../../domain/entities/personal-record.entity';
 import type { WorkedSet } from '@features/training/domain/worked-set';
 
@@ -197,6 +198,22 @@ describe('ProgressHomePage', () => {
       fixture.componentInstance.navigateToExercise('ex-1');
       expect(navigateSpy).toHaveBeenCalledWith(['/progress/exercise', 'ex-1']);
     }
+  });
+
+  // P3-3: toast.error shown when init() fails
+  it('calls toast.error when init() rejects (P3-3)', async () => {
+    const exRepo = TestBed.inject(ExerciseRepository) as unknown as { getAll: jest.Mock };
+    exRepo.getAll.mockRejectedValue(new Error('network error'));
+
+    const toastService = TestBed.inject(ToastService);
+    const errorSpy = jest.spyOn(toastService, 'error');
+
+    fixture = TestBed.createComponent(ProgressHomePage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await Promise.resolve();
+
+    expect(errorSpy).toHaveBeenCalledWith('No se pudo cargar el progreso', 'Intentá de nuevo');
   });
 
   // V-D2-Spec-8: click on "Ver todos los PRs" button navigates to /progress/prs

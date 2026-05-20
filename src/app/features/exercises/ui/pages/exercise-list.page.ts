@@ -104,8 +104,12 @@ export class ExerciseListPage implements OnInit {
   }
 
   private async loadExercises(filter: ExerciseFilter): Promise<void> {
-    const result = await this.getExercisesUseCase.execute(filter);
-    this.exercises.set(result);
+    try {
+      const result = await this.getExercisesUseCase.execute(filter);
+      this.exercises.set(result);
+    } catch {
+      this.toast.error('No se pudieron cargar los ejercicios', 'Intentá de nuevo');
+    }
   }
 
   async deleteExercise(exercise: Exercise): Promise<void> {

@@ -8,6 +8,7 @@ import { SessionSummaryPage } from './session-summary.page';
 import { TrainingSessionStore } from '../services/training-session.store';
 import { SessionRepository } from '../../domain/session.repository';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
+import { ToastService } from '@core/shared/ui';
 import type { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
 import type { Session } from '../../domain/session.entity';
 import type { WorkedSet } from '../../domain/worked-set';
@@ -293,6 +294,22 @@ describe('SessionSummaryPage', () => {
     fixture.detectChanges();
     await Promise.resolve();
     expect(loadOnceSpy).toHaveBeenCalledTimes(1);
+  });
+
+  // P3-3: toast.error shown when init() fails
+  it('calls toast.error when sessionRepo.getById rejects (P3-3)', async () => {
+    await setup([]);
+    mockSessionRepo.getById.mockRejectedValue(new Error('db error'));
+
+    const toastService = TestBed.inject(ToastService);
+    const errorSpy = jest.spyOn(toastService, 'error');
+
+    fixture = TestBed.createComponent(SessionSummaryPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+
+    expect(errorSpy).toHaveBeenCalledWith('No se pudo cargar el resumen', 'Intentá de nuevo');
   });
 
   it('renders weight-reps set with unit="lb" showing lb value', async () => {

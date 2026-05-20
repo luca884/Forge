@@ -108,3 +108,57 @@ describe('ExerciseListPage — deleteExercise', () => {
     expect(toastService.error).not.toHaveBeenCalled();
   });
 });
+
+describe('ExerciseListPage — loadExercises error (P3-3)', () => {
+  it('calls toast.error when loadExercises rejects (P3-3)', async () => {
+    const getUseCaseMock = { execute: jest.fn().mockRejectedValue(new Error('db error')) };
+    const seedUseCaseMock = { execute: jest.fn().mockResolvedValue(undefined) };
+    const deleteUseCaseMock = { execute: jest.fn().mockResolvedValue(undefined) };
+    const toastMock = { error: jest.fn().mockReturnValue(1), success: jest.fn().mockReturnValue(1) };
+
+    const exerciseRepoMock = {
+      getAll: jest.fn().mockResolvedValue([]),
+      getById: jest.fn(),
+      save: jest.fn(),
+      count: jest.fn(),
+      delete: jest.fn(),
+    };
+    const sessionRepoMock = { existsWorkedSetForExercise: jest.fn().mockResolvedValue(false) };
+    const prRepoMock = { existsByExerciseId: jest.fn().mockResolvedValue(false) };
+    const trainingDayRepoMock = { existsExerciseInAnyDay: jest.fn().mockResolvedValue(false) };
+
+    await TestBed.configureTestingModule({
+      imports: [ExerciseListPage],
+      providers: [
+        provideRouter([]),
+        { provide: ExerciseRepository, useValue: exerciseRepoMock },
+        { provide: SessionRepository, useValue: sessionRepoMock },
+        { provide: PersonalRecordRepository, useValue: prRepoMock },
+        { provide: TrainingDayRepository, useValue: trainingDayRepoMock },
+        { provide: ToastService, useValue: toastMock },
+      ],
+    })
+    .overrideComponent(ExerciseListPage, {
+      set: {
+        providers: [
+          { provide: DeleteCustomExerciseUseCase, useValue: deleteUseCaseMock },
+          { provide: GetExercisesUseCase, useValue: getUseCaseMock },
+          { provide: SeedExercisesUseCase, useValue: seedUseCaseMock },
+        ],
+      },
+    })
+    .compileComponents();
+
+    const fixture = TestBed.createComponent(ExerciseListPage);
+    fixture.detectChanges();
+    // Flush the effect() and the async load
+    await fixture.whenStable();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(toastMock.error).toHaveBeenCalledWith(
+      'No se pudieron cargar los ejercicios',
+      'Intentá de nuevo',
+    );
+  });
+});

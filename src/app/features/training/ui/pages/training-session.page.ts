@@ -255,6 +255,7 @@ export class TrainingSessionPage implements OnInit {
       if (typeof ngDevMode !== 'undefined' && ngDevMode) {
         console.error('[TrainingSessionPage] onSetLogged error (should be unreachable):', err);
       }
+      this.toast.error('No se pudo guardar la serie', 'Intentá de nuevo');
     }
   }
 

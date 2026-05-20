@@ -19,6 +19,7 @@ import {
   FgIconComponent,
   FgSkeletonComponent,
   FgEmptyStateComponent,
+  ToastService,
 } from '@core/shared/ui';
 
 type PRFilter = 'all' | 'recent-30d';
@@ -97,6 +98,7 @@ export class PRListPage implements OnInit {
   private readonly exerciseRepo = inject(ExerciseRepository);
   private readonly router = inject(Router);
   private readonly userPrefs = inject(UserPreferencesService);
+  private readonly toast = inject(ToastService);
 
   readonly unit = this.userPrefs.unit;
 
@@ -134,6 +136,8 @@ export class PRListPage implements OnInit {
       ]);
       this.prs.set(prs);
       this.exerciseMap.set(new Map(exercises.map((e) => [e.id, e])));
+    } catch {
+      this.toast.error('No se pudieron cargar los records', 'Intentá de nuevo');
     } finally {
       this.loading.set(false);
     }

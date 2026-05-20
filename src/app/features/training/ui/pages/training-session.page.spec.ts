@@ -443,4 +443,67 @@ describe('TrainingSessionPage', () => {
       expect(fixture.componentInstance.completing()).toBe(false);
     });
   });
+
+  // P3-3: toast.error shown when onSetLogged rejects
+  describe('onSetLogged() — error path (P3-3)', () => {
+    let mockLogSetRejecting: { execute: jest.Mock };
+
+    beforeEach(async () => {
+      mockLogSetRejecting = { execute: jest.fn().mockRejectedValue(new Error('write error')) };
+
+      await TestBed.configureTestingModule({
+        imports: [TrainingSessionPage],
+        providers: [
+          { provide: UserPreferencesService, useValue: { unit: signal('kg'), loadOnce: jest.fn().mockResolvedValue(undefined) } },
+          { provide: TrainingSessionStore, useValue: {
+            activeSession: signal(makeSession()),
+            workedSets: signal([]),
+            setsByExercise: signal(new Map()),
+            loadActive: jest.fn().mockResolvedValue(undefined),
+            refreshSets: jest.fn().mockResolvedValue(undefined),
+            elapsedSeconds: signal(0),
+          }},
+          { provide: TrainingDayRepository, useValue: { getById: jest.fn().mockResolvedValue(null) } },
+          { provide: ExerciseRepository, useValue: { getAll: jest.fn().mockResolvedValue([]) } },
+          { provide: LogSetUseCase, useValue: mockLogSetRejecting },
+          { provide: CompleteSessionUseCase, useValue: { execute: jest.fn() } },
+          { provide: Router, useValue: { navigate: jest.fn() } },
+          { provide: SessionRepository, useValue: { save: jest.fn(), addSetToSession: jest.fn(), getActive: jest.fn(), getById: jest.fn(), getSetsForSession: jest.fn(), getAllWorkedSetsForExercise: jest.fn().mockResolvedValue([]) } },
+          { provide: PersonalRecordDetector, useValue: { detect: jest.fn().mockResolvedValue(null), isPR: jest.fn().mockReturnValue(false) } },
+          { provide: EventBus, useValue: { publish: jest.fn(), subscribe: jest.fn(() => () => {}) } },
+          { provide: PersonalRecordRepository, useValue: { save: jest.fn(), findCurrent: jest.fn(), findAll: jest.fn(), getCurrentForExercise: jest.fn().mockResolvedValue(null), listAll: jest.fn().mockResolvedValue([]) } },
+          { provide: RestTimerService, useValue: { remaining: signal(null), start: jest.fn(), skip: jest.fn(), cancel: jest.fn() } },
+          { provide: NotificationPermissionService, useValue: { status: signal('default'), requestPermission: jest.fn() } },
+        ],
+      })
+        .overrideComponent(TrainingSessionPage, {
+          set: {
+            providers: [
+              { provide: LogSetUseCase, useValue: mockLogSetRejecting },
+              { provide: CompleteSessionUseCase, useValue: { execute: jest.fn() } },
+            ],
+          },
+        })
+        .compileComponents();
+    });
+
+    it('calls toast.error() when onSetLogged use case rejects (P3-3)', async () => {
+      const toastService = TestBed.inject(ToastService);
+      const errorSpy = jest.spyOn(toastService, 'error');
+
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      await fixture.componentInstance.onSetLogged({
+        sessionId: 'session-1',
+        exerciseId: 'ex-1',
+        type: 'weight-reps',
+        repsValue: 5,
+        weightKgValue: 80,
+      });
+
+      expect(errorSpy).toHaveBeenCalledWith('No se pudo guardar la serie', 'Intentá de nuevo');
+    });
+  });
 });

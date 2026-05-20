@@ -26,6 +26,7 @@ import {
   FgChipComponent,
   FgSkeletonComponent,
   FgEmptyStateComponent,
+  ToastService,
 } from '@core/shared/ui';
 
 /** Session grouping — local interface, single-file use. */
@@ -130,6 +131,7 @@ export class ExerciseHistoryPage implements OnInit {
   private readonly exerciseRepo = inject(ExerciseRepository);
   private readonly router = inject(Router);
   private readonly userPrefs = inject(UserPreferencesService);
+  private readonly toast = inject(ToastService);
 
   readonly unit = this.userPrefs.unit;
 
@@ -216,6 +218,8 @@ export class ExerciseHistoryPage implements OnInit {
 
       this.currentPR.set(pr);
       this.history.set(history);
+    } catch {
+      this.toast.error('No se pudo cargar el historial', 'Intentá de nuevo');
     } finally {
       this.loading.set(false);
     }

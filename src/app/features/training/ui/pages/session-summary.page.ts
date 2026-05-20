@@ -8,7 +8,7 @@ import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
 import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-record.repository';
 import { PersonalRecord } from '@features/progress/domain/entities/personal-record.entity';
-import { FgButtonComponent, FgCardComponent, FgChipComponent, FgIconComponent } from '@core/shared/ui';
+import { FgButtonComponent, FgCardComponent, FgChipComponent, FgIconComponent, ToastService } from '@core/shared/ui';
 import { ExerciseRepository } from '../../../exercises/domain/exercise.repository';
 
 /** Format elapsed seconds as M:SS or H:MM:SS */
@@ -190,6 +190,7 @@ export class SessionSummaryPage implements OnInit {
   private readonly router = inject(Router);
   private readonly userPrefs = inject(UserPreferencesService);
   private readonly prRepo = inject(PersonalRecordRepository);
+  private readonly toast = inject(ToastService);
 
   readonly unit = this.userPrefs.unit;
   readonly session = signal<Session | null>(null);
@@ -298,36 +299,40 @@ export class SessionSummaryPage implements OnInit {
   private async init(): Promise<void> {
     const activeSession = this.store.activeSession();
     if (activeSession) {
-      // Resolve exercise names in parallel with session/set loading (ADR-40 inline pattern)
-      const [completedSession, allExercises] = await Promise.all([
-        this.sessionRepo.getById(activeSession.id),
-        this.exerciseRepo.getAll(),
-      ]);
+      try {
+        // Resolve exercise names in parallel with session/set loading (ADR-40 inline pattern)
+        const [completedSession, allExercises] = await Promise.all([
+          this.sessionRepo.getById(activeSession.id),
+          this.exerciseRepo.getAll(),
+        ]);
 
-      this.exerciseNameById.set(new Map(allExercises.map(e => [e.id, e.name])));
-      this.session.set(completedSession);
+        this.exerciseNameById.set(new Map(allExercises.map(e => [e.id, e.name])));
+        this.session.set(completedSession);
 
-      // Load its sets
-      if (completedSession) {
-        const sets = await this.sessionRepo.getSetsForSession(completedSession.id);
-        this.workedSets.set(sets);
+        // Load its sets
+        if (completedSession) {
+          const sets = await this.sessionRepo.getSetsForSession(completedSession.id);
+          this.workedSets.set(sets);
 
-        // Load previous PRs for exercises that have new PRs (N calls, parallelized)
-        const prExerciseIds = [...new Set(sets.filter(s => s.isPR).map(s => s.exerciseId))];
-        const prResults = await Promise.all(
-          prExerciseIds.map(async exId => {
-            const allPRs = await this.prRepo.listAll(exId);
-            // Second-most-recent = the previous PR before today's session
-            const previousPR = allPRs.length >= 2 ? allPRs[1] : null;
-            return { exId, previousPR };
-          })
-        );
+          // Load previous PRs for exercises that have new PRs (N calls, parallelized)
+          const prExerciseIds = [...new Set(sets.filter(s => s.isPR).map(s => s.exerciseId))];
+          const prResults = await Promise.all(
+            prExerciseIds.map(async exId => {
+              const allPRs = await this.prRepo.listAll(exId);
+              // Second-most-recent = the previous PR before today's session
+              const previousPR = allPRs.length >= 2 ? allPRs[1] : null;
+              return { exId, previousPR };
+            })
+          );
 
-        const prevMap = new Map<string, PersonalRecord>();
-        for (const { exId, previousPR } of prResults) {
-          if (previousPR) prevMap.set(exId, previousPR);
+          const prevMap = new Map<string, PersonalRecord>();
+          for (const { exId, previousPR } of prResults) {
+            if (previousPR) prevMap.set(exId, previousPR);
+          }
+          this.previousPRsByExerciseId.set(prevMap);
         }
-        this.previousPRsByExerciseId.set(prevMap);
+      } catch {
+        this.toast.error('No se pudo cargar el resumen', 'Intentá de nuevo');
       }
     } else {
       // No session in store — navigate home

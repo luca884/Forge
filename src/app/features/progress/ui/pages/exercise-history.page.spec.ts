@@ -10,6 +10,7 @@ import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { ExerciseHistoryPage } from './exercise-history.page';
 import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
+import { ToastService } from '@core/shared/ui';
 import type { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
 import type { WorkedSet } from '@features/training/domain/worked-set';
 import type { PersonalRecord } from '../../domain/entities/personal-record.entity';
@@ -108,6 +109,22 @@ describe('ExerciseHistoryPage', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     expect(loadOnceSpy).toHaveBeenCalledTimes(1);
+  });
+
+  // P3-3: toast.error shown when init() fails
+  it('calls toast.error when init() rejects (P3-3)', async () => {
+    const exRepo = TestBed.inject(ExerciseRepository) as unknown as { getById: jest.Mock };
+    exRepo.getById.mockRejectedValue(new Error('db error'));
+
+    const toastService = TestBed.inject(ToastService);
+    const errorSpy = jest.spyOn(toastService, 'error');
+
+    fixture = TestBed.createComponent(ExerciseHistoryPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await Promise.resolve();
+
+    expect(errorSpy).toHaveBeenCalledWith('No se pudo cargar el historial', 'Intentá de nuevo');
   });
 
   it('renders 1RM stat with unit="lb" using DisplayWeightPipe', async () => {
