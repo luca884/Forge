@@ -1,16 +1,17 @@
 import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
+import { FgIconComponent, type IconName } from '@core/shared/ui';
 
 interface NavTab {
   label: string;
   route: string;
-  icon: string;
+  icon: IconName;
 }
 
 @Component({
   selector: 'fg-bottom-nav',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive],
+  imports: [RouterLink, RouterLinkActive, FgIconComponent],
   template: `
     <nav class="bottom-nav">
       @for (tab of tabs; track tab.route) {
@@ -20,7 +21,7 @@ interface NavTab {
           class="bottom-nav__tab"
           [attr.aria-label]="tab.label"
         >
-          <span class="bottom-nav__icon" aria-hidden="true">{{ tab.icon }}</span>
+          <fg-icon [name]="tab.icon" [size]="22" />
           <span class="bottom-nav__label">{{ tab.label }}</span>
         </a>
       }
@@ -51,18 +52,14 @@ interface NavTab {
     .bottom-nav__tab.active {
       color: #e8ff8b;
     }
-
-    .bottom-nav__icon {
-      font-size: 1.25rem;
-    }
   `,
 })
 export class BottomNavComponent {
   readonly tabs: NavTab[] = [
-    { label: 'Entrenar', route: '/training', icon: '🏋️' },
-    { label: 'Rutinas', route: '/routines', icon: '📋' },
-    { label: 'Ejercicios', route: '/exercises', icon: '💪' },
-    { label: 'Progreso', route: '/progress', icon: '📈' },
-    { label: 'Perfil', route: '/profile', icon: '👤' },
+    { label: 'Entrenar', route: '/training', icon: 'dumbbell' },
+    { label: 'Rutinas', route: '/routines', icon: 'calendar' },
+    { label: 'Ejercicios', route: '/exercises', icon: 'weight' },
+    { label: 'Progreso', route: '/progress', icon: 'trending' },
+    { label: 'Perfil', route: '/profile', icon: 'user' },
   ];
 }

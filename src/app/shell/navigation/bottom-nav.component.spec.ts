@@ -68,4 +68,12 @@ describe('BottomNavComponent', () => {
       expect(el.getAttribute('aria-label')).toBeTruthy();
     });
   });
+
+  it('cada tab renderiza un fg-icon del design system (no emoji)', () => {
+    const tabs = getTabs();
+    expect(tabs.length).toBe(5);
+    tabs.forEach((tab) => {
+      expect(tab.query(By.css('fg-icon'))).toBeTruthy();
+    });
+  });
 });
