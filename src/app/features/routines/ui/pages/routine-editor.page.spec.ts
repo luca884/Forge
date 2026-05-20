@@ -333,7 +333,6 @@ describe('RoutineEditorPage', () => {
       // We verify via component metadata
       const { fixture } = makeFixture();
       fixture.detectChanges();
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const changeDetection = (RoutineEditorPage as any).__annotations__?.[0]?.changeDetection ?? -1;
       // ChangeDetectionStrategy.OnPush = 0
       expect(changeDetection).toBe(0);
@@ -342,7 +341,6 @@ describe('RoutineEditorPage', () => {
     it('GetAllRoutinesUseCase NÃO está en providers del component', () => {
       const { fixture } = makeFixture();
       fixture.detectChanges();
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const providers: unknown[] = (RoutineEditorPage as any).__annotations__?.[0]?.providers ?? [];
       const hasGetAll = providers.some(
         (p) => p === 'GetAllRoutinesUseCase' || (typeof p === 'function' && p.name === 'GetAllRoutinesUseCase'),

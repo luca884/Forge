@@ -22,7 +22,6 @@ describe('muscleGroupLabel', () => {
   });
 
   it('returns the raw string for an unknown muscle group (fallback)', () => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     expect(muscleGroupLabel('unknown-group' as any)).toBe('unknown-group');
   });
 });

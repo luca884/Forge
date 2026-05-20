@@ -246,7 +246,6 @@ describe('WeeklyScheduleEditorPage', () => {
     it('ChangeDetectionStrategy.OnPush está seteado en el component', () => {
       const { fixture } = makeFixture();
       fixture.detectChanges();
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const changeDetection = (WeeklyScheduleEditorPage as any).__annotations__?.[0]?.changeDetection ?? -1;
       // ChangeDetectionStrategy.OnPush = 0
       expect(changeDetection).toBe(0);
