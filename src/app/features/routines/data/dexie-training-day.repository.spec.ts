@@ -95,4 +95,30 @@ describe('DexieTrainingDayRepository', () => {
     expect(result!.exercises[0]!.exerciseId).toBe('ex1');
     expect(result!.exercises[0]!.targetSets[0]!.type).toBe('weight-reps');
   });
+
+  // P3-2: existsExerciseInAnyDay
+  it('existsExerciseInAnyDay() returns true when a training day references the exercise', async () => {
+    await repo.save(makeDay({
+      id: 'd1',
+      exercises: [{ exerciseId: 'ex-target', order: 0, targetSets: [] }],
+    }));
+
+    const result = await repo.existsExerciseInAnyDay('ex-target');
+    expect(result).toBe(true);
+  });
+
+  it('existsExerciseInAnyDay() returns false when no training day references the exercise', async () => {
+    await repo.save(makeDay({
+      id: 'd1',
+      exercises: [{ exerciseId: 'ex-other', order: 0, targetSets: [] }],
+    }));
+
+    const result = await repo.existsExerciseInAnyDay('ex-no-days');
+    expect(result).toBe(false);
+  });
+
+  it('existsExerciseInAnyDay() returns false when there are no training days', async () => {
+    const result = await repo.existsExerciseInAnyDay('ex-empty');
+    expect(result).toBe(false);
+  });
 });

@@ -59,6 +59,11 @@ export class DexiePersonalRecordRepository extends PersonalRecordRepository {
     return best ? toPersonalRecord(best) : null;
   }
 
+  /** Returns true if at least one PR exists for the given exerciseId. P3-2. */
+  async existsByExerciseId(exerciseId: string): Promise<boolean> {
+    return (await this.db.personalRecords.where('exerciseId').equals(exerciseId).count()) > 0;
+  }
+
   /**
    * Returns all PersonalRecord rows, optionally filtered by exerciseId,
    * ordered by achievedAt descending. D-9/R4, D-10/R5.

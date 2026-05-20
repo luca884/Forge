@@ -6,6 +6,7 @@ import { ExerciseRepository } from '../../domain/exercise.repository';
 import { CreateCustomExerciseUseCase } from '../../domain/use-cases/create-custom-exercise.use-case';
 import { EditCustomExerciseUseCase } from '../../domain/use-cases/edit-custom-exercise.use-case';
 import { DeleteCustomExerciseUseCase } from '../../domain/use-cases/delete-custom-exercise.use-case';
+import { ExerciseInUseError } from '../../domain/errors/exercise-in-use.error';
 import { TrackingType } from '@core/shared/domain/tracking-type';
 
 const MUSCLE_GROUPS: MuscleGroup[] = [
@@ -227,7 +228,11 @@ export class ExerciseFormPage implements OnInit {
       await this.deleteUseCase.execute({ id });
       await this.router.navigate(['/exercises']);
     } catch (err) {
-      this.formError.set(err instanceof Error ? err.message : 'Error al eliminar');
+      if (err instanceof ExerciseInUseError) {
+        this.formError.set('No se puede borrar el ejercicio: está en uso en tu historial o rutinas');
+      } else {
+        this.formError.set(err instanceof Error ? err.message : 'Error al eliminar');
+      }
     } finally {
       this.isDeleting.set(false);
     }

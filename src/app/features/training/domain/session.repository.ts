@@ -26,4 +26,7 @@ export abstract class SessionRepository {
 
   /** Returns all sessions, optionally filtered by startedAt >= fromDate. */
   abstract getAllSessions(fromDate?: Date): Promise<Session[]>;
+
+  /** Returns true if any worked set references the given exerciseId. P3-2. */
+  abstract existsWorkedSetForExercise(exerciseId: string): Promise<boolean>;
 }

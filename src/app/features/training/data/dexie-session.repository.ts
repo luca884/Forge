@@ -78,4 +78,8 @@ export class DexieSessionRepository extends SessionRepository {
     const rows = await this.db.sessions.toArray();
     return rows.map(toSession);
   }
+
+  async existsWorkedSetForExercise(exerciseId: string): Promise<boolean> {
+    return (await this.db.workedSets.where('exerciseId').equals(exerciseId).count()) > 0;
+  }
 }

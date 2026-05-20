@@ -5,6 +5,8 @@ import { ExerciseFilter } from '../../domain/exercise-filter';
 import { GetExercisesUseCase } from '../../domain/use-cases/get-exercises.use-case';
 import { SeedExercisesUseCase } from '../../domain/use-cases/seed-exercises.use-case';
 import { DeleteCustomExerciseUseCase } from '../../domain/use-cases/delete-custom-exercise.use-case';
+import { ExerciseInUseError } from '../../domain/errors/exercise-in-use.error';
+import { ToastService } from '@core/shared/ui/toast/toast.service';
 
 const MUSCLE_GROUPS: MuscleGroup[] = [
   'chest',
@@ -70,6 +72,7 @@ export class ExerciseListPage implements OnInit {
   private readonly getExercisesUseCase = inject(GetExercisesUseCase);
   private readonly seedExercisesUseCase = inject(SeedExercisesUseCase);
   private readonly deleteUseCase = inject(DeleteCustomExerciseUseCase);
+  private readonly toast = inject(ToastService);
 
   readonly muscleGroups = MUSCLE_GROUPS;
   readonly searchQuery = signal<string>('');
@@ -113,8 +116,12 @@ export class ExerciseListPage implements OnInit {
         search: this.searchQuery() || undefined,
         muscleGroup: this.muscleGroupFilter(),
       });
-    } catch {
-      // silently ignore — delete button only shown for custom exercises
+    } catch (err) {
+      if (err instanceof ExerciseInUseError) {
+        this.toast.error('No se puede borrar el ejercicio', 'Está en uso en tu historial o rutinas');
+      } else {
+        this.toast.error('No se pudo borrar el ejercicio', 'Intentá de nuevo');
+      }
     }
   }
 }

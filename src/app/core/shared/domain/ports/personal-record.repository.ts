@@ -47,4 +47,11 @@ export abstract class PersonalRecordRepository {
    * D-9/R2, D-9/R4.
    */
   abstract listAll(exerciseId?: string): Promise<PersonalRecord[]>;
+
+  /**
+   * Return true if at least one PersonalRecord exists for the given exerciseId.
+   * Used by DeleteCustomExerciseUseCase to block deletion when a PR references the exercise.
+   * P3-2.
+   */
+  abstract existsByExerciseId(exerciseId: string): Promise<boolean>;
 }

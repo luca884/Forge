@@ -210,4 +210,18 @@ describe('DexieSessionRepository', () => {
     expect(ids).toContain('session-new');
     expect(ids).not.toContain('session-old');
   });
+
+  // P3-2: existsWorkedSetForExercise
+  it('existsWorkedSetForExercise() returns true when a worked set references the exercise', async () => {
+    await repo.save(makeSession());
+    await repo.addSetToSession('session-1', makeWeightRepsSet({ exerciseId: 'ex-target' }));
+
+    const result = await repo.existsWorkedSetForExercise('ex-target');
+    expect(result).toBe(true);
+  });
+
+  it('existsWorkedSetForExercise() returns false when no worked set references the exercise', async () => {
+    const result = await repo.existsWorkedSetForExercise('ex-no-sets');
+    expect(result).toBe(false);
+  });
 });

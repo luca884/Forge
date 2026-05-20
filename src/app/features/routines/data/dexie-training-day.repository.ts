@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { TrainingDayRepository } from '../domain/training-day.repository';
 import { TrainingDay } from '../domain/training-day.entity';
 import { ForgeDatabaseService } from '@core/db/forge-database.service';
-import { toTrainingDay, toTrainingDayRow } from './training-day.mapper';
+import { toTrainingDay, toTrainingDayRow, ExerciseInDayRow } from './training-day.mapper';
 
 @Injectable()
 export class DexieTrainingDayRepository extends TrainingDayRepository {
@@ -27,5 +27,12 @@ export class DexieTrainingDayRepository extends TrainingDayRepository {
 
   async delete(id: string): Promise<void> {
     await this.db.trainingDays.delete(id);
+  }
+
+  async existsExerciseInAnyDay(exerciseId: string): Promise<boolean> {
+    const days = await this.db.trainingDays.toArray();
+    return days.some(d =>
+      (d.exercises as ExerciseInDayRow[] | null ?? []).some(e => e.exerciseId === exerciseId),
+    );
   }
 }

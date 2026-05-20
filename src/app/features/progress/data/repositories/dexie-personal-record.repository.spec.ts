@@ -204,4 +204,17 @@ describe('DexiePersonalRecordRepository', () => {
     expect(forEx1).toHaveLength(1);
     expect(forEx1[0]!.exerciseId).toBe('ex-1');
   });
+
+  // P3-2: existsByExerciseId
+  it('existsByExerciseId() returns true when a PR exists for the exercise', async () => {
+    await repo.save(makePersonalRecord({ id: 'pr-target', exerciseId: 'ex-target' }));
+
+    const result = await repo.existsByExerciseId('ex-target');
+    expect(result).toBe(true);
+  });
+
+  it('existsByExerciseId() returns false when no PR exists for the exercise', async () => {
+    const result = await repo.existsByExerciseId('ex-no-prs');
+    expect(result).toBe(false);
+  });
 });
