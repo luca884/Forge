@@ -22,6 +22,7 @@ import {
   FgButtonComponent,
   FgPageHeaderComponent,
   FgCardComponent,
+  FgSkeletonComponent,
   type PageHeaderAction,
 } from '@core/shared/ui';
 import { muscleGroupLabel } from '@features/progress/ui/helpers/muscle-group-label';
@@ -51,6 +52,7 @@ const MUSCLE_GROUPS: MuscleGroup[] = [
     FgButtonComponent,
     FgPageHeaderComponent,
     FgCardComponent,
+    FgSkeletonComponent,
   ],
   providers: [
     GetExercisesUseCase,
@@ -84,7 +86,14 @@ const MUSCLE_GROUPS: MuscleGroup[] = [
         }
       </div>
 
-      @if (exercises().length === 0) {
+      @if (loading()) {
+        <fg-card>
+          <fg-skeleton [height]="72"></fg-skeleton>
+        </fg-card>
+        <fg-card>
+          <fg-skeleton [height]="72"></fg-skeleton>
+        </fg-card>
+      } @else if (exercises().length === 0) {
         <fg-empty-state
           title="No hay ejercicios"
           body="Agregá tu primer ejercicio personalizado"
@@ -123,6 +132,7 @@ export class ExerciseListPage implements OnInit {
 
   readonly muscleGroupLabel = muscleGroupLabel;
   readonly muscleGroups = MUSCLE_GROUPS;
+  readonly loading = signal(true);
   readonly searchQuery = signal<string>('');
   readonly muscleGroupFilter = signal<MuscleGroup | undefined>(undefined);
   readonly exercises = signal<Exercise[]>([]);
@@ -154,11 +164,14 @@ export class ExerciseListPage implements OnInit {
   }
 
   private async loadExercises(filter: ExerciseFilter): Promise<void> {
+    this.loading.set(true);
     try {
       const result = await this.getExercisesUseCase.execute(filter);
       this.exercises.set(result);
     } catch {
       this.toast.error('No se pudieron cargar los ejercicios', 'Intentá de nuevo');
+    } finally {
+      this.loading.set(false);
     }
   }
 

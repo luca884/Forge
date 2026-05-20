@@ -36,7 +36,7 @@ import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-rec
 import { RestTimerService } from '../services/rest-timer.service';
 import { NotificationPermissionService } from '@core/notifications/notification-permission.service';
 import { PrCelebrationComponent } from '../components/pr-celebration.component';
-import { ToastService } from '@core/shared/ui';
+import { ToastService, FgSkeletonComponent } from '@core/shared/ui';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -440,6 +440,47 @@ describe('TrainingSessionPage', () => {
 
       await fixture.componentInstance.completeSession();
 
+      expect(fixture.componentInstance.completing()).toBe(false);
+    });
+  });
+
+  // P3-5: initLoading skeleton
+  describe('initLoading skeleton (P3-5)', () => {
+    it('shows fg-skeleton for the exercise-list area while initLoading is true', () => {
+      // By default mockDayRepo.getById hangs (resolves to null synchronously but
+      // the effect flushes after detectChanges). We test that on first detectChanges,
+      // before init() resolves, the skeleton is visible.
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      // Set initLoading manually to test the template branch
+      fixture.componentInstance.initLoading.set(true);
+      fixture.detectChanges();
+
+      const skeleton = fixture.debugElement.query(By.directive(FgSkeletonComponent));
+      expect(skeleton).not.toBeNull();
+    });
+
+    it('hides fg-skeleton after init() completes (initLoading false)', async () => {
+      activeSessionSignal.set(makeSession());
+      mockDayRepo.getById.mockResolvedValue({ exercises: [], name: 'Test' });
+
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.initLoading()).toBe(false);
+      const skeleton = fixture.debugElement.query(By.directive(FgSkeletonComponent));
+      expect(skeleton).toBeNull();
+    });
+
+    it('completing signal remains independent of initLoading (P3-5 no regression)', async () => {
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      fixture.detectChanges();
+
+      // completing should start false regardless of initLoading
       expect(fixture.componentInstance.completing()).toBe(false);
     });
   });

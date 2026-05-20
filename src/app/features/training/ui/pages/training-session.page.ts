@@ -14,7 +14,7 @@ import { WorkedSet } from '../../domain/worked-set';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-record.repository';
 import { PersonalRecord } from '@features/progress/domain/entities/personal-record.entity';
-import { FgButtonComponent } from '@core/shared/ui';
+import { FgButtonComponent, FgCardComponent, FgSkeletonComponent } from '@core/shared/ui';
 import { FgIconComponent } from '@core/shared/ui';
 import { ToastService } from '@core/shared/ui';
 
@@ -46,6 +46,8 @@ function formatHMS(totalSeconds: number): string {
     PrCelebrationComponent,
     FgButtonComponent,
     FgIconComponent,
+    FgCardComponent,
+    FgSkeletonComponent,
   ],
   providers: [
     LogSetUseCase,
@@ -94,6 +96,15 @@ function formatHMS(totalSeconds: number): string {
         }
 
         <!-- Exercise list with auto-collapse -->
+        @if (initLoading()) {
+          <fg-card>
+            <fg-skeleton [height]="72"></fg-skeleton>
+          </fg-card>
+          <fg-card>
+            <fg-skeleton [height]="72"></fg-skeleton>
+          </fg-card>
+        }
+        @if (!initLoading()) {
         @for (item of exercisesWithData(); track item.exercise.id) {
           @let isCollapsed = collapsedIds().has(item.exercise.id);
           @if (isCollapsed) {
@@ -125,6 +136,8 @@ function formatHMS(totalSeconds: number): string {
           </p>
         }
 
+        } <!-- end @if (!initLoading()) -->
+
         <!-- CTA -->
         <div class="mt-4">
           <button fg-button variant="ghost" size="md" [full]="true" leadingIcon="check"
@@ -151,6 +164,7 @@ export class TrainingSessionPage implements OnInit {
   readonly unit = this.userPrefs.unit;
 
   readonly exercisesWithData = signal<ExerciseWithData[]>([]);
+  readonly initLoading = signal(true);
   readonly completing = signal(false);
   readonly prVisible = signal(false);
   readonly latestPrSet = signal<WorkedSet | null>(null);
@@ -199,36 +213,40 @@ export class TrainingSessionPage implements OnInit {
   }
 
   private async init(): Promise<void> {
-    if (!this.store.activeSession()) {
-      await this.store.loadActive();
-    }
-
-    const session = this.store.activeSession();
-    if (!session) {
-      void this.router.navigate(['/training']);
-      return;
-    }
-
-    await this.store.refreshSets();
-
-    const day = await this.trainingDayRepo.getById(session.dayId);
-    if (!day) return;
-
-    if (day.name) {
-      this.dayLabel.set(day.name);
-    }
-
-    const allExercises = await this.exerciseRepo.getAll();
-    const exerciseById = new Map(allExercises.map(e => [e.id, e]));
-
-    const exercisesWithData: ExerciseWithData[] = [];
-    for (const exInDay of day.exercises) {
-      const exercise = exerciseById.get(exInDay.exerciseId);
-      if (exercise) {
-        exercisesWithData.push({ exercise, exerciseInDay: exInDay });
+    try {
+      if (!this.store.activeSession()) {
+        await this.store.loadActive();
       }
+
+      const session = this.store.activeSession();
+      if (!session) {
+        void this.router.navigate(['/training']);
+        return;
+      }
+
+      await this.store.refreshSets();
+
+      const day = await this.trainingDayRepo.getById(session.dayId);
+      if (!day) return;
+
+      if (day.name) {
+        this.dayLabel.set(day.name);
+      }
+
+      const allExercises = await this.exerciseRepo.getAll();
+      const exerciseById = new Map(allExercises.map(e => [e.id, e]));
+
+      const exercisesWithData: ExerciseWithData[] = [];
+      for (const exInDay of day.exercises) {
+        const exercise = exerciseById.get(exInDay.exerciseId);
+        if (exercise) {
+          exercisesWithData.push({ exercise, exerciseInDay: exInDay });
+        }
+      }
+      this.exercisesWithData.set(exercisesWithData);
+    } finally {
+      this.initLoading.set(false);
     }
-    this.exercisesWithData.set(exercisesWithData);
   }
 
   async onSetLogged(input: LogSetInput): Promise<void> {

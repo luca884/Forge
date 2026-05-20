@@ -4,11 +4,12 @@
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
+import { By } from '@angular/platform-browser';
 import { SessionSummaryPage } from './session-summary.page';
 import { TrainingSessionStore } from '../services/training-session.store';
 import { SessionRepository } from '../../domain/session.repository';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
-import { ToastService } from '@core/shared/ui';
+import { ToastService, FgSkeletonComponent } from '@core/shared/ui';
 import type { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
 import type { Session } from '../../domain/session.entity';
 import type { WorkedSet } from '../../domain/worked-set';
@@ -340,5 +341,42 @@ describe('SessionSummaryPage', () => {
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('100 kg');
+  });
+
+  // P3-5: loading skeleton
+
+  it('shows fg-skeleton while loading is true (P3-5)', async () => {
+    // Make sessionRepo.getById hang so loading stays true
+    let resolveLoad!: (v: Session) => void;
+    const pendingLoad = new Promise<Session>((res) => { resolveLoad = res; });
+
+    await setup([]);
+    mockSessionRepo.getById.mockReturnValue(pendingLoad);
+
+    fixture = TestBed.createComponent(SessionSummaryPage);
+    fixture.detectChanges();
+    // Do NOT flush — loading should still be true
+
+    const skeleton = fixture.debugElement.query(By.directive(FgSkeletonComponent));
+    expect(skeleton).not.toBeNull();
+
+    resolveLoad(completedSession); // clean up
+  });
+
+  it('hides fg-skeleton and shows real content after load resolves (P3-5)', async () => {
+    const workedSets = [makeWeightRepsSet('ws-1', 'ex-1', 80, 10)];
+    await setup(workedSets);
+
+    fixture = TestBed.createComponent(SessionSummaryPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    fixture.detectChanges();
+
+    const skeleton = fixture.debugElement.query(By.directive(FgSkeletonComponent));
+    expect(skeleton).toBeNull();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Sets');
   });
 });

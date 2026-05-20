@@ -12,7 +12,7 @@ import { SessionRepository } from '@features/training/domain/session.repository'
 import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-record.repository';
 import { TrainingDayRepository } from '@features/routines/domain/training-day.repository';
 import { provideRouter } from '@angular/router';
-import { FgEmptyStateComponent } from '@core/shared/ui';
+import { FgEmptyStateComponent, FgSkeletonComponent } from '@core/shared/ui';
 import { FgChipComponent } from '@core/shared/ui';
 
 const makeExercise = (overrides: Partial<Exercise> = {}): Exercise => ({
@@ -361,5 +361,53 @@ describe('ExerciseListPage — muscle-group chips rendered (P3-4)', () => {
     // 'back' is index 1 in MUSCLE_GROUPS array (chest=0, back=1)
     const backChip = chips[2]; // index 0=Todos, 1=chest, 2=back
     expect((backChip.componentInstance as FgChipComponent).active()).toBe(true);
+  });
+});
+
+// P3-5: loading skeleton
+describe('ExerciseListPage — loading skeleton (P3-5)', () => {
+  it('shows fg-skeleton while loading is true and hides exercise list', async () => {
+    // getExercises hangs (never resolves during this test) so loading stays true
+    let resolveLoad!: (v: Exercise[]) => void;
+    const pendingLoad = new Promise<Exercise[]>((res) => { resolveLoad = res; });
+
+    const mocks = buildModuleWithMocks({
+      getExecute: jest.fn().mockReturnValue(pendingLoad),
+    });
+    await setupTestBed(mocks);
+
+    const fixture = TestBed.createComponent(ExerciseListPage);
+    fixture.detectChanges();
+    // Do NOT flush — loading should still be true
+
+    const skeleton = fixture.debugElement.query(By.directive(FgSkeletonComponent));
+    expect(skeleton).not.toBeNull();
+
+    // The exercise-list cards should NOT be rendered yet
+    const emptyState = fixture.debugElement.query(By.directive(FgEmptyStateComponent));
+    expect(emptyState).toBeNull();
+
+    resolveLoad([]); // clean up
+  });
+
+  it('hides fg-skeleton and shows content after load resolves', async () => {
+    const mocks = buildModuleWithMocks({
+      getExecute: jest.fn().mockResolvedValue([makeExercise({ id: 'ex-1', name: 'Bench Press' })]),
+    });
+    await setupTestBed(mocks);
+
+    const fixture = TestBed.createComponent(ExerciseListPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await Promise.resolve();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    const skeleton = fixture.debugElement.query(By.directive(FgSkeletonComponent));
+    expect(skeleton).toBeNull();
+
+    // Real content (card with exercise name) should be present
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Bench Press');
   });
 });

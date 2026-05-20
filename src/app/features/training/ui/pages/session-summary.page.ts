@@ -8,7 +8,7 @@ import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
 import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-record.repository';
 import { PersonalRecord } from '@features/progress/domain/entities/personal-record.entity';
-import { FgButtonComponent, FgCardComponent, FgChipComponent, FgIconComponent, ToastService } from '@core/shared/ui';
+import { FgButtonComponent, FgCardComponent, FgChipComponent, FgIconComponent, FgSkeletonComponent, ToastService } from '@core/shared/ui';
 import { ExerciseRepository } from '../../../exercises/domain/exercise.repository';
 
 /** Format elapsed seconds as M:SS or H:MM:SS */
@@ -44,7 +44,7 @@ interface PrRow {
 @Component({
   selector: 'fg-session-summary-page',
   standalone: true,
-  imports: [DisplayWeightPipe, FgButtonComponent, FgCardComponent, FgChipComponent, FgIconComponent],
+  imports: [DisplayWeightPipe, FgButtonComponent, FgCardComponent, FgChipComponent, FgIconComponent, FgSkeletonComponent],
   template: `
     <div class="min-h-screen bg-forge-950 text-forge-100 flex flex-col">
       <header class="sticky top-0 z-10 px-5 pt-1 pb-3 bg-forge-950">
@@ -61,6 +61,14 @@ interface PrRow {
       </header>
 
       <main class="flex-1 overflow-y-auto px-5 pb-24 pt-3 flex flex-col gap-4">
+        @if (loading()) {
+          <fg-card>
+            <fg-skeleton [height]="72"></fg-skeleton>
+          </fg-card>
+          <fg-card>
+            <fg-skeleton [height]="72"></fg-skeleton>
+          </fg-card>
+        } @else {
         <!-- Volume hero -->
         <fg-card [padding]="20" class="relative overflow-hidden">
           <div class="absolute inset-0 pointer-events-none"
@@ -175,7 +183,9 @@ interface PrRow {
           </div>
         }
 
-        <!-- CTA -->
+        } <!-- end @else (loading) -->
+
+        <!-- CTA — always visible -->
         <button fg-button variant="primary" size="lg" [full]="true" leadingIcon="check" (click)="goHome()">
           Guardar y cerrar
         </button>
@@ -193,6 +203,7 @@ export class SessionSummaryPage implements OnInit {
   private readonly toast = inject(ToastService);
 
   readonly unit = this.userPrefs.unit;
+  readonly loading = signal(true);
   readonly session = signal<Session | null>(null);
   readonly workedSets = signal<readonly WorkedSet[]>([]);
 
@@ -333,9 +344,12 @@ export class SessionSummaryPage implements OnInit {
         }
       } catch {
         this.toast.error('No se pudo cargar el resumen', 'Intentá de nuevo');
+      } finally {
+        this.loading.set(false);
       }
     } else {
       // No session in store — navigate home
+      this.loading.set(false);
       void this.router.navigate(['/training']);
     }
   }
