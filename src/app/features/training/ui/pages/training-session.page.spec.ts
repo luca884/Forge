@@ -36,6 +36,7 @@ import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-rec
 import { RestTimerService } from '../services/rest-timer.service';
 import { NotificationPermissionService } from '@core/notifications/notification-permission.service';
 import { PrCelebrationComponent } from '../components/pr-celebration.component';
+import { ToastService } from '@core/shared/ui';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -368,5 +369,78 @@ describe('TrainingSessionPage', () => {
     // Match #RGB or #RRGGBB hex patterns not preceded by alphanumeric (avoid matching class names with dashes)
     const hexMatches = html.match(/#[0-9a-fA-F]{3,6}\b/g) ?? [];
     expect(hexMatches).toHaveLength(0);
+  });
+
+  // --- P3-1: ToastService integration on completeSession failure ---
+  // These tests use a separate describe with their own TestBed setup so that
+  // overrideComponent is called BEFORE any inject() (Angular constraint).
+
+  describe('completeSession() — error path (P3-1)', () => {
+    let mockCompleteUseCase: { execute: jest.Mock };
+
+    beforeEach(async () => {
+      mockCompleteUseCase = { execute: jest.fn().mockRejectedValue(new Error('Network error')) };
+
+      await TestBed.configureTestingModule({
+        imports: [TrainingSessionPage],
+        providers: [
+          { provide: UserPreferencesService, useValue: { unit: signal('kg'), loadOnce: jest.fn().mockResolvedValue(undefined) } },
+          { provide: TrainingSessionStore, useValue: {
+            activeSession: signal(makeSession()),
+            workedSets: signal([]),
+            setsByExercise: signal(new Map()),
+            loadActive: jest.fn().mockResolvedValue(undefined),
+            refreshSets: jest.fn().mockResolvedValue(undefined),
+            elapsedSeconds: signal(0),
+          }},
+          { provide: TrainingDayRepository, useValue: { getById: jest.fn().mockResolvedValue(null) } },
+          { provide: ExerciseRepository, useValue: { getAll: jest.fn().mockResolvedValue([]) } },
+          { provide: LogSetUseCase, useValue: { execute: jest.fn() } },
+          { provide: CompleteSessionUseCase, useValue: mockCompleteUseCase },
+          { provide: Router, useValue: { navigate: jest.fn() } },
+          { provide: SessionRepository, useValue: { save: jest.fn(), addSetToSession: jest.fn(), getActive: jest.fn(), getById: jest.fn(), getSetsForSession: jest.fn(), getAllWorkedSetsForExercise: jest.fn().mockResolvedValue([]) } },
+          { provide: PersonalRecordDetector, useValue: { detect: jest.fn().mockResolvedValue(null), isPR: jest.fn().mockReturnValue(false) } },
+          { provide: EventBus, useValue: { publish: jest.fn(), subscribe: jest.fn(() => () => {}) } },
+          { provide: PersonalRecordRepository, useValue: { save: jest.fn(), findCurrent: jest.fn(), findAll: jest.fn(), getCurrentForExercise: jest.fn().mockResolvedValue(null), listAll: jest.fn().mockResolvedValue([]) } },
+          { provide: RestTimerService, useValue: { remaining: signal(null), start: jest.fn(), skip: jest.fn(), cancel: jest.fn() } },
+          { provide: NotificationPermissionService, useValue: { status: signal('default'), requestPermission: jest.fn() } },
+        ],
+      })
+        .overrideComponent(TrainingSessionPage, {
+          set: {
+            providers: [
+              { provide: LogSetUseCase, useValue: { execute: jest.fn() } },
+              { provide: CompleteSessionUseCase, useValue: mockCompleteUseCase },
+            ],
+          },
+        })
+        .compileComponents();
+    });
+
+    it('calls toast.error() when completeSession use case rejects', async () => {
+      const toastService = TestBed.inject(ToastService);
+      const errorSpy = jest.spyOn(toastService, 'error');
+
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      await fixture.componentInstance.completeSession();
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        'No se pudo completar la sesión',
+        'Intentá de nuevo',
+      );
+    });
+
+    it('re-enables the completing button after completeSession failure', async () => {
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      await fixture.componentInstance.completeSession();
+
+      expect(fixture.componentInstance.completing()).toBe(false);
+    });
   });
 });

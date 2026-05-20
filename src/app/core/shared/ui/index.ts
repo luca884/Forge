@@ -8,3 +8,5 @@ export { FgInputComponent, type InputSize, type InputType, type InputMode } from
 export { FgPageHeaderComponent, type PageHeaderAction } from './page-header/page-header.component';
 export { FgSkeletonComponent } from './skeleton/skeleton.component';
 export { FgToastComponent, type ToastKind } from './toast/toast.component';
+export { FgToastOutletComponent } from './toast/toast-outlet.component';
+export { ToastService, type Toast } from './toast/toast.service';

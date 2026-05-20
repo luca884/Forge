@@ -16,6 +16,7 @@ import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-rec
 import { PersonalRecord } from '@features/progress/domain/entities/personal-record.entity';
 import { FgButtonComponent } from '@core/shared/ui';
 import { FgIconComponent } from '@core/shared/ui';
+import { ToastService } from '@core/shared/ui';
 
 interface ExerciseWithData {
   exercise: Exercise;
@@ -144,6 +145,7 @@ export class TrainingSessionPage implements OnInit {
   private readonly router = inject(Router);
   private readonly userPrefs = inject(UserPreferencesService);
   private readonly prRepo = inject(PersonalRecordRepository);
+  private readonly toast = inject(ToastService);
 
   /** Preferred weight unit — propagated to ExerciseSessionCard and PrCelebration (D-5, ADR-22). */
   readonly unit = this.userPrefs.unit;
@@ -266,6 +268,7 @@ export class TrainingSessionPage implements OnInit {
       void this.router.navigate(['/training/session/summary']);
     } catch {
       this.completing.set(false);
+      this.toast.error('No se pudo completar la sesión', 'Intentá de nuevo');
     }
   }
 
