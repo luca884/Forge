@@ -15,6 +15,7 @@ import {
   FgEmptyStateComponent,
   FgButtonComponent,
   FgIconComponent,
+  FgSkeletonComponent,
   type PageHeaderAction,
 } from '@core/shared/ui';
 import { TrainingDay } from '../../domain/training-day.entity';
@@ -36,6 +37,7 @@ import { RoutineRepository } from '../../domain/routine.repository';
     FgEmptyStateComponent,
     FgButtonComponent,
     FgIconComponent,
+    FgSkeletonComponent,
   ],
   providers: [
     CreateRoutineUseCase,
@@ -53,83 +55,89 @@ import { RoutineRepository } from '../../domain/routine.repository';
     ></fg-page-header>
 
     <div class="px-4 pt-3 pb-6 flex flex-col gap-6">
-      <form [formGroup]="form" class="flex flex-col gap-4">
-        <fg-input
-          label="Nombre"
-          formControlName="name"
-          placeholder="Ej: Push Pull Legs"
-          [error]="submitAttempted() && nameControl.invalid ? 'El nombre es obligatorio' : undefined"
-        ></fg-input>
+      @if (loading()) {
+        <fg-card>
+          <fg-skeleton [height]="44"></fg-skeleton>
+        </fg-card>
+      } @else {
+        <form [formGroup]="form" class="flex flex-col gap-4">
+          <fg-input
+            label="Nombre"
+            formControlName="name"
+            placeholder="Ej: Push Pull Legs"
+            [error]="submitAttempted() && nameControl.invalid ? 'El nombre es obligatorio' : undefined"
+          ></fg-input>
 
-        <label class="flex flex-col gap-1.5">
-          <span class="t-caption text-forge-300">Descripción</span>
-          <textarea
-            formControlName="description"
-            rows="3"
-            placeholder="Notas opcionales sobre esta rutina"
-            class="min-h-[80px] rounded-md bg-forge-900 px-3 py-2 text-forge-50 text-[15px] ring-1 ring-inset ring-forge-800 outline-none focus:ring-accent-500 resize-y"
-          ></textarea>
-        </label>
-      </form>
+          <label class="flex flex-col gap-1.5">
+            <span class="t-caption text-forge-300">Descripción</span>
+            <textarea
+              formControlName="description"
+              rows="3"
+              placeholder="Notas opcionales sobre esta rutina"
+              class="min-h-[80px] rounded-md bg-forge-900 px-3 py-2 text-forge-50 text-[15px] ring-1 ring-inset ring-forge-800 outline-none focus:ring-accent-500 resize-y"
+            ></textarea>
+          </label>
+        </form>
 
-      @if (routineId()) {
-        <section class="mt-2 flex flex-col gap-3">
-          <h2 class="t-h3 text-forge-100">Días</h2>
+        @if (routineId()) {
+          <section class="mt-2 flex flex-col gap-3">
+            <h2 class="t-h3 text-forge-100">Días</h2>
 
-          <button
-            fg-button
-            variant="ghost"
-            [leadingIcon]="'calendar'"
-            (click)="goToSchedule()"
-            class="self-start"
-          >
-            Programa semanal
-          </button>
+            <button
+              fg-button
+              variant="ghost"
+              [leadingIcon]="'calendar'"
+              (click)="goToSchedule()"
+              class="self-start"
+            >
+              Programa semanal
+            </button>
 
-          @if (trainingDays().length === 0) {
-            <fg-empty-state
-              icon="dumbbell"
-              title="Sin días aún"
-              body="Agregá tu primer día de entrenamiento."
-            ></fg-empty-state>
-          } @else {
-            @for (day of trainingDays(); track day.id) {
-              <fg-card>
-                <div class="flex items-center justify-between">
-                  <span class="t-body text-forge-100">{{ day.name }}</span>
-                  <div class="flex items-center gap-2">
-                    <button
-                      type="button"
-                      (click)="editDay(day)"
-                      [attr.aria-label]="'Editar día ' + day.name"
-                      class="w-9 h-9 inline-flex items-center justify-center rounded-md text-forge-200 hover:bg-forge-850"
-                    >
-                      <fg-icon name="edit" [size]="18"></fg-icon>
-                    </button>
-                    <button
-                      type="button"
-                      (click)="removeDay(day.id)"
-                      [attr.aria-label]="'Eliminar día ' + day.name"
-                      class="w-9 h-9 inline-flex items-center justify-center rounded-md text-destructive-500 hover:bg-forge-850"
-                    >
-                      <fg-icon name="trash" [size]="18"></fg-icon>
-                    </button>
+            @if (trainingDays().length === 0) {
+              <fg-empty-state
+                icon="dumbbell"
+                title="Sin días aún"
+                body="Agregá tu primer día de entrenamiento."
+              ></fg-empty-state>
+            } @else {
+              @for (day of trainingDays(); track day.id) {
+                <fg-card>
+                  <div class="flex items-center justify-between">
+                    <span class="t-body text-forge-100">{{ day.name }}</span>
+                    <div class="flex items-center gap-2">
+                      <button
+                        type="button"
+                        (click)="editDay(day)"
+                        [attr.aria-label]="'Editar día ' + day.name"
+                        class="w-9 h-9 inline-flex items-center justify-center rounded-md text-forge-200 hover:bg-forge-850"
+                      >
+                        <fg-icon name="edit" [size]="18"></fg-icon>
+                      </button>
+                      <button
+                        type="button"
+                        (click)="removeDay(day.id)"
+                        [attr.aria-label]="'Eliminar día ' + day.name"
+                        class="w-9 h-9 inline-flex items-center justify-center rounded-md text-destructive-500 hover:bg-forge-850"
+                      >
+                        <fg-icon name="trash" [size]="18"></fg-icon>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </fg-card>
+                </fg-card>
+              }
             }
-          }
 
-          <button
-            fg-button
-            variant="ghost"
-            [leadingIcon]="'plus'"
-            (click)="addDay()"
-            class="self-end"
-          >
-            Agregar día
-          </button>
-        </section>
+            <button
+              fg-button
+              variant="ghost"
+              [leadingIcon]="'plus'"
+              (click)="addDay()"
+              class="self-end"
+            >
+              Agregar día
+            </button>
+          </section>
+        }
       }
     </div>
   `,
@@ -148,6 +156,7 @@ export class RoutineEditorPage implements OnInit {
   readonly routineId = signal<string | null>(null);
   readonly trainingDays = signal<TrainingDay[]>([]);
   readonly submitAttempted = signal(false);
+  readonly loading = signal(false);
 
   readonly title = computed(() =>
     this.routineId() ? 'Editar rutina' : 'Nueva rutina',
@@ -172,8 +181,23 @@ export class RoutineEditorPage implements OnInit {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
       this.routineId.set(id);
-      void this.loadRoutine(id);
-      void this.loadDays(id);
+      this.loading.set(true);
+      void this.loadEditData(id);
+    }
+  }
+
+  private async loadEditData(id: string): Promise<void> {
+    try {
+      const [routine, days] = await Promise.all([
+        this.routineRepo.getById(id),
+        this.dayRepo.getByRoutineId(id),
+      ]);
+      if (routine) {
+        this.form.patchValue({ name: routine.name, description: routine.description ?? '' });
+      }
+      this.trainingDays.set(days);
+    } finally {
+      this.loading.set(false);
     }
   }
 

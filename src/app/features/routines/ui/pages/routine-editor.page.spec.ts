@@ -113,6 +113,40 @@ describe('RoutineEditorPage', () => {
     TestBed.resetTestingModule();
   });
 
+  describe('Loading state', () => {
+    it('create mode: loading() starts false, form shows immediately, no fg-skeleton', async () => {
+      const { fixture } = makeFixture();
+      // Only one detectChanges — before async flush — to test initial state
+      fixture.detectChanges();
+      expect(fixture.componentInstance.loading()).toBe(false);
+      const skeleton = fixture.debugElement.query(By.css('fg-skeleton'));
+      expect(skeleton).toBeNull();
+      const form = fixture.debugElement.query(By.css('form'));
+      expect(form).toBeTruthy();
+    });
+
+    it('edit mode: loading() starts true, fg-skeleton shows, form hidden', async () => {
+      const { fixture } = makeFixture({ id: 'r-1' });
+      // Only one detectChanges — before async load resolves
+      fixture.detectChanges();
+      expect(fixture.componentInstance.loading()).toBe(true);
+      const skeleton = fixture.debugElement.query(By.css('fg-skeleton'));
+      expect(skeleton).toBeTruthy();
+      const form = fixture.debugElement.query(By.css('form'));
+      expect(form).toBeNull();
+    });
+
+    it('edit mode: after load resolves loading() is false, form visible, no skeleton', async () => {
+      const { fixture } = makeFixture({ id: 'r-1' });
+      await flush(fixture);
+      expect(fixture.componentInstance.loading()).toBe(false);
+      const skeleton = fixture.debugElement.query(By.css('fg-skeleton'));
+      expect(skeleton).toBeNull();
+      const form = fixture.debugElement.query(By.css('form'));
+      expect(form).toBeTruthy();
+    });
+  });
+
   describe('Create mode (sin :id param)', () => {
     it('renderiza fg-page-header con title "Nueva rutina"', async () => {
       const { fixture } = makeFixture();

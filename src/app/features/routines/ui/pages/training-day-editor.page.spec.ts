@@ -96,6 +96,29 @@ function makeFixture(opts: {
 describe('TrainingDayEditorPage', () => {
   afterEach(() => TestBed.resetTestingModule());
 
+  describe('loading state', () => {
+    it('loading() starts true, fg-skeleton visible, form hidden before load resolves', async () => {
+      const { fixture } = makeFixture();
+      // Only one detectChanges — before async load resolves
+      fixture.detectChanges();
+      expect(fixture.componentInstance.loading()).toBe(true);
+      const skeleton = fixture.debugElement.query(By.css('fg-skeleton'));
+      expect(skeleton).toBeTruthy();
+      const form = fixture.debugElement.query(By.css('form'));
+      expect(form).toBeNull();
+    });
+
+    it('after load resolves: loading() is false, form visible, no skeleton', async () => {
+      const { fixture } = makeFixture();
+      await flush(fixture);
+      expect(fixture.componentInstance.loading()).toBe(false);
+      const skeleton = fixture.debugElement.query(By.css('fg-skeleton'));
+      expect(skeleton).toBeNull();
+      const form = fixture.debugElement.query(By.css('form'));
+      expect(form).toBeTruthy();
+    });
+  });
+
   describe('page header', () => {
     it('renders fg-page-header with title "Editar día" and leading chevron-left', async () => {
       const { fixture } = makeFixture();

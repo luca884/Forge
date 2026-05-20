@@ -20,6 +20,7 @@ import {
   FgEmptyStateComponent,
   FgButtonComponent,
   FgIconComponent,
+  FgSkeletonComponent,
   type PageHeaderAction,
 } from '@core/shared/ui';
 import {
@@ -41,6 +42,7 @@ import { RemoveExerciseFromDayUseCase } from '../../domain/use-cases/remove-exer
     FgEmptyStateComponent,
     FgButtonComponent,
     FgIconComponent,
+    FgSkeletonComponent,
   ],
   providers: [
     GetTrainingDayWithExercisesUseCase,
@@ -57,62 +59,68 @@ import { RemoveExerciseFromDayUseCase } from '../../domain/use-cases/remove-exer
     ></fg-page-header>
 
     <div class="px-4 pt-3 pb-6 flex flex-col gap-6">
-      <form [formGroup]="form" class="flex flex-col gap-4">
-        <fg-input
-          label="Nombre del día"
-          formControlName="name"
-          placeholder="Ej: Día A"
-          [error]="submitAttempted() && nameControl.invalid ? 'El nombre es obligatorio' : undefined"
-        ></fg-input>
-        <fg-input
-          label="Etiqueta (opcional)"
-          formControlName="label"
-          placeholder="Ej: Push, Pull, Legs..."
-        ></fg-input>
-      </form>
+      @if (loading()) {
+        <fg-card>
+          <fg-skeleton [height]="44"></fg-skeleton>
+        </fg-card>
+      } @else {
+        <form [formGroup]="form" class="flex flex-col gap-4">
+          <fg-input
+            label="Nombre del día"
+            formControlName="name"
+            placeholder="Ej: Día A"
+            [error]="submitAttempted() && nameControl.invalid ? 'El nombre es obligatorio' : undefined"
+          ></fg-input>
+          <fg-input
+            label="Etiqueta (opcional)"
+            formControlName="label"
+            placeholder="Ej: Push, Pull, Legs..."
+          ></fg-input>
+        </form>
 
-      <section class="flex flex-col gap-3">
-        <h2 class="t-h3 text-forge-100">Ejercicios</h2>
+        <section class="flex flex-col gap-3">
+          <h2 class="t-h3 text-forge-100">Ejercicios</h2>
 
-        @if ((day()?.exercises ?? []).length === 0) {
-          <fg-empty-state
-            icon="dumbbell"
-            title="Sin ejercicios"
-            body="Agregá tu primer ejercicio a este día."
-          ></fg-empty-state>
-        } @else {
-          @for (exercise of day()?.exercises ?? []; track exercise.exerciseId) {
-            <fg-card>
-              <div class="flex items-center justify-between">
-                <div>
-                  <span class="t-body text-forge-100">{{ exercise.exerciseName }}</span>
-                  <p class="t-body-sm text-forge-400">
-                    {{ exercise.targetSets.length }} series objetivo
-                  </p>
+          @if ((day()?.exercises ?? []).length === 0) {
+            <fg-empty-state
+              icon="dumbbell"
+              title="Sin ejercicios"
+              body="Agregá tu primer ejercicio a este día."
+            ></fg-empty-state>
+          } @else {
+            @for (exercise of day()?.exercises ?? []; track exercise.exerciseId) {
+              <fg-card>
+                <div class="flex items-center justify-between">
+                  <div>
+                    <span class="t-body text-forge-100">{{ exercise.exerciseName }}</span>
+                    <p class="t-body-sm text-forge-400">
+                      {{ exercise.targetSets.length }} series objetivo
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    (click)="removeExercise(exercise)"
+                    [attr.aria-label]="'Quitar ' + exercise.exerciseName"
+                    class="w-9 h-9 inline-flex items-center justify-center rounded-md text-destructive-500 hover:bg-forge-850"
+                  >
+                    <fg-icon name="trash" [size]="18"></fg-icon>
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  (click)="removeExercise(exercise)"
-                  [attr.aria-label]="'Quitar ' + exercise.exerciseName"
-                  class="w-9 h-9 inline-flex items-center justify-center rounded-md text-destructive-500 hover:bg-forge-850"
-                >
-                  <fg-icon name="trash" [size]="18"></fg-icon>
-                </button>
-              </div>
-            </fg-card>
+              </fg-card>
+            }
           }
-        }
 
-        <button
-          fg-button
-          variant="ghost"
-          [leadingIcon]="'plus'"
-          (click)="addExercise()"
-          class="self-end"
-        >
-          Agregar ejercicio
-        </button>
-      </section>
+          <button
+            fg-button
+            variant="ghost"
+            [leadingIcon]="'plus'"
+            (click)="addExercise()"
+            class="self-end"
+          >
+            Agregar ejercicio
+          </button>
+        </section>
+      }
     </div>
   `,
 })
@@ -128,6 +136,7 @@ export class TrainingDayEditorPage implements OnInit {
   readonly routineId = signal<string>('');
   readonly dayId = signal<string>('');
   readonly submitAttempted = signal(false);
+  readonly loading = signal(true);
 
   readonly trailingActions: readonly PageHeaderAction[] = [
     { icon: 'check', ariaLabel: 'Guardar día', click: () => { void this.save(); } },
@@ -153,10 +162,14 @@ export class TrainingDayEditorPage implements OnInit {
   }
 
   async loadDay(): Promise<void> {
-    const d = await this.getDayWithExercises.execute({ trainingDayId: this.dayId() });
-    if (d) {
-      this.day.set(d);
-      this.form.patchValue({ name: d.name, label: d.label ?? '' });
+    try {
+      const d = await this.getDayWithExercises.execute({ trainingDayId: this.dayId() });
+      if (d) {
+        this.day.set(d);
+        this.form.patchValue({ name: d.name, label: d.label ?? '' });
+      }
+    } finally {
+      this.loading.set(false);
     }
   }
 
