@@ -1,5 +1,13 @@
-import { Component, OnInit, inject, signal, effect } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
+import { Router, RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { Exercise, MuscleGroup } from '../../domain/exercise.entity';
 import { ExerciseFilter } from '../../domain/exercise-filter';
 import { GetExercisesUseCase } from '../../domain/use-cases/get-exercises.use-case';
@@ -7,6 +15,16 @@ import { SeedExercisesUseCase } from '../../domain/use-cases/seed-exercises.use-
 import { DeleteCustomExerciseUseCase } from '../../domain/use-cases/delete-custom-exercise.use-case';
 import { ExerciseInUseError } from '../../domain/errors/exercise-in-use.error';
 import { ToastService } from '@core/shared/ui/toast/toast.service';
+import {
+  FgInputComponent,
+  FgChipComponent,
+  FgEmptyStateComponent,
+  FgButtonComponent,
+  FgPageHeaderComponent,
+  FgCardComponent,
+  type PageHeaderAction,
+} from '@core/shared/ui';
+import { muscleGroupLabel } from '@features/progress/ui/helpers/muscle-group-label';
 
 const MUSCLE_GROUPS: MuscleGroup[] = [
   'chest',
@@ -23,48 +41,76 @@ const MUSCLE_GROUPS: MuscleGroup[] = [
 @Component({
   selector: 'fg-exercise-list-page',
   standalone: true,
-  imports: [RouterLink],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [
+    RouterLink,
+    FormsModule,
+    FgInputComponent,
+    FgChipComponent,
+    FgEmptyStateComponent,
+    FgButtonComponent,
+    FgPageHeaderComponent,
+    FgCardComponent,
+  ],
   providers: [
     GetExercisesUseCase,
     SeedExercisesUseCase,
     DeleteCustomExerciseUseCase,
   ],
   template: `
-    <div class="exercise-list-page">
-      <div class="page-header">
-        <h1>Ejercicios</h1>
-        <a routerLink="/exercises/new" class="btn-new">+ Nuevo ejercicio</a>
-      </div>
+    <fg-page-header
+      title="Ejercicios"
+      [trailingActions]="trailingActions"
+    ></fg-page-header>
 
-      <div class="filters">
-        <input
-          type="text"
-          placeholder="Buscar ejercicios..."
-          [value]="searchQuery()"
-          (input)="onSearchInput($event)"
-        />
+    <div class="px-4 pt-3 pb-6 flex flex-col gap-3">
+      <fg-input
+        placeholder="Buscar ejercicios..."
+        [ngModel]="searchQuery()"
+        (ngModelChange)="searchQuery.set($event)"
+      />
 
-        <select (change)="onMuscleGroupChange($event)" [value]="muscleGroupFilter() ?? ''">
-          <option value="">Todos los grupos musculares</option>
-          @for (group of muscleGroups; track group) {
-            <option [value]="group">{{ group }}</option>
-          }
-        </select>
-      </div>
+      <div class="flex gap-2 overflow-x-auto py-1">
+        <fg-chip
+          [active]="muscleGroupFilter() === undefined"
+          (tap)="muscleGroupFilter.set(undefined)"
+        >Todos</fg-chip>
 
-      <ul class="exercise-list">
-        @for (exercise of exercises(); track exercise.id) {
-          <li class="exercise-item">
-            <span class="exercise-name">{{ exercise.name }}</span>
-            <span class="exercise-muscle">{{ exercise.muscleGroup }}</span>
-            @if (exercise.isCustom) {
-              <a [routerLink]="['/exercises', exercise.id, 'edit']" class="btn-edit">Editar</a>
-            }
-          </li>
-        } @empty {
-          <li class="exercise-empty">No se encontraron ejercicios</li>
+        @for (group of muscleGroups; track group) {
+          <fg-chip
+            [active]="muscleGroupFilter() === group"
+            (tap)="toggleMuscleGroup(group)"
+          >{{ muscleGroupLabel(group) }}</fg-chip>
         }
-      </ul>
+      </div>
+
+      @if (exercises().length === 0) {
+        <fg-empty-state
+          title="No hay ejercicios"
+          body="Agregá tu primer ejercicio personalizado"
+        >
+          <button fgEmptyAction fg-button variant="primary" size="sm" routerLink="/exercises/new">
+            Crear ejercicio
+          </button>
+        </fg-empty-state>
+      } @else {
+        @for (exercise of exercises(); track exercise.id) {
+          <fg-card [padding]="14">
+            <div class="flex items-center gap-3.5 text-left">
+              <div class="flex-1 min-w-0">
+                <div class="t-body text-forge-100 font-medium truncate">{{ exercise.name }}</div>
+                <div class="t-body-sm text-forge-500 mt-0.5">{{ muscleGroupLabel(exercise.muscleGroup) }}</div>
+              </div>
+              @if (exercise.isCustom) {
+                <a
+                  [routerLink]="['/exercises', exercise.id, 'edit']"
+                  class="t-body-sm text-accent-300 shrink-0"
+                >Editar</a>
+              }
+            </div>
+          </fg-card>
+        }
+      }
     </div>
   `,
 })
@@ -73,11 +119,21 @@ export class ExerciseListPage implements OnInit {
   private readonly seedExercisesUseCase = inject(SeedExercisesUseCase);
   private readonly deleteUseCase = inject(DeleteCustomExerciseUseCase);
   private readonly toast = inject(ToastService);
+  private readonly router = inject(Router);
 
+  readonly muscleGroupLabel = muscleGroupLabel;
   readonly muscleGroups = MUSCLE_GROUPS;
   readonly searchQuery = signal<string>('');
   readonly muscleGroupFilter = signal<MuscleGroup | undefined>(undefined);
   readonly exercises = signal<Exercise[]>([]);
+
+  readonly trailingActions: readonly PageHeaderAction[] = [
+    {
+      icon: 'plus',
+      ariaLabel: 'Nuevo ejercicio',
+      click: () => void this.router.navigate(['/exercises/new']),
+    },
+  ];
 
   constructor() {
     effect(() => {
@@ -91,15 +147,9 @@ export class ExerciseListPage implements OnInit {
     void this.seedExercisesUseCase.execute();
   }
 
-  onSearchInput(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.searchQuery.set(input.value);
-  }
-
-  onMuscleGroupChange(event: Event): void {
-    const select = event.target as HTMLSelectElement;
+  toggleMuscleGroup(group: MuscleGroup): void {
     this.muscleGroupFilter.set(
-      select.value ? (select.value as MuscleGroup) : undefined,
+      this.muscleGroupFilter() === group ? undefined : group,
     );
   }
 
