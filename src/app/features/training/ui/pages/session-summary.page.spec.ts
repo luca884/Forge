@@ -13,6 +13,7 @@ import type { Session } from '../../domain/session.entity';
 import type { WorkedSet } from '../../domain/worked-set';
 import { Router } from '@angular/router';
 import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-record.repository';
+import { ExerciseRepository } from '../../../exercises/domain/exercise.repository';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -66,8 +67,13 @@ describe('SessionSummaryPage', () => {
   let activeSessionSignal: ReturnType<typeof signal<Session | null>>;
   let mockSessionRepo: { getById: jest.Mock; getSetsForSession: jest.Mock };
   let mockPrRepo: { listAll: jest.Mock; getCurrentForExercise: jest.Mock; save: jest.Mock; getById: jest.Mock };
+  let mockExerciseRepo: { getAll: jest.Mock };
 
-  async function setup(workedSets: WorkedSet[], session: Session = completedSession): Promise<void> {
+  interface SetupOptions {
+    exercises?: { id: string; name: string }[];
+  }
+
+  async function setup(workedSets: WorkedSet[], session: Session = completedSession, opts: SetupOptions = {}): Promise<void> {
     // Always reset before re-configuring (prevents state leak between tests)
     TestBed.resetTestingModule();
 
@@ -87,6 +93,10 @@ describe('SessionSummaryPage', () => {
       getById: jest.fn().mockResolvedValue(null),
     };
 
+    mockExerciseRepo = {
+      getAll: jest.fn().mockResolvedValue(opts.exercises ?? []),
+    };
+
     await TestBed.configureTestingModule({
       imports: [SessionSummaryPage],
       providers: [
@@ -95,6 +105,7 @@ describe('SessionSummaryPage', () => {
         { provide: SessionRepository, useValue: mockSessionRepo },
         { provide: Router, useValue: { navigate: jest.fn() } },
         { provide: PersonalRecordRepository, useValue: mockPrRepo },
+        { provide: ExerciseRepository, useValue: mockExerciseRepo },
       ],
     }).compileComponents();
   }
@@ -239,6 +250,25 @@ describe('SessionSummaryPage', () => {
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Guardar y cerrar');
+  });
+
+  // --- V-D2-Spec-5: Exercise names resolved from ExerciseRepository (#585) ---
+
+  it('breakdown shows exercise NAME not raw UUID when ExerciseRepository provides it (V-D2-Spec-5)', async () => {
+    const workedSets = [makeWeightRepsSet('ws-1', 'ex-1', 80, 10)];
+    await setup(workedSets, completedSession, {
+      exercises: [{ id: 'ex-1', name: 'Sentadilla' }],
+    });
+
+    fixture = TestBed.createComponent(SessionSummaryPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Sentadilla');
+    expect(text).not.toContain('ex-1');
   });
 
   // --- CC-8: No raw hex in template ---
