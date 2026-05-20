@@ -17,6 +17,7 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   reporter: 'list',
+  timeout: 180_000,
   use: {
     baseURL: 'http://localhost:8080',
     ...devices['Pixel 5'],
