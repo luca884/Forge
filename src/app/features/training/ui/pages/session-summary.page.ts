@@ -9,6 +9,7 @@ import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
 import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-record.repository';
 import { PersonalRecord } from '@features/progress/domain/entities/personal-record.entity';
 import { FgButtonComponent, FgCardComponent, FgChipComponent, FgIconComponent } from '@core/shared/ui';
+import { ExerciseRepository } from '../../../exercises/domain/exercise.repository';
 
 /** Format elapsed seconds as M:SS or H:MM:SS */
 function formatHMS(totalSeconds: number): string {
@@ -185,6 +186,7 @@ interface PrRow {
 export class SessionSummaryPage implements OnInit {
   private readonly store = inject(TrainingSessionStore);
   private readonly sessionRepo = inject(SessionRepository);
+  private readonly exerciseRepo = inject(ExerciseRepository);
   private readonly router = inject(Router);
   private readonly userPrefs = inject(UserPreferencesService);
   private readonly prRepo = inject(PersonalRecordRepository);
@@ -296,8 +298,13 @@ export class SessionSummaryPage implements OnInit {
   private async init(): Promise<void> {
     const activeSession = this.store.activeSession();
     if (activeSession) {
-      // Load the completed session from repo (it should now be status: completed)
-      const completedSession = await this.sessionRepo.getById(activeSession.id);
+      // Resolve exercise names in parallel with session/set loading (ADR-40 inline pattern)
+      const [completedSession, allExercises] = await Promise.all([
+        this.sessionRepo.getById(activeSession.id),
+        this.exerciseRepo.getAll(),
+      ]);
+
+      this.exerciseNameById.set(new Map(allExercises.map(e => [e.id, e.name])));
       this.session.set(completedSession);
 
       // Load its sets
