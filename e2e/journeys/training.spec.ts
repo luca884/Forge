@@ -125,3 +125,102 @@ test.describe('J7 — Start session + log one set', () => {
     await expect(page.getByText(/1 de 1 sets/)).toBeVisible();
   });
 });
+
+// ─── J8 — Finalizar sesión y summary ─────────────────────────────────────────
+
+test.describe('J8 — Finalizar sesión y summary', () => {
+  test('J8 — finalizar sesion completa → URL summary → secciones visibles', async ({ page }) => {
+    // Replays J7 setup inline (same seed, same navigation steps)
+
+    // STEP 1: Boot Angular + Dexie
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    const now = new Date();
+
+    const exercise: SeedExercise = {
+      id: 'ex-1',
+      name: 'Sentadilla',
+      muscleGroup: 'legs',
+      trackingType: 'weight-reps',
+      isCustom: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const routine: SeedRoutine = {
+      id: 'rt-1',
+      name: 'Rutina test',
+      isActive: true,
+      schedule: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const day: SeedTrainingDay = {
+      id: 'day-1',
+      routineId: 'rt-1',
+      name: 'Día 1',
+      label: 'A',
+      exercises: [
+        {
+          exerciseId: 'ex-1',
+          order: 0,
+          targetSets: [{ type: 'weight-reps', reps: 5, weightKg: 60 }],
+        },
+      ],
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await seedExercises(page, [exercise]);
+    await seedRoutines(page, [routine]);
+    await seedTrainingDays(page, [day]);
+
+    // STEP 2: Navigate to /training
+    await page.goto('/training');
+    await page.waitForLoadState('networkidle');
+
+    // STEP 3: Click the day button
+    const dayButton = page
+      .locator('[data-days-list]')
+      .getByRole('button', { name: /Día 1.*A/ });
+    await expect(dayButton).toBeVisible();
+    await dayButton.click();
+
+    // STEP 4: Wait for session page
+    await expect(page).toHaveURL(/\/training\/session$/);
+    await page.waitForLoadState('networkidle');
+
+    // STEP 5: Increment weight so it is > 0 (Weight.tryFrom invariant)
+    const incrementWeight = page.getByRole('button', { name: 'Aumentar peso' });
+    await expect(incrementWeight).toBeVisible();
+    await incrementWeight.click();
+
+    // STEP 6: Log the set
+    const logBtn = page.getByRole('button', { name: 'Loguear set' });
+    await expect(logBtn).toBeVisible();
+    await logBtn.click();
+
+    // STEP 7: Confirm 1 de 1 sets logged
+    await expect(page.getByText(/1 de 1 sets/)).toBeVisible();
+
+    // STEP 8: Click "Terminar sesión" — text button (not aria-label)
+    await page.getByRole('button', { name: 'Terminar sesión' }).click();
+
+    // STEP 9: URL navigates to summary
+    await expect(page).toHaveURL(/\/training\/session\/summary$/, { timeout: 5000 });
+
+    // STEP 10: Summary sections visible
+    await expect(page.getByText('Sesión completada')).toBeVisible();
+    await expect(page.getByText('VOLUMEN TOTAL')).toBeVisible();
+    await expect(page.getByText('Sets', { exact: true })).toBeVisible();
+    await expect(page.getByText('Reps totales')).toBeVisible();
+    await expect(page.getByText('Duración', { exact: true })).toBeVisible();
+    await expect(page.getByText('Descanso prom.')).toBeVisible();
+    await expect(page.getByText('EJERCICIOS', { exact: true })).toBeVisible();
+    // Summary page renders exercise rows — at minimum the EJERCICIOS section is visible
+    // (exercise name display requires exerciseNameById map to be populated — falls back to ID)
+    await expect(page.getByRole('button', { name: 'Guardar y cerrar' })).toBeVisible();
+  });
+});
