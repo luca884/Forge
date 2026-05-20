@@ -29,6 +29,7 @@ Si algo aqui contradice el vault, **el vault gana** — actualiza este archivo.
 ## Comandos
 
 - `npm start` — dev server (sin service worker)
+- `npm run build` — build de produccion (AOT + tree-shaking + strictTemplates + service worker). `defaultConfiguration: production` en angular.json
 - `npm run dev:pwa` — build + serve con service worker activo (para probar PWA local)
 - `npm test` — Jest
 - `npm run lint` — ESLint
@@ -47,7 +48,7 @@ Si algo aqui contradice el vault, **el vault gana** — actualiza este archivo.
 Solo `ngc` (el compilador real de Angular) los detecta. Usarlo via:
 
 - `npm start` (`ng serve`) — falla al boot si hay binding errors. Gate rapido en desarrollo.
-- `npm run build:prod` — gate canonico: strictTemplates + produccion (tree-shaking, AOT completo).
+- `npm run build` — gate canonico: strictTemplates + produccion (tree-shaking, AOT completo). `ng build` usa `defaultConfiguration: production`.
 - `npm run e2e` — corre `ng serve` internamente; sirve como gate de templates indirecto.
 
 **Regla**: antes de cerrar un slice que toca templates (bindings, `@Input`, `@Output`, pipes, directivas), corra `npm start` o `ng build` para confirmar que compila. Tests Jest en verde NO son suficientes.
