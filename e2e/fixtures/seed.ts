@@ -190,3 +190,118 @@ export async function seedTrainingDays(
 ): Promise<void> {
   await putRows(page, 'trainingDays', rows);
 }
+
+// ─── Time helper ─────────────────────────────────────────────────────────────
+
+/**
+ * Returns a Date `n` days ago (current time minus `n * 86_400_000` ms).
+ * Use for time-relative seed data so PR filter windows (`> Date.now() - 7d`)
+ * stay deterministic across runs without hard-coded dates.
+ */
+export function daysAgo(n: number): Date {
+  return new Date(Date.now() - n * 86_400_000);
+}
+
+// ─── Sessions ────────────────────────────────────────────────────────────────
+
+export interface SeedSession {
+  id: string;
+  routineId: string;
+  dayId: string;
+  date: string; // YYYY-MM-DD
+  startedAt: Date;
+  endedAt?: Date;
+  status: 'in-progress' | 'completed' | 'discarded';
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Seeds session rows into the `sessions` store.
+ * Mirrors src/app/core/db/database.ts SessionRow.
+ *
+ * Caller MUST `page.goto('/')` + `waitForLoadState('networkidle')` BEFORE calling.
+ */
+export async function seedSessions(page: Page, rows: readonly SeedSession[]): Promise<void> {
+  await putRows(page, 'sessions', rows);
+}
+
+// ─── Worked sets ─────────────────────────────────────────────────────────────
+
+export interface SeedWorkedSet {
+  id: string;
+  sessionId: string;
+  exerciseId: string;
+  type: 'weight-reps' | 'bodyweight-reps' | 'time' | 'distance-time';
+  isPR: boolean;
+  createdAt: Date;
+  targetSetIndex?: number;
+  note?: string;
+  reps?: number; // required for weight-reps + bodyweight-reps
+  weightKg?: number; // required > 0 for weight-reps (Weight.tryFrom invariant)
+  extraWeightKg?: number;
+  durationSec?: number;
+  distanceKm?: number;
+}
+
+/**
+ * Seeds worked set rows into the `workedSets` store.
+ * Mirrors WorkedSetRow. weightKg MUST be > 0 for type 'weight-reps' (Weight.tryFrom invariant).
+ *
+ * Caller MUST `page.goto('/')` + `waitForLoadState('networkidle')` BEFORE calling.
+ */
+export async function seedWorkedSets(page: Page, rows: readonly SeedWorkedSet[]): Promise<void> {
+  await putRows(page, 'workedSets', rows);
+}
+
+// ─── Personal records ────────────────────────────────────────────────────────
+
+export interface SeedPersonalRecord {
+  id: string;
+  exerciseId: string;
+  trackingType: 'weight-reps' | 'bodyweight-reps' | 'time' | 'distance-time';
+  workedSetId: string; // FK-like; mapper does NOT join workedSets — any non-empty string is fine for test data
+  achievedAt: Date;
+  reps?: number;
+  weightKg?: number;
+  extraWeightKg?: number;
+  durationSec?: number;
+  distanceKm?: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Seeds personal record rows into the `personalRecords` store.
+ * Mirrors PersonalRecordRow. workedSetId FK is not validated by IDB — any non-empty string is fine for test data.
+ *
+ * Caller MUST `page.goto('/')` + `waitForLoadState('networkidle')` BEFORE calling.
+ */
+export async function seedPersonalRecords(
+  page: Page,
+  rows: readonly SeedPersonalRecord[],
+): Promise<void> {
+  await putRows(page, 'personalRecords', rows);
+}
+
+// ─── Profile (singleton) ─────────────────────────────────────────────────────
+
+export interface SeedProfile {
+  id: 'me';
+  name: string;
+  avatarBase64?: string;
+  preferredUnit?: 'kg' | 'lb';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Seeds the singleton profile row into the `profile` store.
+ * Mirrors ProfileRow (keyPath = literal 'me' singleton). Idempotent — IDB put overwrites by keyPath.
+ *
+ * Caller MUST `page.goto('/')` + `waitForLoadState('networkidle')` BEFORE calling.
+ */
+export async function seedProfile(page: Page, row: SeedProfile): Promise<void> {
+  await putRows(page, 'profile', [row]);
+}
