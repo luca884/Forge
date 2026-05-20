@@ -187,4 +187,21 @@ describe('FgButtonComponent', () => {
       expect(btn.className).toContain('bg-accent-500');
     });
   });
+
+  describe('anchor selector (a[fg-button]) — CTAs de navegacion', () => {
+    it('un <a fg-button> recibe las hostClasses del componente', () => {
+      @Component({
+        standalone: true,
+        imports: [FgButtonComponent],
+        template: `<a fg-button variant="primary">Link CTA</a>`,
+      })
+      class HostComponent {}
+
+      const hostFixture = TestBed.createComponent(HostComponent);
+      hostFixture.detectChanges();
+      const anchor = (hostFixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('a')!;
+      expect(anchor.className).toContain('bg-accent-500');
+      expect(anchor.className).toContain('rounded-md');
+    });
+  });
 });

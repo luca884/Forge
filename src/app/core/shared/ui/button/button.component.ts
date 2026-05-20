@@ -20,8 +20,8 @@ const SIZE_CLASSES: Record<ButtonSize, string> = {
 };
 
 @Component({
-  // eslint-disable-next-line @angular-eslint/component-selector -- ADR-028: attribute selector on native <button>
-  selector: 'button[fg-button]',
+  // eslint-disable-next-line @angular-eslint/component-selector -- ADR-028: attribute selector on native <button> + <a> (CTAs de navegacion: <a routerLink fg-button>)
+  selector: 'button[fg-button], a[fg-button]',
   standalone: true,
   imports: [FgIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
