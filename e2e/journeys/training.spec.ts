@@ -219,8 +219,8 @@ test.describe('J8 — Finalizar sesión y summary', () => {
     await expect(page.getByText('Duración', { exact: true })).toBeVisible();
     await expect(page.getByText('Descanso prom.')).toBeVisible();
     await expect(page.getByText('EJERCICIOS', { exact: true })).toBeVisible();
-    // Summary page renders exercise rows — at minimum the EJERCICIOS section is visible
-    // (exercise name display requires exerciseNameById map to be populated — falls back to ID)
+    // Bug #585 fix: exercise name must appear, not raw UUID
+    await expect(page.getByText('Sentadilla').first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Guardar y cerrar' })).toBeVisible();
   });
 });
