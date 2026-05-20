@@ -13,6 +13,8 @@ import { AuditEventLogListener } from '@core/shared/events/audit-event-log.liste
 import { ProfileRepository } from '@features/profile/domain/profile.repository';
 import { DexieProfileRepository } from '@features/profile/data/dexie-profile.repository';
 
+import { ForgeDatabaseService } from '@core/db/forge-database.service';
+
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -43,5 +45,20 @@ export const appConfig: ApplicationConfig = {
     // from any feature without coupling training/progress routes to profile.routes.ts.
     // ADR-22 addendum. The route-level binding in profile.routes.ts becomes a no-op shadow.
     { provide: ProfileRepository, useClass: DexieProfileRepository },
+
+    // Dev-only demo seeder — never loaded in production.
+    // Dynamic import keeps @core/dev/dev-seed out of the prod bundle entirely.
+    {
+      provide: APP_INITIALIZER,
+      useFactory: (db: ForgeDatabaseService) => async (): Promise<void> => {
+        if (isDevMode() && new URLSearchParams(window.location.search).get('seed') === 'demo') {
+          const { seedDemoData } = await import('@core/dev/dev-seed');
+          await seedDemoData(db);
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+      },
+      deps: [ForgeDatabaseService],
+      multi: true,
+    },
   ],
 };
