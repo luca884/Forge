@@ -90,6 +90,7 @@ describe('PRListPage', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     await Promise.resolve();
+    await Promise.resolve();
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('220.5 lb');
@@ -100,6 +101,7 @@ describe('PRListPage', () => {
     fixture = TestBed.createComponent(PRListPage);
     fixture.detectChanges();
     await fixture.whenStable();
+    await Promise.resolve();
     await Promise.resolve();
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
@@ -219,6 +221,7 @@ describe('PRListPage', () => {
       fixture = TestBed.createComponent(PRListPage);
       fixture.detectChanges();
       await fixture.whenStable();
+      await Promise.resolve();
       await Promise.resolve();
       fixture.detectChanges();
       // Find all buttons and click the one that navigates to exercise (not the page-header back button)

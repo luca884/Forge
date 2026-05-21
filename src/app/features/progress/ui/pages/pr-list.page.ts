@@ -7,7 +7,7 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
 import { PersonalRecord } from '../../domain/entities/personal-record.entity';
 import { GetAllPersonalRecordsUseCase } from '../../domain/use-cases/get-all-personal-records.use-case';
-import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
+import { GetExercisesMapUseCase } from '@features/exercises/domain/use-cases/get-exercises-map.use-case';
 import { Exercise } from '@features/exercises/domain/exercise.entity';
 import { formatTrackingValue } from '../helpers/format-tracking-value';
 import { muscleGroupLabel } from '../helpers/muscle-group-label';
@@ -35,7 +35,7 @@ type PRFilter = 'all' | 'recent-30d';
     FgSkeletonComponent,
     FgEmptyStateComponent,
   ],
-  providers: [GetAllPersonalRecordsUseCase],
+  providers: [GetAllPersonalRecordsUseCase, GetExercisesMapUseCase],
   template: `
     <fg-page-header
       title="Records personales"
@@ -95,7 +95,7 @@ type PRFilter = 'all' | 'recent-30d';
 })
 export class PRListPage implements OnInit {
   private readonly getAllPRs = inject(GetAllPersonalRecordsUseCase);
-  private readonly exerciseRepo = inject(ExerciseRepository);
+  private readonly getExercisesMap = inject(GetExercisesMapUseCase);
   private readonly router = inject(Router);
   private readonly userPrefs = inject(UserPreferencesService);
   private readonly toast = inject(ToastService);
@@ -130,12 +130,12 @@ export class PRListPage implements OnInit {
 
   private async init(): Promise<void> {
     try {
-      const [prs, exercises] = await Promise.all([
+      const [prs, exerciseMap] = await Promise.all([
         this.getAllPRs.execute(),
-        this.exerciseRepo.getAll(),
+        this.getExercisesMap.execute(),
       ]);
       this.prs.set(prs);
-      this.exerciseMap.set(new Map(exercises.map((e) => [e.id, e])));
+      this.exerciseMap.set(exerciseMap);
     } catch {
       this.toast.error('No se pudieron cargar los records', 'Intentá de nuevo');
     } finally {
