@@ -36,9 +36,9 @@ describe('FgButtonComponent', () => {
   });
 
   describe('variant input', () => {
-    it('variant=primary (default) aplica bg-accent-500', () => {
+    it('variant=primary (default) aplica bg-accent-700', () => {
       create({ variant: 'primary' });
-      expect((fixture.nativeElement as HTMLElement).className).toContain('bg-accent-500');
+      expect((fixture.nativeElement as HTMLElement).className).toContain('bg-accent-700');
     });
 
     it('variant=secondary aplica bg-forge-850', () => {
@@ -184,7 +184,7 @@ describe('FgButtonComponent', () => {
       hostFixture.detectChanges();
       const btn = (hostFixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('button')!;
       expect(btn.className).toContain('custom-extra');
-      expect(btn.className).toContain('bg-accent-500');
+      expect(btn.className).toContain('bg-accent-700');
     });
   });
 
@@ -200,7 +200,7 @@ describe('FgButtonComponent', () => {
       const hostFixture = TestBed.createComponent(HostComponent);
       hostFixture.detectChanges();
       const anchor = (hostFixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('a')!;
-      expect(anchor.className).toContain('bg-accent-500');
+      expect(anchor.className).toContain('bg-accent-700');
       expect(anchor.className).toContain('rounded-md');
     });
   });
