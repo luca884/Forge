@@ -9,6 +9,8 @@ import { RemoveTrainingDayUseCase } from '../../domain/use-cases/remove-training
 import { TrainingDayRepository } from '../../domain/training-day.repository';
 import { TrainingDay } from '../../domain/training-day.entity';
 import { RoutineRepository } from '../../domain/routine.repository';
+import { SetActiveRoutineUseCase } from '../../domain/use-cases/set-active-routine.use-case';
+import { ToastService } from '@core/shared/ui/toast/toast.service';
 
 const makeDay = (id: string, name: string, routineId = 'r-1'): TrainingDay => ({
   id,
@@ -33,6 +35,7 @@ function makeFixture(opts: {
   days?: TrainingDay[];
   routineName?: string;
   routineDescription?: string;
+  isActive?: boolean;
 } = {}): {
   fixture: ComponentFixture<RoutineEditorPage>;
   navigateSpy: jest.Mock;
@@ -42,6 +45,8 @@ function makeFixture(opts: {
   removeDaySpy: jest.Mock;
   dayRepoSpy: { getByRoutineId: jest.Mock };
   routineRepoSpy: { getById: jest.Mock };
+  setActiveSpy: jest.Mock;
+  toastMock: { success: jest.Mock; error: jest.Mock; info: jest.Mock };
 } {
   const navigateSpy = jest.fn().mockResolvedValue(true);
   const createSpy = jest.fn().mockResolvedValue({
@@ -71,13 +76,15 @@ function makeFixture(opts: {
             id: opts.id,
             name: opts.routineName ?? '',
             description: opts.routineDescription ?? '',
-            isActive: false,
+            isActive: opts.isActive ?? false,
             createdAt: new Date(),
             updatedAt: new Date(),
           }
         : null,
     ),
   };
+  const setActiveSpy = jest.fn().mockResolvedValue(undefined);
+  const toastMock = { success: jest.fn(), error: jest.fn(), info: jest.fn() };
 
   void TestBed.configureTestingModule({
     imports: [RoutineEditorPage],
@@ -87,6 +94,7 @@ function makeFixture(opts: {
         provide: ActivatedRoute,
         useValue: { snapshot: { paramMap: { get: (_k: string) => opts.id ?? null } } },
       },
+      { provide: ToastService, useValue: toastMock },
     ],
   })
     .overrideComponent(RoutineEditorPage, {
@@ -98,6 +106,7 @@ function makeFixture(opts: {
           { provide: RemoveTrainingDayUseCase, useValue: { execute: removeDaySpy } },
           { provide: TrainingDayRepository, useValue: dayRepoSpy },
           { provide: RoutineRepository, useValue: routineRepoSpy },
+          { provide: SetActiveRoutineUseCase, useValue: { execute: setActiveSpy } },
         ],
       },
     })
@@ -105,7 +114,7 @@ function makeFixture(opts: {
 
   const fixture = TestBed.createComponent(RoutineEditorPage);
 
-  return { fixture, navigateSpy, createSpy, editSpy, addDaySpy, removeDaySpy, dayRepoSpy, routineRepoSpy };
+  return { fixture, navigateSpy, createSpy, editSpy, addDaySpy, removeDaySpy, dayRepoSpy, routineRepoSpy, setActiveSpy, toastMock };
 }
 
 describe('RoutineEditorPage', () => {
@@ -380,6 +389,58 @@ describe('RoutineEditorPage', () => {
         (p) => p === 'GetAllRoutinesUseCase' || (typeof p === 'function' && p.name === 'GetAllRoutinesUseCase'),
       );
       expect(hasGetAll).toBe(false);
+    });
+  });
+
+  describe('Set active routine (#568)', () => {
+    const findBtn = (fixture: ComponentFixture<RoutineEditorPage>, text: string) =>
+      fixture.debugElement
+        .queryAll(By.css('button[fg-button]'))
+        .find((btn) => (btn.nativeElement as HTMLButtonElement).textContent?.trim().includes(text));
+
+    it('create mode: NO renderiza el botón de marcar activa', async () => {
+      const { fixture } = makeFixture();
+      await flush(fixture);
+      expect(findBtn(fixture, 'Marcar como activa')).toBeFalsy();
+      expect(findBtn(fixture, 'Rutina activa')).toBeFalsy();
+    });
+
+    it('edit mode rutina inactiva: muestra "Marcar como activa" habilitado', async () => {
+      const { fixture } = makeFixture({ id: 'r-1', isActive: false });
+      await flush(fixture);
+      const btn = findBtn(fixture, 'Marcar como activa');
+      expect(btn).toBeTruthy();
+      expect((btn!.nativeElement as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    it('edit mode rutina ya activa: muestra "Rutina activa" deshabilitado', async () => {
+      const { fixture } = makeFixture({ id: 'r-1', isActive: true });
+      await flush(fixture);
+      const btn = findBtn(fixture, 'Rutina activa');
+      expect(btn).toBeTruthy();
+      expect((btn!.nativeElement as HTMLButtonElement).disabled).toBe(true);
+      expect(fixture.componentInstance.isActive()).toBe(true);
+    });
+
+    it('click "Marcar como activa" → setActive("r-1") + toast.success + isActive()=true + botón pasa a deshabilitado', async () => {
+      const { fixture, setActiveSpy, toastMock } = makeFixture({ id: 'r-1', isActive: false });
+      await flush(fixture);
+      const btn = findBtn(fixture, 'Marcar como activa');
+      (btn!.nativeElement as HTMLButtonElement).click();
+      await flush(fixture);
+      expect(setActiveSpy).toHaveBeenCalledWith('r-1');
+      expect(toastMock.success).toHaveBeenCalled();
+      expect(fixture.componentInstance.isActive()).toBe(true);
+      const activeBtn = findBtn(fixture, 'Rutina activa');
+      expect(activeBtn).toBeTruthy();
+      expect((activeBtn!.nativeElement as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it('markActive() es no-op si la rutina ya está activa', async () => {
+      const { fixture, setActiveSpy } = makeFixture({ id: 'r-1', isActive: true });
+      await flush(fixture);
+      await fixture.componentInstance.markActive();
+      expect(setActiveSpy).not.toHaveBeenCalled();
     });
   });
 });

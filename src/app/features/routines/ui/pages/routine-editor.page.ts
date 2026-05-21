@@ -25,6 +25,8 @@ import { AddTrainingDayUseCase } from '../../domain/use-cases/add-training-day.u
 import { RemoveTrainingDayUseCase } from '../../domain/use-cases/remove-training-day.use-case';
 import { TrainingDayRepository } from '../../domain/training-day.repository';
 import { RoutineRepository } from '../../domain/routine.repository';
+import { SetActiveRoutineUseCase } from '../../domain/use-cases/set-active-routine.use-case';
+import { ToastService } from '@core/shared/ui/toast/toast.service';
 
 @Component({
   selector: 'fg-routine-editor-page',
@@ -44,6 +46,7 @@ import { RoutineRepository } from '../../domain/routine.repository';
     EditRoutineUseCase,
     AddTrainingDayUseCase,
     RemoveTrainingDayUseCase,
+    SetActiveRoutineUseCase,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -80,6 +83,23 @@ import { RoutineRepository } from '../../domain/routine.repository';
         </form>
 
         @if (routineId()) {
+          <div class="flex flex-col gap-1.5 mt-2">
+            <button
+              fg-button
+              [variant]="isActive() ? 'accent_soft' : 'secondary'"
+              [leadingIcon]="'check'"
+              [disabled]="isActive()"
+              [attr.aria-label]="isActive() ? 'Esta rutina ya está activa' : 'Marcar rutina como activa'"
+              (click)="markActive()"
+              class="self-start"
+            >
+              {{ isActive() ? 'Rutina activa' : 'Marcar como activa' }}
+            </button>
+            @if (isActive()) {
+              <span class="t-caption text-forge-400">Es la rutina activa: define el día sugerido de hoy.</span>
+            }
+          </div>
+
           <section class="mt-2 flex flex-col gap-3">
             <h2 class="t-h3 text-forge-100">Días</h2>
 
@@ -152,11 +172,14 @@ export class RoutineEditorPage implements OnInit {
   private readonly removeTrainingDay = inject(RemoveTrainingDayUseCase);
   private readonly dayRepo = inject(TrainingDayRepository);
   private readonly routineRepo = inject(RoutineRepository);
+  private readonly setActiveRoutine = inject(SetActiveRoutineUseCase);
+  private readonly toast = inject(ToastService);
 
   readonly routineId = signal<string | null>(null);
   readonly trainingDays = signal<TrainingDay[]>([]);
   readonly submitAttempted = signal(false);
   readonly loading = signal(false);
+  readonly isActive = signal(false);
 
   readonly title = computed(() =>
     this.routineId() ? 'Editar rutina' : 'Nueva rutina',
@@ -194,6 +217,7 @@ export class RoutineEditorPage implements OnInit {
       ]);
       if (routine) {
         this.form.patchValue({ name: routine.name, description: routine.description ?? '' });
+        this.isActive.set(routine.isActive);
       }
       this.trainingDays.set(days);
     } finally {
@@ -252,6 +276,14 @@ export class RoutineEditorPage implements OnInit {
     const id = this.routineId();
     if (!id) return;
     void this.router.navigate(['/routines', id, 'schedule']);
+  }
+
+  async markActive(): Promise<void> {
+    const id = this.routineId();
+    if (!id || this.isActive()) return;
+    await this.setActiveRoutine.execute(id);
+    this.isActive.set(true);
+    this.toast.success('Rutina marcada como activa');
   }
 
   back(): void {
