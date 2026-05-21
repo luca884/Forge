@@ -6,7 +6,7 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
 
 // ADR-030: module-scope literals preserve Tailwind purge (no dynamic interpolation)
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary:     'bg-accent-500 text-forge-50 font-semibold',
+  primary:     'bg-accent-700 text-forge-50 font-semibold',
   secondary:   'bg-forge-850 text-forge-100 ring-1 ring-inset ring-white/8 font-medium',
   ghost:       'bg-transparent text-forge-200 font-medium',
   destructive: 'bg-destructive-500/12 text-destructive-500 ring-1 ring-inset ring-destructive-500/30 font-semibold',
