@@ -23,6 +23,7 @@ import { CreateRoutineUseCase } from '../../domain/use-cases/create-routine.use-
 import { EditRoutineUseCase } from '../../domain/use-cases/edit-routine.use-case';
 import { AddTrainingDayUseCase } from '../../domain/use-cases/add-training-day.use-case';
 import { RemoveTrainingDayUseCase } from '../../domain/use-cases/remove-training-day.use-case';
+import { DeleteRoutineUseCase } from '../../domain/use-cases/delete-routine.use-case';
 import { TrainingDayRepository } from '../../domain/training-day.repository';
 import { RoutineRepository } from '../../domain/routine.repository';
 import { SetActiveRoutineUseCase } from '../../domain/use-cases/set-active-routine.use-case';
@@ -46,6 +47,7 @@ import { ToastService } from '@core/shared/ui/toast/toast.service';
     EditRoutineUseCase,
     AddTrainingDayUseCase,
     RemoveTrainingDayUseCase,
+    DeleteRoutineUseCase,
     SetActiveRoutineUseCase,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -157,6 +159,43 @@ import { ToastService } from '@core/shared/ui/toast/toast.service';
               Agregar día
             </button>
           </section>
+
+          <section class="mt-4 pt-4 border-t border-forge-800">
+            @if (!confirmingDelete()) {
+              <button
+                type="button"
+                fg-button
+                variant="destructive"
+                [leadingIcon]="'trash'"
+                (click)="confirmingDelete.set(true)"
+                class="w-full"
+              >
+                Eliminar rutina
+              </button>
+            } @else {
+              <div class="flex flex-col gap-2">
+                <span class="t-body-sm text-forge-300">¿Eliminar esta rutina y sus días? No se puede deshacer.</span>
+                <div class="flex gap-2">
+                  <button
+                    type="button"
+                    fg-button
+                    variant="destructive"
+                    class="flex-1"
+                    [disabled]="deleting()"
+                    (click)="deleteRoutine()"
+                  >Eliminar</button>
+                  <button
+                    type="button"
+                    fg-button
+                    variant="ghost"
+                    class="flex-1"
+                    [disabled]="deleting()"
+                    (click)="confirmingDelete.set(false)"
+                  >Cancelar</button>
+                </div>
+              </div>
+            }
+          </section>
         }
       }
     </div>
@@ -170,6 +209,7 @@ export class RoutineEditorPage implements OnInit {
   private readonly editRoutine = inject(EditRoutineUseCase);
   private readonly addTrainingDay = inject(AddTrainingDayUseCase);
   private readonly removeTrainingDay = inject(RemoveTrainingDayUseCase);
+  private readonly deleteRoutineUseCase = inject(DeleteRoutineUseCase);
   private readonly dayRepo = inject(TrainingDayRepository);
   private readonly routineRepo = inject(RoutineRepository);
   private readonly setActiveRoutine = inject(SetActiveRoutineUseCase);
@@ -180,6 +220,8 @@ export class RoutineEditorPage implements OnInit {
   readonly submitAttempted = signal(false);
   readonly loading = signal(false);
   readonly isActive = signal(false);
+  readonly confirmingDelete = signal(false);
+  readonly deleting = signal(false);
 
   readonly title = computed(() =>
     this.routineId() ? 'Editar rutina' : 'Nueva rutina',
@@ -284,6 +326,21 @@ export class RoutineEditorPage implements OnInit {
     await this.setActiveRoutine.execute(id);
     this.isActive.set(true);
     this.toast.success('Rutina marcada como activa');
+  }
+
+  async deleteRoutine(): Promise<void> {
+    const id = this.routineId();
+    if (!id) return;
+    this.deleting.set(true);
+    try {
+      await this.deleteRoutineUseCase.execute(id);
+      this.toast.success('Rutina eliminada');
+      void this.router.navigate(['/routines']);
+    } catch {
+      this.toast.error('No se pudo eliminar la rutina', 'Intentá de nuevo');
+      this.deleting.set(false);
+      this.confirmingDelete.set(false);
+    }
   }
 
   back(): void {

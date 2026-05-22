@@ -6,6 +6,7 @@ import { CreateRoutineUseCase } from '../../domain/use-cases/create-routine.use-
 import { EditRoutineUseCase } from '../../domain/use-cases/edit-routine.use-case';
 import { AddTrainingDayUseCase } from '../../domain/use-cases/add-training-day.use-case';
 import { RemoveTrainingDayUseCase } from '../../domain/use-cases/remove-training-day.use-case';
+import { DeleteRoutineUseCase } from '../../domain/use-cases/delete-routine.use-case';
 import { TrainingDayRepository } from '../../domain/training-day.repository';
 import { TrainingDay } from '../../domain/training-day.entity';
 import { RoutineRepository } from '../../domain/routine.repository';
@@ -43,6 +44,7 @@ function makeFixture(opts: {
   editSpy: jest.Mock;
   addDaySpy: jest.Mock;
   removeDaySpy: jest.Mock;
+  deleteRoutineSpy: jest.Mock;
   dayRepoSpy: { getByRoutineId: jest.Mock };
   routineRepoSpy: { getById: jest.Mock };
   setActiveSpy: jest.Mock;
@@ -66,6 +68,7 @@ function makeFixture(opts: {
     updatedAt: new Date(),
   });
   const removeDaySpy = jest.fn().mockResolvedValue(undefined);
+  const deleteRoutineSpy = jest.fn().mockResolvedValue(undefined);
   const dayRepoSpy = {
     getByRoutineId: jest.fn().mockResolvedValue(opts.days ?? []),
   };
@@ -104,6 +107,7 @@ function makeFixture(opts: {
           { provide: EditRoutineUseCase, useValue: { execute: editSpy } },
           { provide: AddTrainingDayUseCase, useValue: { execute: addDaySpy } },
           { provide: RemoveTrainingDayUseCase, useValue: { execute: removeDaySpy } },
+          { provide: DeleteRoutineUseCase, useValue: { execute: deleteRoutineSpy } },
           { provide: TrainingDayRepository, useValue: dayRepoSpy },
           { provide: RoutineRepository, useValue: routineRepoSpy },
           { provide: SetActiveRoutineUseCase, useValue: { execute: setActiveSpy } },
@@ -114,7 +118,7 @@ function makeFixture(opts: {
 
   const fixture = TestBed.createComponent(RoutineEditorPage);
 
-  return { fixture, navigateSpy, createSpy, editSpy, addDaySpy, removeDaySpy, dayRepoSpy, routineRepoSpy, setActiveSpy, toastMock };
+  return { fixture, navigateSpy, createSpy, editSpy, addDaySpy, removeDaySpy, deleteRoutineSpy, dayRepoSpy, routineRepoSpy, setActiveSpy, toastMock };
 }
 
 describe('RoutineEditorPage', () => {
@@ -441,6 +445,33 @@ describe('RoutineEditorPage', () => {
       await flush(fixture);
       await fixture.componentInstance.markActive();
       expect(setActiveSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('eliminar rutina', () => {
+    it('deleteRoutine() elimina vía use case, avisa y navega a /routines', async () => {
+      const { fixture, deleteRoutineSpy, navigateSpy, toastMock } = makeFixture({
+        id: 'r-1',
+        routineName: 'Test',
+      });
+      await flush(fixture);
+
+      expect(fixture.componentInstance.confirmingDelete()).toBe(false);
+      fixture.componentInstance.confirmingDelete.set(true);
+      await fixture.componentInstance.deleteRoutine();
+
+      expect(deleteRoutineSpy).toHaveBeenCalledWith('r-1');
+      expect(navigateSpy).toHaveBeenCalledWith(['/routines']);
+      expect(toastMock.success).toHaveBeenCalled();
+    });
+
+    it('deleteRoutine() es no-op si no hay routineId (rutina nueva)', async () => {
+      const { fixture, deleteRoutineSpy } = makeFixture({});
+      await flush(fixture);
+
+      await fixture.componentInstance.deleteRoutine();
+
+      expect(deleteRoutineSpy).not.toHaveBeenCalled();
     });
   });
 });
