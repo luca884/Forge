@@ -8,6 +8,14 @@ import { EditCustomExerciseUseCase } from '../../domain/use-cases/edit-custom-ex
 import { DeleteCustomExerciseUseCase } from '../../domain/use-cases/delete-custom-exercise.use-case';
 import { ExerciseInUseError } from '../../domain/errors/exercise-in-use.error';
 import { TrackingType } from '@core/shared/domain/tracking-type';
+import {
+  FgPageHeaderComponent,
+  FgInputComponent,
+  FgButtonComponent,
+  FgCardComponent,
+} from '@core/shared/ui';
+import { muscleGroupLabel } from '@features/progress/ui/helpers/muscle-group-label';
+import { trackingTypeLabel, equipmentLabel } from '../helpers/exercise-labels';
 
 const MUSCLE_GROUPS: MuscleGroup[] = [
   'chest',
@@ -36,83 +44,107 @@ const TRACKING_TYPES: TrackingType[] = ['weight-reps', 'bodyweight-reps', 'time'
 @Component({
   selector: 'fg-exercise-form-page',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [
+    ReactiveFormsModule,
+    FgPageHeaderComponent,
+    FgInputComponent,
+    FgButtonComponent,
+    FgCardComponent,
+  ],
   providers: [CreateCustomExerciseUseCase, EditCustomExerciseUseCase, DeleteCustomExerciseUseCase],
   template: `
-    <div class="exercise-form-page">
-      <div class="page-header">
-        <button type="button" (click)="back()">← Volver</button>
-        <h1>{{ isEditMode() ? 'Editar ejercicio' : 'Nuevo ejercicio' }}</h1>
-      </div>
+    <fg-page-header
+      [title]="isEditMode() ? 'Editar ejercicio' : 'Nuevo ejercicio'"
+      leadingIcon="chevron-left"
+      (leadingClick)="back()"
+    ></fg-page-header>
 
+    <div class="px-4 pt-3 pb-6 flex flex-col gap-4">
       @if (isLoading()) {
-        <p>Cargando...</p>
+        <p class="t-body text-forge-400">Cargando...</p>
       } @else {
-        <form [formGroup]="exerciseForm" (ngSubmit)="onSubmit()">
-          <div class="form-field">
-            <label for="name">Nombre</label>
-            <input
-              id="name"
-              type="text"
-              formControlName="name"
-              placeholder="Nombre del ejercicio"
-            />
-            @if (exerciseForm.get('name')?.invalid && exerciseForm.get('name')?.touched) {
-              <span class="error">El nombre es requerido</span>
-            }
-            @if (nameError()) {
-              <span class="error">{{ nameError() }}</span>
-            }
-          </div>
-
-          <div class="form-field">
-            <label for="muscleGroup">Grupo muscular</label>
-            <select id="muscleGroup" formControlName="muscleGroup">
-              @for (group of muscleGroups; track group) {
-                <option [value]="group">{{ group }}</option>
+        <fg-card>
+          <form [formGroup]="exerciseForm" (ngSubmit)="onSubmit()" class="flex flex-col gap-4">
+            <div class="flex flex-col gap-1.5">
+              <fg-input
+                label="Nombre"
+                placeholder="Nombre del ejercicio"
+                formControlName="name"
+              ></fg-input>
+              @if (exerciseForm.get('name')?.invalid && exerciseForm.get('name')?.touched) {
+                <span class="t-caption text-destructive">El nombre es requerido</span>
               }
-            </select>
-          </div>
-
-          <div class="form-field">
-            <label for="trackingType">Tipo de seguimiento</label>
-            <select id="trackingType" formControlName="trackingType">
-              @for (type of trackingTypes; track type) {
-                <option [value]="type">{{ type }}</option>
+              @if (nameError()) {
+                <span class="t-caption text-destructive">{{ nameError() }}</span>
               }
-            </select>
-          </div>
+            </div>
 
-          <div class="form-field">
-            <label for="equipment">Equipamiento (opcional)</label>
-            <select id="equipment" formControlName="equipment">
-              <option value="">Sin equipamiento especificado</option>
-              @for (eq of equipmentOptions; track eq) {
-                <option [value]="eq">{{ eq }}</option>
-              }
-            </select>
-          </div>
+            <label class="flex flex-col gap-1.5">
+              <span class="t-caption text-forge-300">Grupo muscular</span>
+              <select
+                formControlName="muscleGroup"
+                class="h-11 px-3 rounded-md bg-forge-900 border border-forge-700 text-forge-100 t-body outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+              >
+                @for (group of muscleGroups; track group) {
+                  <option [value]="group">{{ muscleGroupLabel(group) }}</option>
+                }
+              </select>
+            </label>
 
-          <button type="submit" [disabled]="exerciseForm.invalid || isSaving()">
-            {{ isEditMode() ? 'Guardar cambios' : 'Crear ejercicio' }}
-          </button>
-        </form>
+            <label class="flex flex-col gap-1.5">
+              <span class="t-caption text-forge-300">Tipo de seguimiento</span>
+              <select
+                formControlName="trackingType"
+                class="h-11 px-3 rounded-md bg-forge-900 border border-forge-700 text-forge-100 t-body outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+              >
+                @for (type of trackingTypes; track type) {
+                  <option [value]="type">{{ trackingTypeLabel(type) }}</option>
+                }
+              </select>
+            </label>
+
+            <label class="flex flex-col gap-1.5">
+              <span class="t-caption text-forge-300">Equipamiento (opcional)</span>
+              <select
+                formControlName="equipment"
+                class="h-11 px-3 rounded-md bg-forge-900 border border-forge-700 text-forge-100 t-body outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+              >
+                <option value="">Sin equipamiento especificado</option>
+                @for (eq of equipmentOptions; track eq) {
+                  <option [value]="eq">{{ equipmentLabel(eq) }}</option>
+                }
+              </select>
+            </label>
+
+            <button
+              type="submit"
+              fg-button
+              variant="primary"
+              size="lg"
+              class="w-full"
+              [disabled]="exerciseForm.invalid || isSaving()"
+            >
+              {{ isEditMode() ? 'Guardar cambios' : 'Crear ejercicio' }}
+            </button>
+          </form>
+        </fg-card>
 
         @if (isEditMode() && loadedExercise()?.isCustom) {
-          <div class="delete-section">
-            <button
-              type="button"
-              class="delete-btn"
-              [disabled]="isDeleting()"
-              (click)="onDelete()"
-            >
-              Eliminar ejercicio
-            </button>
-          </div>
+          <button
+            type="button"
+            fg-button
+            variant="destructive"
+            size="lg"
+            class="w-full"
+            [disabled]="isDeleting()"
+            (click)="onDelete()"
+          >
+            Eliminar ejercicio
+          </button>
         }
 
         @if (formError()) {
-          <p class="form-error">{{ formError() }}</p>
+          <p class="t-body-sm text-destructive" role="alert">{{ formError() }}</p>
         }
       }
     </div>
@@ -130,6 +162,10 @@ export class ExerciseFormPage implements OnInit {
   readonly muscleGroups = MUSCLE_GROUPS;
   readonly equipmentOptions = EQUIPMENT_OPTIONS;
   readonly trackingTypes = TRACKING_TYPES;
+
+  readonly muscleGroupLabel = muscleGroupLabel;
+  readonly trackingTypeLabel = trackingTypeLabel;
+  readonly equipmentLabel = equipmentLabel;
 
   readonly isEditMode = signal(false);
   readonly isLoading = signal(true);
