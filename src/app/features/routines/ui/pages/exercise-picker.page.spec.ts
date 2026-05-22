@@ -5,7 +5,7 @@ import { ReactiveFormsModule } from '@angular/forms';
 import { ExercisePickerPage } from './exercise-picker.page';
 import { GetExercisesUseCase } from '@features/exercises/domain/use-cases/get-exercises.use-case';
 import { SeedExercisesUseCase } from '@features/exercises/domain/use-cases/seed-exercises.use-case';
-import { AddExerciseToDayUseCase } from '../../domain/use-cases/add-exercise-to-day.use-case';
+import { AddExercisesToDayUseCase } from '../../domain/use-cases/add-exercises-to-day.use-case';
 import { Exercise } from '@features/exercises/domain/exercise.entity';
 
 // ---- Factories ----
@@ -76,7 +76,7 @@ function makeFixture(opts: {
         providers: [
           { provide: GetExercisesUseCase, useValue: { execute: getExercisesSpy } },
           { provide: SeedExercisesUseCase, useValue: { execute: seedSpy } },
-          { provide: AddExerciseToDayUseCase, useValue: { execute: addSpy } },
+          { provide: AddExercisesToDayUseCase, useValue: { execute: addSpy } },
         ],
       },
     })
@@ -198,22 +198,39 @@ describe('ExercisePickerPage', () => {
     });
   });
 
-  describe('pick exercise', () => {
-    it('clicking exercise card calls AddExerciseToDayUseCase and navigates back', async () => {
-      const { fixture, addSpy, navigateSpy } = makeFixture({
-        routineId: 'r-1',
-        dayId: 'd-1',
-      });
+  describe('multi-select (#4)', () => {
+    it('clickear una card la selecciona y NO navega', async () => {
+      const { fixture, navigateSpy } = makeFixture({ routineId: 'r-1', dayId: 'd-1' });
       await flush(fixture);
 
-      const pickBtn = fixture.debugElement.query(
-        By.css('button[aria-label^="Elegir"]'),
-      );
-      expect(pickBtn).toBeTruthy();
-      (pickBtn.nativeElement as HTMLButtonElement).click();
+      const card = fixture.debugElement.query(By.css('button[aria-pressed]'));
+      expect(card).toBeTruthy();
+      (card.nativeElement as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.isSelected('ex-1')).toBe(true);
+      expect(navigateSpy).not.toHaveBeenCalled();
+    });
+
+    it('seleccionar varios y "Agregar" llama AddExercisesToDayUseCase con los ids y navega', async () => {
+      const { fixture, addSpy, navigateSpy } = makeFixture({ routineId: 'r-1', dayId: 'd-1' });
+      await flush(fixture);
+
+      const cards = fixture.debugElement.queryAll(By.css('button[aria-pressed]'));
+      expect(cards.length).toBe(2);
+      (cards[0].nativeElement as HTMLButtonElement).click();
+      (cards[1].nativeElement as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(fixture.componentInstance.selectedCount()).toBe(2);
+
+      const addBtn = fixture.debugElement
+        .queryAll(By.css('button[fg-button]'))
+        .find((b) => /Agregar 2/.test((b.nativeElement as HTMLButtonElement).textContent ?? ''));
+      expect(addBtn).toBeTruthy();
+      (addBtn!.nativeElement as HTMLButtonElement).click();
       await fixture.whenStable();
 
-      expect(addSpy).toHaveBeenCalledWith({ dayId: 'd-1', exerciseId: 'ex-1' });
+      expect(addSpy).toHaveBeenCalledWith({ dayId: 'd-1', exerciseIds: ['ex-1', 'ex-2'] });
       expect(navigateSpy).toHaveBeenCalledWith(['/routines', 'r-1', 'days', 'd-1']);
     });
   });

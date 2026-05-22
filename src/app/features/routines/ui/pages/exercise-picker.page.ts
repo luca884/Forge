@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   OnInit,
+  computed,
   effect,
   inject,
   signal,
@@ -19,10 +20,12 @@ import {
   FgCardComponent,
   FgChipComponent,
   FgEmptyStateComponent,
+  FgButtonComponent,
+  FgIconComponent,
 } from '@core/shared/ui';
 import { muscleGroupLabel } from '@features/progress/ui/helpers/muscle-group-label';
 import { ExerciseThumbnailComponent } from '@features/exercises/ui/components/exercise-thumbnail.component';
-import { AddExerciseToDayUseCase } from '../../domain/use-cases/add-exercise-to-day.use-case';
+import { AddExercisesToDayUseCase } from '../../domain/use-cases/add-exercises-to-day.use-case';
 
 const MUSCLE_GROUPS: MuscleGroup[] = [
   'chest',
@@ -46,9 +49,11 @@ const MUSCLE_GROUPS: MuscleGroup[] = [
     FgCardComponent,
     FgChipComponent,
     FgEmptyStateComponent,
+    FgButtonComponent,
+    FgIconComponent,
     ExerciseThumbnailComponent,
   ],
-  providers: [GetExercisesUseCase, SeedExercisesUseCase, AddExerciseToDayUseCase],
+  providers: [GetExercisesUseCase, SeedExercisesUseCase, AddExercisesToDayUseCase],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <fg-page-header
@@ -88,23 +93,39 @@ const MUSCLE_GROUPS: MuscleGroup[] = [
         <ul class="flex flex-col gap-2" role="list">
           @for (exercise of exercises(); track exercise.id) {
             <li>
-              <fg-card>
+              <fg-card [class]="isSelected(exercise.id) ? 'ring-1 ring-inset ring-accent-500' : ''">
                 <button
                   type="button"
-                  (click)="pickExercise(exercise)"
+                  (click)="toggleSelect(exercise.id)"
                   class="w-full text-left flex items-center gap-3.5 outline-none focus-visible:ring-2 focus-visible:ring-accent-500 rounded-md"
-                  [attr.aria-label]="'Elegir ' + exercise.name"
+                  [attr.aria-pressed]="isSelected(exercise.id)"
+                  [attr.aria-label]="(isSelected(exercise.id) ? 'Quitar ' : 'Seleccionar ') + exercise.name"
                 >
                   <fg-exercise-thumbnail [name]="exercise.name" />
-                  <span class="flex flex-col gap-0.5 min-w-0">
+                  <span class="flex flex-col gap-0.5 min-w-0 flex-1">
                     <span class="t-body text-forge-100">{{ exercise.name }}</span>
                     <span class="t-body-sm text-forge-400">{{ muscleGroupLabel(exercise.muscleGroup) }}</span>
                   </span>
+                  @if (isSelected(exercise.id)) {
+                    <fg-icon name="check-circle" [size]="20" class="text-accent-400 shrink-0"></fg-icon>
+                  }
                 </button>
               </fg-card>
             </li>
           }
         </ul>
+      }
+
+      @if (selectedCount() > 0) {
+        <button
+          fg-button
+          variant="primary"
+          size="lg"
+          class="w-full sticky bottom-3"
+          (click)="addSelected()"
+        >
+          Agregar {{ selectedCount() }} {{ selectedCount() === 1 ? 'ejercicio' : 'ejercicios' }}
+        </button>
       }
     </div>
   `,
@@ -114,11 +135,13 @@ export class ExercisePickerPage implements OnInit {
   private readonly router = inject(Router);
   private readonly getExercises = inject(GetExercisesUseCase);
   private readonly seedExercises = inject(SeedExercisesUseCase);
-  private readonly addExerciseToDay = inject(AddExerciseToDayUseCase);
+  private readonly addExercises = inject(AddExercisesToDayUseCase);
 
   readonly exercises = signal<Exercise[]>([]);
   readonly searchQuery = signal('');
   readonly muscleGroupFilter = signal<MuscleGroup | undefined>(undefined);
+  readonly selectedIds = signal<ReadonlySet<string>>(new Set());
+  readonly selectedCount = computed(() => this.selectedIds().size);
   readonly routineId = signal('');
   readonly dayId = signal('');
 
@@ -160,11 +183,24 @@ export class ExercisePickerPage implements OnInit {
     this.exercises.set(await this.getExercises.execute(filter));
   }
 
-  async pickExercise(exercise: Exercise): Promise<void> {
-    await this.addExerciseToDay.execute({
-      dayId: this.dayId(),
-      exerciseId: exercise.id,
-    });
+  isSelected(exerciseId: string): boolean {
+    return this.selectedIds().has(exerciseId);
+  }
+
+  toggleSelect(exerciseId: string): void {
+    const next = new Set(this.selectedIds());
+    if (next.has(exerciseId)) {
+      next.delete(exerciseId);
+    } else {
+      next.add(exerciseId);
+    }
+    this.selectedIds.set(next);
+  }
+
+  async addSelected(): Promise<void> {
+    const ids = [...this.selectedIds()];
+    if (ids.length === 0) return;
+    await this.addExercises.execute({ dayId: this.dayId(), exerciseIds: ids });
     void this.router.navigate([
       '/routines',
       this.routineId(),
