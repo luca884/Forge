@@ -30,6 +30,9 @@ import {
 } from '../../domain/use-cases/get-training-day-with-exercises.use-case';
 import { EditTrainingDayUseCase } from '../../domain/use-cases/edit-training-day.use-case';
 import { RemoveExerciseFromDayUseCase } from '../../domain/use-cases/remove-exercise-from-day.use-case';
+import { SetTargetSetsUseCase } from '../../domain/use-cases/set-target-sets.use-case';
+import { TargetSetEditorComponent } from '../components/target-set-editor.component';
+import { TargetSet } from '../../domain/target-set';
 
 @Component({
   selector: 'fg-training-day-editor-page',
@@ -43,11 +46,13 @@ import { RemoveExerciseFromDayUseCase } from '../../domain/use-cases/remove-exer
     FgButtonComponent,
     FgIconComponent,
     FgSkeletonComponent,
+    TargetSetEditorComponent,
   ],
   providers: [
     GetTrainingDayWithExercisesUseCase,
     EditTrainingDayUseCase,
     RemoveExerciseFromDayUseCase,
+    SetTargetSetsUseCase,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -91,21 +96,46 @@ import { RemoveExerciseFromDayUseCase } from '../../domain/use-cases/remove-exer
             @for (exercise of day()?.exercises ?? []; track exercise.exerciseId) {
               <fg-card>
                 <div class="flex items-center justify-between">
-                  <div>
+                  <button
+                    type="button"
+                    (click)="toggleExpand(exercise.exerciseId)"
+                    class="text-left flex-1 min-w-0"
+                    [attr.aria-label]="'Editar series de ' + exercise.exerciseName"
+                  >
                     <span class="t-body text-forge-100">{{ exercise.exerciseName }}</span>
                     <p class="t-body-sm text-forge-400">
                       {{ exercise.targetSets.length }} series objetivo
                     </p>
-                  </div>
-                  <button
-                    type="button"
-                    (click)="removeExercise(exercise)"
-                    [attr.aria-label]="'Quitar ' + exercise.exerciseName"
-                    class="w-9 h-9 inline-flex items-center justify-center rounded-md text-destructive-500 hover:bg-forge-850"
-                  >
-                    <fg-icon name="trash" [size]="18"></fg-icon>
                   </button>
+                  <div class="flex items-center gap-1">
+                    <button
+                      type="button"
+                      (click)="toggleExpand(exercise.exerciseId)"
+                      [attr.aria-label]="'Editar series de ' + exercise.exerciseName"
+                      class="w-9 h-9 inline-flex items-center justify-center rounded-md text-forge-200 hover:bg-forge-850"
+                    >
+                      <fg-icon name="edit" [size]="18"></fg-icon>
+                    </button>
+                    <button
+                      type="button"
+                      (click)="removeExercise(exercise)"
+                      [attr.aria-label]="'Quitar ' + exercise.exerciseName"
+                      class="w-9 h-9 inline-flex items-center justify-center rounded-md text-destructive-500 hover:bg-forge-850"
+                    >
+                      <fg-icon name="trash" [size]="18"></fg-icon>
+                    </button>
+                  </div>
                 </div>
+
+                @if (expandedExerciseId() === exercise.exerciseId) {
+                  <div class="mt-3 pt-3 border-t border-forge-800">
+                    <fg-target-set-editor
+                      [trackingType]="exercise.trackingType"
+                      [targetSets]="exercise.targetSets"
+                      (targetSetsChange)="onTargetSetsChange(exercise, $event)"
+                    ></fg-target-set-editor>
+                  </div>
+                }
               </fg-card>
             }
           }
@@ -131,12 +161,14 @@ export class TrainingDayEditorPage implements OnInit {
   private readonly getDayWithExercises = inject(GetTrainingDayWithExercisesUseCase);
   private readonly editTrainingDay = inject(EditTrainingDayUseCase);
   private readonly removeExerciseFromDay = inject(RemoveExerciseFromDayUseCase);
+  private readonly setTargetSets = inject(SetTargetSetsUseCase);
 
   readonly day = signal<TrainingDayView | null>(null);
   readonly routineId = signal<string>('');
   readonly dayId = signal<string>('');
   readonly submitAttempted = signal(false);
   readonly loading = signal(true);
+  readonly expandedExerciseId = signal<string | null>(null);
 
   readonly trailingActions: readonly PageHeaderAction[] = [
     { icon: 'check', ariaLabel: 'Guardar día', click: () => { void this.save(); } },
@@ -193,6 +225,21 @@ export class TrainingDayEditorPage implements OnInit {
       this.dayId(),
       'pick-exercise',
     ]);
+  }
+
+  toggleExpand(exerciseId: string): void {
+    this.expandedExerciseId.set(
+      this.expandedExerciseId() === exerciseId ? null : exerciseId,
+    );
+  }
+
+  async onTargetSetsChange(exercise: ExerciseInDayView, targetSets: TargetSet[]): Promise<void> {
+    await this.setTargetSets.execute({
+      dayId: this.dayId(),
+      exerciseId: exercise.exerciseId,
+      targetSets,
+    });
+    await this.loadDay();
   }
 
   async removeExercise(exercise: ExerciseInDayView): Promise<void> {

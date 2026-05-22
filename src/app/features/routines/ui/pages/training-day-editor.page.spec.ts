@@ -9,6 +9,8 @@ import {
 } from '../../domain/use-cases/get-training-day-with-exercises.use-case';
 import { EditTrainingDayUseCase } from '../../domain/use-cases/edit-training-day.use-case';
 import { RemoveExerciseFromDayUseCase } from '../../domain/use-cases/remove-exercise-from-day.use-case';
+import { SetTargetSetsUseCase } from '../../domain/use-cases/set-target-sets.use-case';
+import { TargetSet } from '../../domain/target-set';
 
 // ---- Factories ----
 
@@ -45,6 +47,7 @@ function makeFixture(opts: {
   getDayViewSpy: jest.Mock;
   editSpy: jest.Mock;
   removeSpy: jest.Mock;
+  setTargetSetsSpy: jest.Mock;
 } {
   const navigateSpy = jest.fn().mockResolvedValue(true);
   const getDayViewSpy = jest.fn().mockResolvedValue(
@@ -52,6 +55,7 @@ function makeFixture(opts: {
   );
   const editSpy = jest.fn().mockResolvedValue(undefined);
   const removeSpy = jest.fn().mockResolvedValue(undefined);
+  const setTargetSetsSpy = jest.fn().mockResolvedValue(undefined);
 
   const paramMap = {
     get: (k: string) =>
@@ -82,13 +86,17 @@ function makeFixture(opts: {
             provide: RemoveExerciseFromDayUseCase,
             useValue: { execute: removeSpy },
           },
+          {
+            provide: SetTargetSetsUseCase,
+            useValue: { execute: setTargetSetsSpy },
+          },
         ],
       },
     })
     .compileComponents();
 
   const fixture = TestBed.createComponent(TrainingDayEditorPage);
-  return { fixture, navigateSpy, getDayViewSpy, editSpy, removeSpy };
+  return { fixture, navigateSpy, getDayViewSpy, editSpy, removeSpy, setTargetSetsSpy };
 }
 
 // ---- Tests ----
@@ -293,6 +301,52 @@ describe('TrainingDayEditorPage', () => {
       await fixture.whenStable();
 
       expect(removeSpy).toHaveBeenCalledWith({ dayId: 'd-1', exerciseId: 'ex-1' });
+      expect(getDayViewSpy).toHaveBeenCalledTimes(2); // initial + reload
+    });
+  });
+
+  describe('series objetivo (#3)', () => {
+    const viewWithExercise = makeView({
+      exercises: [
+        {
+          exerciseId: 'ex-1',
+          order: 0,
+          targetSets: [],
+          exerciseName: 'Press de banca',
+          trackingType: 'weight-reps',
+        },
+      ],
+    });
+
+    it('toggleExpand alterna el ejercicio expandido', async () => {
+      const { fixture } = makeFixture({ view: viewWithExercise, dayId: 'd-1' });
+      await flush(fixture);
+      const c = fixture.componentInstance;
+
+      expect(c.expandedExerciseId()).toBeNull();
+      c.toggleExpand('ex-1');
+      expect(c.expandedExerciseId()).toBe('ex-1');
+      c.toggleExpand('ex-1');
+      expect(c.expandedExerciseId()).toBeNull();
+    });
+
+    it('onTargetSetsChange persiste vía SetTargetSetsUseCase y recarga', async () => {
+      const { fixture, setTargetSetsSpy, getDayViewSpy } = makeFixture({
+        view: viewWithExercise,
+        dayId: 'd-1',
+      });
+      await flush(fixture);
+      const c = fixture.componentInstance;
+      const ex = c.day()!.exercises[0]!;
+      const sets: TargetSet[] = [{ type: 'weight-reps', reps: 8, weightKg: 60 }];
+
+      await c.onTargetSetsChange(ex, sets);
+
+      expect(setTargetSetsSpy).toHaveBeenCalledWith({
+        dayId: 'd-1',
+        exerciseId: 'ex-1',
+        targetSets: sets,
+      });
       expect(getDayViewSpy).toHaveBeenCalledTimes(2); // initial + reload
     });
   });
