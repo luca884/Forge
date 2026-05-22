@@ -9,15 +9,32 @@ import {
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Exercise } from '@features/exercises/domain/exercise.entity';
+import { Exercise, MuscleGroup } from '@features/exercises/domain/exercise.entity';
+import { ExerciseFilter } from '@features/exercises/domain/exercise-filter';
 import { GetExercisesUseCase } from '@features/exercises/domain/use-cases/get-exercises.use-case';
+import { SeedExercisesUseCase } from '@features/exercises/domain/use-cases/seed-exercises.use-case';
 import {
   FgPageHeaderComponent,
   FgInputComponent,
   FgCardComponent,
+  FgChipComponent,
   FgEmptyStateComponent,
 } from '@core/shared/ui';
+import { muscleGroupLabel } from '@features/progress/ui/helpers/muscle-group-label';
+import { ExerciseThumbnailComponent } from '@features/exercises/ui/components/exercise-thumbnail.component';
 import { AddExerciseToDayUseCase } from '../../domain/use-cases/add-exercise-to-day.use-case';
+
+const MUSCLE_GROUPS: MuscleGroup[] = [
+  'chest',
+  'back',
+  'shoulders',
+  'biceps',
+  'triceps',
+  'legs',
+  'glutes',
+  'core',
+  'full-body',
+];
 
 @Component({
   selector: 'fg-exercise-picker-page',
@@ -27,9 +44,11 @@ import { AddExerciseToDayUseCase } from '../../domain/use-cases/add-exercise-to-
     FgPageHeaderComponent,
     FgInputComponent,
     FgCardComponent,
+    FgChipComponent,
     FgEmptyStateComponent,
+    ExerciseThumbnailComponent,
   ],
-  providers: [GetExercisesUseCase, AddExerciseToDayUseCase],
+  providers: [GetExercisesUseCase, SeedExercisesUseCase, AddExerciseToDayUseCase],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <fg-page-header
@@ -45,6 +64,20 @@ import { AddExerciseToDayUseCase } from '../../domain/use-cases/add-exercise-to-
         [formControl]="searchControl"
       ></fg-input>
 
+      <div class="flex gap-2 overflow-x-auto py-1">
+        <fg-chip
+          [active]="muscleGroupFilter() === undefined"
+          (tap)="muscleGroupFilter.set(undefined)"
+        >Todos</fg-chip>
+
+        @for (group of muscleGroups; track group) {
+          <fg-chip
+            [active]="muscleGroupFilter() === group"
+            (tap)="toggleMuscleGroup(group)"
+          >{{ muscleGroupLabel(group) }}</fg-chip>
+        }
+      </div>
+
       @if (exercises().length === 0) {
         <fg-empty-state
           icon="dumbbell"
@@ -59,11 +92,14 @@ import { AddExerciseToDayUseCase } from '../../domain/use-cases/add-exercise-to-
                 <button
                   type="button"
                   (click)="pickExercise(exercise)"
-                  class="w-full text-left flex flex-col gap-0.5 outline-none focus-visible:ring-2 focus-visible:ring-accent-500 rounded-md"
+                  class="w-full text-left flex items-center gap-3.5 outline-none focus-visible:ring-2 focus-visible:ring-accent-500 rounded-md"
                   [attr.aria-label]="'Elegir ' + exercise.name"
                 >
-                  <span class="t-body text-forge-100">{{ exercise.name }}</span>
-                  <span class="t-body-sm text-forge-400">{{ exercise.muscleGroup }}</span>
+                  <fg-exercise-thumbnail [name]="exercise.name" />
+                  <span class="flex flex-col gap-0.5 min-w-0">
+                    <span class="t-body text-forge-100">{{ exercise.name }}</span>
+                    <span class="t-body-sm text-forge-400">{{ muscleGroupLabel(exercise.muscleGroup) }}</span>
+                  </span>
                 </button>
               </fg-card>
             </li>
@@ -77,32 +113,50 @@ export class ExercisePickerPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly getExercises = inject(GetExercisesUseCase);
+  private readonly seedExercises = inject(SeedExercisesUseCase);
   private readonly addExerciseToDay = inject(AddExerciseToDayUseCase);
 
   readonly exercises = signal<Exercise[]>([]);
   readonly searchQuery = signal('');
+  readonly muscleGroupFilter = signal<MuscleGroup | undefined>(undefined);
   readonly routineId = signal('');
   readonly dayId = signal('');
+
+  readonly muscleGroups = MUSCLE_GROUPS;
+  readonly muscleGroupLabel = muscleGroupLabel;
 
   readonly searchControl = new FormControl('', { nonNullable: true });
 
   constructor() {
     effect(() => {
-      const query = this.searchQuery();
-      void this.loadExercises(query);
+      // Re-run whenever the text query OR the muscle-group filter changes. N-2.
+      this.searchQuery();
+      this.muscleGroupFilter();
+      void this.loadExercises();
     });
     this.searchControl.valueChanges
       .pipe(takeUntilDestroyed())
       .subscribe(value => this.searchQuery.set(value));
   }
 
-  ngOnInit(): void {
+  async ngOnInit(): Promise<void> {
     this.routineId.set(this.route.snapshot.paramMap.get('routineId') ?? '');
     this.dayId.set(this.route.snapshot.paramMap.get('dayId') ?? '');
+    // Ensure the built-in catalog exists even if the user never opened the
+    // Exercises tab, then reload so the picker isn't empty on a fresh DB. F-1.
+    await this.seedExercises.execute();
+    await this.loadExercises();
   }
 
-  async loadExercises(search: string): Promise<void> {
-    const filter = search.trim() ? { search: search.trim() } : undefined;
+  toggleMuscleGroup(group: MuscleGroup): void {
+    this.muscleGroupFilter.set(this.muscleGroupFilter() === group ? undefined : group);
+  }
+
+  async loadExercises(): Promise<void> {
+    const search = this.searchQuery().trim();
+    const muscleGroup = this.muscleGroupFilter();
+    const filter: ExerciseFilter | undefined =
+      search || muscleGroup ? { search: search || undefined, muscleGroup } : undefined;
     this.exercises.set(await this.getExercises.execute(filter));
   }
 

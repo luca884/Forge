@@ -96,4 +96,18 @@ describe('SeedExercisesUseCase', () => {
     expect(countAfterFirst).toBe(countAfterSecond);
     expect(countAfterFirst).toBeGreaterThanOrEqual(12);
   });
+
+  it('should seed at least one exercise for every muscle group (catalog coverage)', async () => {
+    await useCase.execute();
+    const all = await repo.getAll();
+    const groups = new Set(all.map((e) => e.muscleGroup));
+
+    const expected: ReadonlyArray<Exercise['muscleGroup']> = [
+      'chest', 'back', 'shoulders', 'biceps', 'triceps',
+      'legs', 'glutes', 'core', 'full-body',
+    ];
+    for (const group of expected) {
+      expect(groups.has(group)).toBe(true);
+    }
+  });
 });

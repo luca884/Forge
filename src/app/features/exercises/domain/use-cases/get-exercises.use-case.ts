@@ -7,7 +7,10 @@ import { ExerciseRepository } from '../exercise.repository';
 export class GetExercisesUseCase {
   private readonly repo = inject(ExerciseRepository);
 
-  execute(filter?: ExerciseFilter): Promise<Exercise[]> {
-    return this.repo.getAll(filter);
+  async execute(filter?: ExerciseFilter): Promise<Exercise[]> {
+    // Stable, locale-aware alphabetical order so the catalog reads predictably
+    // in both the exercise list and the routine picker (shared use case). N-1.
+    const exercises = await this.repo.getAll(filter);
+    return [...exercises].sort((a, b) => a.name.localeCompare(b.name, 'es'));
   }
 }

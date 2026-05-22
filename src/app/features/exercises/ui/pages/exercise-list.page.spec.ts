@@ -364,6 +364,33 @@ describe('ExerciseListPage — muscle-group chips rendered (P3-4)', () => {
   });
 });
 
+// F-2: seed race — first visit must reload after seeding so the catalog appears
+describe('ExerciseListPage — seed then reload (F-2 race fix)', () => {
+  it('awaits the seed and reloads so the seeded catalog shows on first visit', async () => {
+    // First load (constructor effect) sees an empty DB; after the seed runs,
+    // the reload must surface the freshly seeded catalog.
+    const getExecute = jest
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([makeExercise({ id: 'seed-1', name: 'Press de banca', isCustom: false })]);
+    const seedExecute = jest.fn().mockResolvedValue(undefined);
+
+    const mocks = buildModuleWithMocks({ getExecute, seedExecute });
+    await setupTestBed(mocks);
+
+    const fixture = TestBed.createComponent(ExerciseListPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await Promise.resolve();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    expect(seedExecute).toHaveBeenCalled();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Press de banca');
+  });
+});
+
 // P3-5: loading skeleton
 describe('ExerciseListPage — loading skeleton (P3-5)', () => {
   it('shows fg-skeleton while loading is true and hides exercise list', async () => {

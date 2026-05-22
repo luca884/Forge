@@ -4,6 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ReactiveFormsModule } from '@angular/forms';
 import { ExercisePickerPage } from './exercise-picker.page';
 import { GetExercisesUseCase } from '@features/exercises/domain/use-cases/get-exercises.use-case';
+import { SeedExercisesUseCase } from '@features/exercises/domain/use-cases/seed-exercises.use-case';
 import { AddExerciseToDayUseCase } from '../../domain/use-cases/add-exercise-to-day.use-case';
 import { Exercise } from '@features/exercises/domain/exercise.entity';
 
@@ -36,10 +37,13 @@ function makeFixture(opts: {
   routineId?: string;
   dayId?: string;
   exercises?: Exercise[];
+  getExercisesSpy?: jest.Mock;
+  seedSpy?: jest.Mock;
 } = {}): {
   fixture: ComponentFixture<ExercisePickerPage>;
   navigateSpy: jest.Mock;
   getExercisesSpy: jest.Mock;
+  seedSpy: jest.Mock;
   addSpy: jest.Mock;
 } {
   const navigateSpy = jest.fn().mockResolvedValue(true);
@@ -47,9 +51,10 @@ function makeFixture(opts: {
     makeExercise('ex-1', 'Press de banca'),
     makeExercise('ex-2', 'Sentadilla'),
   ];
-  const getExercisesSpy = jest.fn().mockResolvedValue(
+  const getExercisesSpy = opts.getExercisesSpy ?? jest.fn().mockResolvedValue(
     opts.exercises !== undefined ? opts.exercises : defaultExercises,
   );
+  const seedSpy = opts.seedSpy ?? jest.fn().mockResolvedValue(undefined);
   const addSpy = jest.fn().mockResolvedValue(undefined);
 
   const paramMap = {
@@ -70,13 +75,14 @@ function makeFixture(opts: {
       set: {
         providers: [
           { provide: GetExercisesUseCase, useValue: { execute: getExercisesSpy } },
+          { provide: SeedExercisesUseCase, useValue: { execute: seedSpy } },
           { provide: AddExerciseToDayUseCase, useValue: { execute: addSpy } },
         ],
       },
     })
     .compileComponents();
 
-  return { fixture: TestBed.createComponent(ExercisePickerPage), navigateSpy, getExercisesSpy, addSpy };
+  return { fixture: TestBed.createComponent(ExercisePickerPage), navigateSpy, getExercisesSpy, seedSpy, addSpy };
 }
 
 // ---- Tests ----
@@ -145,6 +151,50 @@ describe('ExercisePickerPage', () => {
 
       const fgInput = fixture.debugElement.query(By.css('fg-input'));
       expect(fgInput).toBeTruthy();
+    });
+  });
+
+  describe('seeds catalog on open (F-1 fix)', () => {
+    it('runs the seed and reloads so the picker is not empty on a fresh DB', async () => {
+      // First load sees an empty DB; after the seed runs, the reload must
+      // surface the freshly seeded catalog inside the routine-building flow.
+      const getExercisesSpy = jest
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValue([makeExercise('seed-1', 'Press de banca')]);
+      const seedSpy = jest.fn().mockResolvedValue(undefined);
+
+      const { fixture } = makeFixture({ getExercisesSpy, seedSpy });
+      await flush(fixture);
+
+      expect(seedSpy).toHaveBeenCalled();
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).toContain('Press de banca');
+    });
+  });
+
+  describe('muscle-group filter (N-2)', () => {
+    it('passes the selected muscle group to GetExercisesUseCase when a chip is toggled', async () => {
+      const getExercisesSpy = jest.fn().mockResolvedValue([]);
+      const { fixture } = makeFixture({ getExercisesSpy });
+      await flush(fixture);
+      getExercisesSpy.mockClear();
+
+      fixture.componentInstance.toggleMuscleGroup('chest');
+      await flush(fixture);
+
+      expect(getExercisesSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ muscleGroup: 'chest' }),
+      );
+    });
+
+    it('renders muscle-group filter chips', async () => {
+      const { fixture } = makeFixture();
+      await flush(fixture);
+
+      const chips = fixture.debugElement.queryAll(By.css('fg-chip'));
+      // "Todos" + 9 muscle groups
+      expect(chips.length).toBeGreaterThanOrEqual(10);
     });
   });
 

@@ -90,4 +90,22 @@ describe('GetExercisesUseCase', () => {
 
     expect(stub.getCapturedFilter()).toEqual(filter);
   });
+
+  it('returns exercises sorted alphabetically by name (N-1)', async () => {
+    stub.setExercises([
+      makeExercise({ id: '1', name: 'Sentadilla' }),
+      makeExercise({ id: '2', name: 'Aperturas con mancuernas' }),
+      makeExercise({ id: '3', name: 'Press de banca' }),
+      makeExercise({ id: '4', name: 'Curl de bíceps' }),
+    ]);
+
+    const result = await useCase.execute();
+
+    expect(result.map((e) => e.name)).toEqual([
+      'Aperturas con mancuernas',
+      'Curl de bíceps',
+      'Press de banca',
+      'Sentadilla',
+    ]);
+  });
 });

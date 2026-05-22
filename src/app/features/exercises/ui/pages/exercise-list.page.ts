@@ -26,6 +26,7 @@ import {
   type PageHeaderAction,
 } from '@core/shared/ui';
 import { muscleGroupLabel } from '@features/progress/ui/helpers/muscle-group-label';
+import { ExerciseThumbnailComponent } from '../components/exercise-thumbnail.component';
 
 const MUSCLE_GROUPS: MuscleGroup[] = [
   'chest',
@@ -53,6 +54,7 @@ const MUSCLE_GROUPS: MuscleGroup[] = [
     FgPageHeaderComponent,
     FgCardComponent,
     FgSkeletonComponent,
+    ExerciseThumbnailComponent,
   ],
   providers: [
     GetExercisesUseCase,
@@ -106,6 +108,7 @@ const MUSCLE_GROUPS: MuscleGroup[] = [
         @for (exercise of exercises(); track exercise.id) {
           <fg-card [padding]="14">
             <div class="flex items-center gap-3.5 text-left">
+              <fg-exercise-thumbnail [name]="exercise.name" />
               <div class="flex-1 min-w-0">
                 <div class="t-body text-forge-100 font-medium truncate">{{ exercise.name }}</div>
                 <div class="t-body-sm text-forge-500 mt-0.5">{{ muscleGroupLabel(exercise.muscleGroup) }}</div>
@@ -153,8 +156,15 @@ export class ExerciseListPage implements OnInit {
     });
   }
 
-  ngOnInit(): void {
-    void this.seedExercisesUseCase.execute();
+  async ngOnInit(): Promise<void> {
+    // Seed the built-in catalog BEFORE reloading. The constructor effect runs its
+    // first load against a possibly-empty DB; awaiting the seed here and reloading
+    // guarantees the catalog appears on the first visit (no manual reload). F-2.
+    await this.seedExercisesUseCase.execute();
+    await this.loadExercises({
+      search: this.searchQuery() || undefined,
+      muscleGroup: this.muscleGroupFilter(),
+    });
   }
 
   toggleMuscleGroup(group: MuscleGroup): void {
