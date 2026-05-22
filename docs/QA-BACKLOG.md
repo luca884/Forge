@@ -21,9 +21,24 @@ Capturas en [`./qa-shots/`](./qa-shots/).
 | F-6 responsive desktop | ⛔ WONTFIX (app mobile-only) |
 | F-8 imagen por ejercicio | 🟡 infra LISTA (fallback activo) — 42 imágenes diferidas |
 | F-11 selects muestran enums crudos | ✅ RESUELTO |
-| F-9 "info hardcodeada" | ❓ a confirmar con Luca |
+| F-9 "info hardcodeada" | ✅ diagnosticado (data del demo seed, no bug) |
 
-> Fixes en branch `worktree-qa-seed-fix`, sin commitear. 974 tests verdes.
+> Sesión 1 mergeada a `main` (local). 983 tests verdes.
+
+---
+
+## Sesión 2 — pedidos de Luca (todos mergeados a `main`)
+
+| Pedido | Estado |
+|--------|--------|
+| Datos hardcodeados en Progreso | ✅ diagnosticado — NO es bug: es data del demo seed (`?seed=demo`) persistida en IndexedDB. Solución: limpiar storage o agregar botón "borrar datos" (a confirmar). |
+| No se pueden eliminar rutinas | ✅ RESUELTO — `DeleteRoutineUseCase` + botón con confirmación en el editor (cascada a días). |
+| Series/reps objetivo por ejercicio | ✅ RESUELTO — conectado `TargetSetEditorComponent` (inline) + `SetTargetSetsUseCase` en el editor de día. |
+| Agregar ejercicios uno por uno | ✅ RESUELTO — multi-select en el picker + `AddExercisesToDayUseCase` plural. |
+| Input peso/reps (stepper lento) | ✅ RESUELTO — input mixto: peso = teclado numérico, reps = select desplegable. |
+| Notificaciones del celular | ⏳ pendiente — se habla después (pedido de Luca). |
+
+**Pendientes menores nuevos**: F-12 (estilo del `TargetSetEditorComponent` algo plano vs el DS — funcional pero pulible). Prefill de peso/reps en el set-logger desde el target (hoy arranca en 0/—).
 
 ---
 
