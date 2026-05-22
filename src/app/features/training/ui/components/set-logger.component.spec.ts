@@ -104,64 +104,39 @@ describe('SetLoggerComponent', () => {
     expect(btn!.className).toContain('bg-accent-500/12');
   });
 
-  it('NumericStepper weight — decrement button decreases weightKg by 2.5', () => {
+  it('weight-reps usa input numérico de peso (no steppers) y actualiza weightKg al tipear', () => {
     fixture.componentRef.setInput('sessionId', 's-1');
     fixture.componentRef.setInput('exerciseId', 'ex-1');
     fixture.componentRef.setInput('trackingType', 'weight-reps');
-    fixture.componentRef.setInput('prefillWeightKg', 80);
     fixture.detectChanges();
 
-    // Click the dec button for weight (first minus button in the grid)
-    const stepperBtns = (fixture.nativeElement as HTMLElement).querySelectorAll('button[aria-label="Disminuir peso"]');
-    expect(stepperBtns.length).toBeGreaterThan(0);
-    (stepperBtns[0] as HTMLButtonElement).click();
-    fixture.detectChanges();
+    // ya no hay botones +/- de peso
+    const oldSteppers = (fixture.nativeElement as HTMLElement).querySelectorAll('button[aria-label="Aumentar peso"], button[aria-label="Disminuir peso"]');
+    expect(oldSteppers.length).toBe(0);
 
-    expect(fixture.componentInstance.form.controls.weightKg.value).toBe(77.5);
-  });
-
-  it('NumericStepper weight — increment button increases weightKg by 2.5', () => {
-    fixture.componentRef.setInput('sessionId', 's-1');
-    fixture.componentRef.setInput('exerciseId', 'ex-1');
-    fixture.componentRef.setInput('trackingType', 'weight-reps');
-    fixture.componentRef.setInput('prefillWeightKg', 80);
-    fixture.detectChanges();
-
-    const incBtns = (fixture.nativeElement as HTMLElement).querySelectorAll('button[aria-label="Aumentar peso"]');
-    expect(incBtns.length).toBeGreaterThan(0);
-    (incBtns[0] as HTMLButtonElement).click();
+    const input = (fixture.nativeElement as HTMLElement).querySelector('input[aria-label="Peso en kg"]') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    input.value = '82.5';
+    input.dispatchEvent(new Event('input'));
     fixture.detectChanges();
 
     expect(fixture.componentInstance.form.controls.weightKg.value).toBe(82.5);
   });
 
-  it('NumericStepper reps — increment button increases reps by 1', () => {
-    fixture.componentRef.setInput('sessionId', 's-1');
-    fixture.componentRef.setInput('exerciseId', 'ex-1');
-    fixture.componentRef.setInput('trackingType', 'weight-reps');
-    fixture.componentRef.setInput('prefillReps', 8);
-    fixture.detectChanges();
-
-    const incBtns = (fixture.nativeElement as HTMLElement).querySelectorAll('button[aria-label="Aumentar reps"]');
-    expect(incBtns.length).toBeGreaterThan(0);
-    (incBtns[0] as HTMLButtonElement).click();
-    fixture.detectChanges();
-
-    expect(fixture.componentInstance.form.controls.reps.value).toBe(9);
-  });
-
-  it('NumericStepper reps — decrement does not go below 0', () => {
+  it('weight-reps usa un select de reps con opciones 1..50', () => {
     fixture.componentRef.setInput('sessionId', 's-1');
     fixture.componentRef.setInput('exerciseId', 'ex-1');
     fixture.componentRef.setInput('trackingType', 'weight-reps');
     fixture.detectChanges();
 
-    // value starts at 0
-    const decBtns = (fixture.nativeElement as HTMLElement).querySelectorAll('button[aria-label="Disminuir reps"]');
-    (decBtns[0] as HTMLButtonElement).click();
-    fixture.detectChanges();
+    const select = (fixture.nativeElement as HTMLElement).querySelector('select[aria-label="Repeticiones"]') as HTMLSelectElement;
+    expect(select).toBeTruthy();
+    // placeholder "—" + reps 1..50
+    expect(select.options.length).toBe(51);
 
-    expect(fixture.componentInstance.form.controls.reps.value).toBe(0);
+    fixture.componentInstance.form.controls.reps.setValue(8);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.form.controls.reps.value).toBe(8);
   });
 
   it('header shows SET label when setNumber input provided', () => {

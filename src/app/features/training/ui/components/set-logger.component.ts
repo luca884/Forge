@@ -21,19 +21,25 @@ import { FgIconComponent } from '@core/shared/ui';
   imports: [ReactiveFormsModule, FgButtonComponent, FgCardComponent, FgIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [`
-    .stepper-btn {
-      width: 36px;
-      height: 36px;
-      border-radius: 9999px;
+    .set-num, .set-select {
+      width: 100%;
+      appearance: none;
+      -webkit-appearance: none;
+      background: transparent;
       border: none;
-      background: rgb(var(--forge-850));
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.05);
-      color: rgb(var(--forge-300));
+      outline: none;
+      text-align: center;
+      color: rgb(var(--forge-50));
+      font-weight: 600;
+      font-size: 32px;
+      line-height: 1;
+      letter-spacing: -0.025em;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
     }
+    .set-num::-webkit-outer-spin-button,
+    .set-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .set-select { text-align-last: center; }
   `],
   template: `
     <form [formGroup]="form" (ngSubmit)="onSubmit()">
@@ -46,123 +52,67 @@ import { FgIconComponent } from '@core/shared/ui';
         @switch (trackingType) {
           @case ('weight-reps') {
             <div class="grid grid-cols-2 gap-2.5 mb-3">
-              <div class="bg-forge-900 rounded-xl py-2.5 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
+              <label class="bg-forge-900 rounded-xl py-2.5 px-3 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
                 <span class="t-caption text-forge-500">Peso</span>
-                <div class="flex items-center justify-between gap-3 w-full px-1">
-                  <button type="button" class="stepper-btn" (click)="decrement('weightKg', 2.5)" aria-label="Disminuir peso">
-                    <fg-icon name="minus" [size]="16"></fg-icon>
-                  </button>
-                  <div class="text-center flex-1 min-w-0">
-                    <div class="t-num text-[32px] font-semibold text-forge-50 tracking-[-0.025em] leading-none tabular-nums">{{ form.controls.weightKg.value }}</div>
-                    <div class="t-caption text-forge-600 mt-0.5">kg</div>
-                  </div>
-                  <button type="button" class="stepper-btn" (click)="increment('weightKg', 2.5)" aria-label="Aumentar peso">
-                    <fg-icon name="plus" [size]="16"></fg-icon>
-                  </button>
+                <div class="flex items-baseline gap-1 w-full">
+                  <input type="number" inputmode="decimal" step="0.5" min="0" formControlName="weightKg" aria-label="Peso en kg" class="set-num" />
+                  <span class="t-caption text-forge-600">kg</span>
                 </div>
-              </div>
-              <div class="bg-forge-900 rounded-xl py-2.5 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
+              </label>
+              <label class="bg-forge-900 rounded-xl py-2.5 px-3 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
                 <span class="t-caption text-forge-500">Reps</span>
-                <div class="flex items-center justify-between gap-3 w-full px-1">
-                  <button type="button" class="stepper-btn" (click)="decrement('reps', 1)" aria-label="Disminuir reps">
-                    <fg-icon name="minus" [size]="16"></fg-icon>
-                  </button>
-                  <div class="text-center flex-1 min-w-0">
-                    <div class="t-num text-[32px] font-semibold text-forge-50 tracking-[-0.025em] leading-none tabular-nums">{{ form.controls.reps.value }}</div>
-                    <div class="t-caption text-forge-600 mt-0.5">reps</div>
-                  </div>
-                  <button type="button" class="stepper-btn" (click)="increment('reps', 1)" aria-label="Aumentar reps">
-                    <fg-icon name="plus" [size]="16"></fg-icon>
-                  </button>
-                </div>
-              </div>
+                <select formControlName="reps" aria-label="Repeticiones" class="set-select">
+                  <option [ngValue]="0" disabled>—</option>
+                  @for (r of repsOptions; track r) { <option [ngValue]="r">{{ r }}</option> }
+                </select>
+              </label>
             </div>
           }
           @case ('bodyweight-reps') {
             <div class="grid grid-cols-2 gap-2.5 mb-3">
-              <div class="bg-forge-900 rounded-xl py-2.5 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
+              <label class="bg-forge-900 rounded-xl py-2.5 px-3 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
                 <span class="t-caption text-forge-500">Extra (kg)</span>
-                <div class="flex items-center justify-between gap-3 w-full px-1">
-                  <button type="button" class="stepper-btn" (click)="decrement('extraWeightKg', 2.5)" aria-label="Disminuir peso extra">
-                    <fg-icon name="minus" [size]="16"></fg-icon>
-                  </button>
-                  <div class="text-center flex-1 min-w-0">
-                    <div class="t-num text-[32px] font-semibold text-forge-50 tracking-[-0.025em] leading-none tabular-nums">{{ form.controls.extraWeightKg.value ?? 0 }}</div>
-                    <div class="t-caption text-forge-600 mt-0.5">kg</div>
-                  </div>
-                  <button type="button" class="stepper-btn" (click)="increment('extraWeightKg', 2.5)" aria-label="Aumentar peso extra">
-                    <fg-icon name="plus" [size]="16"></fg-icon>
-                  </button>
+                <div class="flex items-baseline gap-1 w-full">
+                  <input type="number" inputmode="decimal" step="0.5" min="0" formControlName="extraWeightKg" aria-label="Peso extra en kg" class="set-num" placeholder="0" />
+                  <span class="t-caption text-forge-600">kg</span>
                 </div>
-              </div>
-              <div class="bg-forge-900 rounded-xl py-2.5 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
+              </label>
+              <label class="bg-forge-900 rounded-xl py-2.5 px-3 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
                 <span class="t-caption text-forge-500">Reps</span>
-                <div class="flex items-center justify-between gap-3 w-full px-1">
-                  <button type="button" class="stepper-btn" (click)="decrement('reps', 1)" aria-label="Disminuir reps">
-                    <fg-icon name="minus" [size]="16"></fg-icon>
-                  </button>
-                  <div class="text-center flex-1 min-w-0">
-                    <div class="t-num text-[32px] font-semibold text-forge-50 tracking-[-0.025em] leading-none tabular-nums">{{ form.controls.reps.value }}</div>
-                    <div class="t-caption text-forge-600 mt-0.5">reps</div>
-                  </div>
-                  <button type="button" class="stepper-btn" (click)="increment('reps', 1)" aria-label="Aumentar reps">
-                    <fg-icon name="plus" [size]="16"></fg-icon>
-                  </button>
-                </div>
-              </div>
+                <select formControlName="reps" aria-label="Repeticiones" class="set-select">
+                  <option [ngValue]="0" disabled>—</option>
+                  @for (r of repsOptions; track r) { <option [ngValue]="r">{{ r }}</option> }
+                </select>
+              </label>
             </div>
           }
           @case ('time') {
             <div class="grid grid-cols-1 gap-2.5 mb-3">
-              <div class="bg-forge-900 rounded-xl py-2.5 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
+              <label class="bg-forge-900 rounded-xl py-2.5 px-3 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
                 <span class="t-caption text-forge-500">Duración</span>
-                <div class="flex items-center justify-between gap-3 w-full px-1">
-                  <button type="button" class="stepper-btn" (click)="decrement('durationSec', 5)" aria-label="Disminuir duración">
-                    <fg-icon name="minus" [size]="16"></fg-icon>
-                  </button>
-                  <div class="text-center flex-1 min-w-0">
-                    <div class="t-num text-[32px] font-semibold text-forge-50 tracking-[-0.025em] leading-none tabular-nums">{{ form.controls.durationSec.value }}</div>
-                    <div class="t-caption text-forge-600 mt-0.5">seg</div>
-                  </div>
-                  <button type="button" class="stepper-btn" (click)="increment('durationSec', 5)" aria-label="Aumentar duración">
-                    <fg-icon name="plus" [size]="16"></fg-icon>
-                  </button>
+                <div class="flex items-baseline gap-1 w-full justify-center">
+                  <input type="number" inputmode="numeric" step="5" min="0" formControlName="durationSec" aria-label="Duración en segundos" class="set-num" />
+                  <span class="t-caption text-forge-600">seg</span>
                 </div>
-              </div>
+              </label>
             </div>
           }
           @case ('distance-time') {
             <div class="grid grid-cols-2 gap-2.5 mb-3">
-              <div class="bg-forge-900 rounded-xl py-2.5 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
+              <label class="bg-forge-900 rounded-xl py-2.5 px-3 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
                 <span class="t-caption text-forge-500">Distancia</span>
-                <div class="flex items-center justify-between gap-3 w-full px-1">
-                  <button type="button" class="stepper-btn" (click)="decrement('distanceKm', 0.5)" aria-label="Disminuir distancia">
-                    <fg-icon name="minus" [size]="16"></fg-icon>
-                  </button>
-                  <div class="text-center flex-1 min-w-0">
-                    <div class="t-num text-[32px] font-semibold text-forge-50 tracking-[-0.025em] leading-none tabular-nums">{{ form.controls.distanceKm.value }}</div>
-                    <div class="t-caption text-forge-600 mt-0.5">km</div>
-                  </div>
-                  <button type="button" class="stepper-btn" (click)="increment('distanceKm', 0.5)" aria-label="Aumentar distancia">
-                    <fg-icon name="plus" [size]="16"></fg-icon>
-                  </button>
+                <div class="flex items-baseline gap-1 w-full">
+                  <input type="number" inputmode="decimal" step="0.1" min="0" formControlName="distanceKm" aria-label="Distancia en km" class="set-num" />
+                  <span class="t-caption text-forge-600">km</span>
                 </div>
-              </div>
-              <div class="bg-forge-900 rounded-xl py-2.5 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
+              </label>
+              <label class="bg-forge-900 rounded-xl py-2.5 px-3 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
                 <span class="t-caption text-forge-500">Duración</span>
-                <div class="flex items-center justify-between gap-3 w-full px-1">
-                  <button type="button" class="stepper-btn" (click)="decrement('durationSec', 5)" aria-label="Disminuir duración">
-                    <fg-icon name="minus" [size]="16"></fg-icon>
-                  </button>
-                  <div class="text-center flex-1 min-w-0">
-                    <div class="t-num text-[32px] font-semibold text-forge-50 tracking-[-0.025em] leading-none tabular-nums">{{ form.controls.durationSec.value }}</div>
-                    <div class="t-caption text-forge-600 mt-0.5">seg</div>
-                  </div>
-                  <button type="button" class="stepper-btn" (click)="increment('durationSec', 5)" aria-label="Aumentar duración">
-                    <fg-icon name="plus" [size]="16"></fg-icon>
-                  </button>
+                <div class="flex items-baseline gap-1 w-full">
+                  <input type="number" inputmode="numeric" step="5" min="0" formControlName="durationSec" aria-label="Duración en segundos" class="set-num" />
+                  <span class="t-caption text-forge-600">seg</span>
                 </div>
-              </div>
+              </label>
             </div>
           }
         }
@@ -206,6 +156,9 @@ export class SetLoggerComponent implements OnInit {
 
   private readonly fb = inject(FormBuilder);
 
+  /** Reps options for the dropdown (1–50). Mixto input: reps via select. */
+  readonly repsOptions: readonly number[] = Array.from({ length: 50 }, (_, i) => i + 1);
+
   readonly form = this.fb.group({
     reps: [0, [Validators.min(0)]],
     weightKg: [0, [Validators.min(0.1)]],
@@ -222,26 +175,6 @@ export class SetLoggerComponent implements OnInit {
     if (this.prefillReps !== undefined) {
       this.form.patchValue({ reps: this.prefillReps });
     }
-  }
-
-  increment(
-    field: 'weightKg' | 'reps' | 'extraWeightKg' | 'durationSec' | 'distanceKm',
-    step: number,
-  ): void {
-    const ctrl = this.form.controls[field];
-    if (!ctrl) return;
-    const next = (ctrl.value ?? 0) + step;
-    ctrl.setValue(next);
-  }
-
-  decrement(
-    field: 'weightKg' | 'reps' | 'extraWeightKg' | 'durationSec' | 'distanceKm',
-    step: number,
-  ): void {
-    const ctrl = this.form.controls[field];
-    if (!ctrl) return;
-    const next = Math.max(0, (ctrl.value ?? 0) - step);
-    ctrl.setValue(next);
   }
 
   onSubmit(): void {
