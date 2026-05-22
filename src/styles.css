@@ -198,7 +198,11 @@
 .t-mono        { font-family: var(--font-mono); font-feature-settings: "tnum"; }
 
 /* ── Reset & base inside .forge frame ──────────────────────────────────── */
-.forge-frame { font-family: var(--font-sans); color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased; }
+/* App background safety net: keeps overscroll / safe-area dark even when a
+   page sits shorter than the viewport. The token theme is wired via
+   <body class="forge-frame"> + <html data-theme="dark">. F-4. */
+html { background: rgb(var(--forge-950)); }
+.forge-frame { font-family: var(--font-sans); color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased; min-height: 100dvh; }
 .forge-frame *, .forge-frame *::before, .forge-frame *::after { box-sizing: border-box; }
 .forge-frame button, .forge-frame input, .forge-frame textarea { font-family: inherit; }
 .forge-frame:focus-within :focus-visible { outline: 2px solid var(--accent-ring); outline-offset: 2px; border-radius: var(--r-sm); }

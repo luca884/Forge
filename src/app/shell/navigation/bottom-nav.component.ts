@@ -32,8 +32,8 @@ interface NavTab {
       display: flex;
       justify-content: space-around;
       align-items: center;
-      background: #1a1a1a;
-      border-top: 1px solid #333;
+      background: rgb(var(--forge-900));
+      border-top: 1px solid rgb(var(--forge-800));
       padding: 0.5rem 0;
     }
 
@@ -43,7 +43,9 @@ interface NavTab {
       align-items: center;
       gap: 0.25rem;
       padding: 0.25rem 0.5rem;
-      color: #888;
+      /* F-7: inactive icons were #888 on #1a1a1a — barely visible.
+         Tokenized + bumped to forge-300 (text secondary) so they read clearly. */
+      color: rgb(var(--forge-300));
       text-decoration: none;
       font-size: 0.75rem;
       transition: color 0.2s;
