@@ -36,7 +36,7 @@ Capturas en [`./qa-shots/`](./qa-shots/).
 | Series/reps objetivo por ejercicio | ✅ RESUELTO — conectado `TargetSetEditorComponent` (inline) + `SetTargetSetsUseCase` en el editor de día. |
 | Agregar ejercicios uno por uno | ✅ RESUELTO — multi-select en el picker + `AddExercisesToDayUseCase` plural. |
 | Input peso/reps (stepper lento) | ✅ RESUELTO — input mixto: peso = teclado numérico, reps = select desplegable. |
-| Notificaciones del celular | ⏳ pendiente — se habla después (pedido de Luca). |
+| Notificaciones del celular | ⛔ WONTFIX — ver N-3 abajo. Las del rest-timer ("¡Descanso terminado!") YA funcionan. El recordatorio de entrenar requiere backend (Web Push); decisión de Luca: no se justifica. |
 
 **Pendientes menores nuevos**: F-12 (estilo del `TargetSetEditorComponent` algo plano vs el DS — funcional pero pulible). Prefill de peso/reps en el set-logger desde el target (hoy arranca en 0/—).
 
@@ -63,6 +63,13 @@ Capturas en [`./qa-shots/`](./qa-shots/).
 
 ### F-6 · Responsive desktop
 - Forge es mobile-only (Luca lo usa siempre en formato mobile). No se invierte en layout desktop.
+
+### N-3 · Recordatorio de entrenar ("hoy toca X")
+- **Las notificaciones del rest-timer YA existen y andan**: `NotificationPermissionService` (`core/notifications/`) + `rest-timer.service.ts:71` disparan "¡Descanso terminado!" vía `serviceWorker.showNotification`. Permiso pedible desde el perfil.
+- **El recordatorio de entrenar (app cerrada) NO se hace.** Razón técnica verificada (jun 2026):
+  - Notification Triggers API (`TimestampTrigger`) — la única vía local sin servidor — está **discontinuada por Chrome**, no viene por defecto, requiere flag `#enable-experimental-web-platform-features`. No sirve para uso diario.
+  - La única forma confiable (Android + iOS, app cerrada) es **Web Push**, que **necesita un backend** que mande el push a horario.
+  - Forge es offline-first sin backend → meter un servidor solo para un recordatorio no se justifica (decisión de Luca). Alternativa: calendario/alarma nativa del teléfono.
 
 ---
 
