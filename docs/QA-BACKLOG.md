@@ -31,7 +31,7 @@ Capturas en [`./qa-shots/`](./qa-shots/).
 
 | Pedido | Estado |
 |--------|--------|
-| Datos hardcodeados en Progreso | ✅ diagnosticado — NO es bug: es data del demo seed (`?seed=demo`) persistida en IndexedDB. Solución: limpiar storage o agregar botón "borrar datos" (a confirmar). |
+| Datos hardcodeados en Progreso | ✅ RESUELTO — era data del demo seed (`?seed=demo`, dev-only) persistida en IndexedDB. Se agregó botón "Borrar historial" en el perfil (alcance: solo historial, conserva perfil/ejercicios). |
 | No se pueden eliminar rutinas | ✅ RESUELTO — `DeleteRoutineUseCase` + botón con confirmación en el editor (cascada a días). |
 | Series/reps objetivo por ejercicio | ✅ RESUELTO — conectado `TargetSetEditorComponent` (inline) + `SetTargetSetsUseCase` en el editor de día. |
 | Agregar ejercicios uno por uno | ✅ RESUELTO — multi-select en el picker + `AddExercisesToDayUseCase` plural. |
