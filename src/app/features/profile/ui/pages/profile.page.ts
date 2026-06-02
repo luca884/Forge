@@ -3,8 +3,12 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Profile } from '../../domain/profile.entity';
 import { GetUserProfileUseCase } from '../../domain/use-cases/get-user-profile.use-case';
 import { SetUserProfileUseCase } from '../../domain/use-cases/set-user-profile.use-case';
+import { ClearTrainingHistoryUseCase } from '@core/shared/domain/use-cases/clear-training-history.use-case';
+import { TrainingHistoryReset } from '@core/shared/domain/training-history-reset';
+import { DexieTrainingHistoryReset } from '@core/shared/data/dexie-training-history-reset';
 import { PwaInstallService } from '@core/pwa/pwa-install.service';
 import { NotificationPermissionService } from '@core/notifications/notification-permission.service';
+import { ToastService } from '@core/shared/ui/toast/toast.service';
 import {
   FgPageHeaderComponent,
   FgInputComponent,
@@ -21,6 +25,10 @@ import {
     FgInputComponent,
     FgButtonComponent,
     FgCardComponent,
+  ],
+  providers: [
+    ClearTrainingHistoryUseCase,
+    { provide: TrainingHistoryReset, useClass: DexieTrainingHistoryReset },
   ],
   template: `
     <fg-page-header title="Perfil"></fg-page-header>
@@ -163,6 +171,50 @@ import {
         }
       </fg-card>
 
+      <!-- Zona de peligro -->
+      <fg-card>
+        @if (!confirmingClear()) {
+          <div class="flex flex-col gap-2">
+            <button
+              type="button"
+              fg-button
+              variant="destructive"
+              [leadingIcon]="'trash'"
+              (click)="confirmingClear.set(true)"
+              class="w-full"
+            >
+              Borrar historial
+            </button>
+            <p class="t-caption text-forge-400">
+              Borra rutinas, sesiones e historial de entrenamiento. Conserva perfil y ejercicios.
+            </p>
+          </div>
+        } @else {
+          <div class="flex flex-col gap-2">
+            <span class="t-body-sm text-forge-300">
+              ¿Borrar todo el historial de entrenamiento? No se puede deshacer.
+            </span>
+            <div class="flex gap-2">
+              <button
+                type="button"
+                fg-button
+                variant="destructive"
+                class="flex-1"
+                [disabled]="clearing()"
+                (click)="onClearHistory()"
+              >Borrar</button>
+              <button
+                type="button"
+                fg-button
+                variant="ghost"
+                class="flex-1"
+                (click)="confirmingClear.set(false)"
+              >Cancelar</button>
+            </div>
+          </div>
+        }
+      </fg-card>
+
       @if (saveError()) {
         <p class="t-body-sm text-destructive" role="alert">{{ saveError() }}</p>
       }
@@ -172,6 +224,8 @@ import {
 export class ProfilePage implements OnInit {
   private readonly getUserProfileUseCase = inject(GetUserProfileUseCase);
   private readonly setUserProfileUseCase = inject(SetUserProfileUseCase);
+  private readonly clearHistoryUseCase = inject(ClearTrainingHistoryUseCase);
+  private readonly toastService = inject(ToastService);
   readonly pwaInstallService = inject(PwaInstallService);
   readonly notificationService = inject(NotificationPermissionService);
 
@@ -181,6 +235,8 @@ export class ProfilePage implements OnInit {
   readonly isLoading = signal(true);
   readonly isSaving = signal(false);
   readonly saveError = signal<string | null>(null);
+  readonly confirmingClear = signal(false);
+  readonly clearing = signal(false);
 
   private avatarBase64: string | undefined;
 
@@ -257,5 +313,18 @@ export class ProfilePage implements OnInit {
 
   onRequestNotification(): void {
     void this.notificationService.request();
+  }
+
+  async onClearHistory(): Promise<void> {
+    this.clearing.set(true);
+    try {
+      await this.clearHistoryUseCase.execute();
+      this.toastService.success('Historial borrado');
+      this.confirmingClear.set(false);
+    } catch (err) {
+      this.toastService.error(err instanceof Error ? err.message : 'Error al borrar historial');
+    } finally {
+      this.clearing.set(false);
+    }
   }
 }
