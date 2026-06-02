@@ -7,6 +7,7 @@ import { PersonalRecordDetector } from '../services/personal-record-detector';
 import { EventBus } from '@core/shared/events/event-bus';
 import { DomainEvent } from '@core/shared/events/domain-event';
 import { SessionNotInProgressError } from '../errors/session-not-in-progress.error';
+import { SessionNotFoundError } from '../errors/session-not-found.error';
 import { InvalidSetInputError } from '../errors/invalid-set-input.error';
 import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-record.repository';
 import { PersonalRecord } from '@features/progress/domain/entities/personal-record.entity';
@@ -218,6 +219,134 @@ describe('LogSetUseCase', () => {
     });
 
     expect(prRepo.savedRecords).toHaveLength(0);
+  });
+
+  // Línea 39: SessionNotFoundError cuando la sesión no existe
+  it('should throw SessionNotFoundError when session does not exist', async () => {
+    // repo.sessions is empty — getById returns null
+    await expect(
+      useCase.execute({ sessionId: 'non-existent', exerciseId: 'ex-1', type: 'weight-reps', repsValue: 10, weightKgValue: 100 }),
+    ).rejects.toThrow(SessionNotFoundError);
+  });
+
+  // Línea 70: prRepo.save falla pero el set YA quedó persistido (R-8)
+  it('should still persist the set and emit events even when prRepo.save throws (R-8)', async () => {
+    repo.sessions['session-1'] = makeInProgressSession();
+    prDetector.returnValue = true;
+    jest.spyOn(prRepo, 'save').mockRejectedValue(new Error('DB error'));
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    const result = await useCase.execute({
+      sessionId: 'session-1',
+      exerciseId: 'ex-1',
+      type: 'weight-reps',
+      repsValue: 10,
+      weightKgValue: 100,
+    });
+
+    // Set must be persisted
+    expect(repo.workedSets).toHaveLength(1);
+    expect(repo.workedSets[0]?.id).toBe(result.id);
+    // Events still emitted
+    const names = eventBus.publishedEvents.map(e => e.name);
+    expect(names).toContain('WorkedSetLogged');
+    expect(names).toContain('PersonalRecordAchieved');
+    // Error must be logged (non-fatal)
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[LogSetUseCase]'),
+      expect.any(Error),
+    );
+
+    consoleSpy.mockRestore();
+  });
+
+  // Líneas 123-125: bodyweight-reps con extraWeightKgValue inválido → InvalidSetInputError
+  it('should throw InvalidSetInputError for bodyweight-reps with invalid extraWeightKg (negative)', async () => {
+    repo.sessions['session-1'] = makeInProgressSession();
+
+    await expect(
+      useCase.execute({
+        sessionId: 'session-1',
+        exerciseId: 'ex-1',
+        type: 'bodyweight-reps',
+        repsValue: 10,
+        extraWeightKgValue: -5,
+      }),
+    ).rejects.toThrow(InvalidSetInputError);
+  });
+
+  // Línea 132: type 'time' — happy path
+  it('should log a time set with durationSec from repsValue', async () => {
+    repo.sessions['session-1'] = makeInProgressSession();
+    prDetector.returnValue = false;
+
+    const result = await useCase.execute({
+      sessionId: 'session-1',
+      exerciseId: 'ex-1',
+      type: 'time',
+      repsValue: 90,
+    });
+
+    expect(result.type).toBe('time');
+    if (result.type === 'time') {
+      expect(result.durationSec).toBe(90);
+    }
+    expect(result.isPR).toBe(false);
+    expect(result.sessionId).toBe('session-1');
+  });
+
+  // Líneas 134-135: type 'distance-time' — happy path
+  it('should log a distance-time set with durationSec from repsValue and distanceKm=0', async () => {
+    repo.sessions['session-1'] = makeInProgressSession();
+    prDetector.returnValue = false;
+
+    const result = await useCase.execute({
+      sessionId: 'session-1',
+      exerciseId: 'ex-1',
+      type: 'distance-time',
+      repsValue: 1800,
+    });
+
+    expect(result.type).toBe('distance-time');
+    if (result.type === 'distance-time') {
+      expect(result.durationSec).toBe(1800);
+      expect(result.distanceKm).toBe(0);
+    }
+    expect(result.isPR).toBe(false);
+  });
+
+  // type 'time' — persisted and event emitted
+  it('should persist time set to session and emit WorkedSetLogged', async () => {
+    repo.sessions['session-1'] = makeInProgressSession();
+    prDetector.returnValue = false;
+
+    await useCase.execute({
+      sessionId: 'session-1',
+      exerciseId: 'ex-1',
+      type: 'time',
+      repsValue: 60,
+    });
+
+    expect(repo.workedSets).toHaveLength(1);
+    const names = eventBus.publishedEvents.map(e => e.name);
+    expect(names).toContain('WorkedSetLogged');
+  });
+
+  // type 'distance-time' — persisted and event emitted
+  it('should persist distance-time set to session and emit WorkedSetLogged', async () => {
+    repo.sessions['session-1'] = makeInProgressSession();
+    prDetector.returnValue = false;
+
+    await useCase.execute({
+      sessionId: 'session-1',
+      exerciseId: 'ex-1',
+      type: 'distance-time',
+      repsValue: 3600,
+    });
+
+    expect(repo.workedSets).toHaveLength(1);
+    const names = eventBus.publishedEvents.map(e => e.name);
+    expect(names).toContain('WorkedSetLogged');
   });
 
   // P3 — V-66: event order — set added to session BEFORE PR saved, events emitted after

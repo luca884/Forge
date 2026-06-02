@@ -70,4 +70,12 @@ describe('AddExercisesToDayUseCase', () => {
 
     await expect(useCase.execute({ dayId: 'd-1', exerciseIds: ['x'] })).rejects.toBeInstanceOf(ExerciseNotFoundError);
   });
+
+  it('lanza error cuando el día no existe (dayId inexistente)', async () => {
+    getById.mockResolvedValue(null);
+
+    await expect(
+      useCase.execute({ dayId: 'no-existe', exerciseIds: ['a'] }),
+    ).rejects.toThrow('TrainingDay not found');
+  });
 });

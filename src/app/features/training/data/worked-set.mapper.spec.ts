@@ -1,5 +1,5 @@
-import { toWorkedSet, toWorkedSetRow } from './worked-set.mapper';
-import { WeightRepsSet, BodyweightRepsSet, TimeSet, DistanceTimeSet } from '../domain/worked-set';
+import { toWorkedSet, toWorkedSetRow, workedSetFromRowParts, WorkedSetRowParts } from './worked-set.mapper';
+import { WeightRepsSet, BodyweightRepsSet, TimeSet, DistanceTimeSet, WorkedSet } from '../domain/worked-set';
 import { WorkedSetRow } from '@core/db/database';
 import { Reps } from '@core/shared/domain/value-objects/reps';
 import { Weight } from '@core/shared/domain/value-objects/weight';
@@ -127,6 +127,37 @@ describe('worked-set.mapper', () => {
       const row = baseRow({ type: 'weight-reps', reps: 10, weightKg: 0 });
       expect(() => toWorkedSet(row)).toThrow();
     });
+
+    // Línea 73: bodyweight-reps con reps inválido (negativo)
+    it('should throw with [worked-set.mapper] message when bodyweight-reps row has invalid reps', () => {
+      const row = baseRow({ type: 'bodyweight-reps', reps: -1 });
+      expect(() => toWorkedSet(row)).toThrow('[worked-set.mapper]');
+    });
+
+    // Línea 80: bodyweight-reps con extraWeightKg inválido (negativo)
+    it('should throw with [worked-set.mapper] Invalid extraWeightKg when extraWeightKg is negative', () => {
+      const row = baseRow({ type: 'bodyweight-reps', reps: 10, extraWeightKg: -5 });
+      expect(() => toWorkedSet(row)).toThrow('[worked-set.mapper] Invalid extraWeightKg');
+    });
+
+    // Línea 80: bodyweight-reps con extraWeightKg = 0 (también inválido para Weight VO)
+    it('should throw with [worked-set.mapper] Invalid extraWeightKg when extraWeightKg is zero', () => {
+      const row = baseRow({ type: 'bodyweight-reps', reps: 10, extraWeightKg: 0 });
+      expect(() => toWorkedSet(row)).toThrow('[worked-set.mapper] Invalid extraWeightKg');
+    });
+
+    // Línea 109: default assertNever en workedSetFromRowParts con type desconocido
+    it('should throw (assertNever) when workedSetFromRowParts receives an unknown type', () => {
+      const parts: WorkedSetRowParts = {
+        id: 'set-x',
+        sessionId: 'session-1',
+        exerciseId: 'ex-1',
+        type: 'unknown-type',
+        isPR: false,
+        createdAt: new Date(),
+      };
+      expect(() => workedSetFromRowParts(parts)).toThrow();
+    });
   });
 
   describe('toWorkedSetRow', () => {
@@ -149,6 +180,16 @@ describe('worked-set.mapper', () => {
       };
       const row = toWorkedSetRow(set);
       expect(row['weightKg']).toBe(75);
+    });
+
+    // Línea 158: default assertNever en toWorkedSetRow con type desconocido
+    it('should throw (assertNever) when toWorkedSetRow receives a set with unknown type', () => {
+      const set = {
+        id: 'set-x', sessionId: 's', exerciseId: 'e',
+        isPR: false, createdAt: new Date(),
+        type: 'unknown-type',
+      } as unknown as WorkedSet;
+      expect(() => toWorkedSetRow(set)).toThrow();
     });
   });
 });
