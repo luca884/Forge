@@ -141,4 +141,73 @@ describe('SetTargetSetsUseCase', () => {
       useCase.execute({ dayId: 'd1', exerciseId: 'nonexistent', targetSets: [] }),
     ).rejects.toThrow();
   });
+
+  // Regresión: si exerciseId existe como Exercise pero NO está en day.exercises,
+  // antes el .find de la línea 50 retornaba undefined y el non-null assertion (!)
+  // lo tapaba — la función guardaba un día sin cambios y retornaba undefined en
+  // silencio. Ahora un guard lanza antes de tocar el repo.
+  it('should throw when exerciseId is not present in day.exercises', async () => {
+    const dayWithMultipleExercises: TrainingDay = {
+      id: 'd1',
+      routineId: 'r1',
+      name: 'Día A',
+      exercises: [
+        { exerciseId: 'ex1', order: 0, targetSets: [] },
+        { exerciseId: 'ex2', order: 1, targetSets: [] },
+      ],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    dayRepo.days = [dayWithMultipleExercises];
+    // ex3 exists as an Exercise entity but is NOT in the day
+    exerciseRepo.exercises = [
+      makeExercise('weight-reps'),                                    // ex1
+      { ...makeExercise('weight-reps'), id: 'ex2', name: 'Squat' },  // ex2
+      { ...makeExercise('weight-reps'), id: 'ex3', name: 'Deadlift' }, // ex3 — NOT in day
+    ];
+
+    const saveSpy = jest.spyOn(dayRepo, 'save');
+
+    // Should throw a clear error — not silently return undefined
+    await expect(
+      useCase.execute({
+        dayId: 'd1',
+        exerciseId: 'ex3',
+        targetSets: [{ type: 'weight-reps', reps: 5, weightKg: 100 }],
+      }),
+    ).rejects.toThrow('Exercise not in day: ex3');
+
+    // y no debe persistir un día sin cambios
+    expect(saveSpy).not.toHaveBeenCalled();
+  });
+
+  it('should not modify exercises that do not match exerciseId', async () => {
+    const dayWithMultipleExercises: TrainingDay = {
+      id: 'd1',
+      routineId: 'r1',
+      name: 'Día A',
+      exercises: [
+        { exerciseId: 'ex1', order: 0, targetSets: [] },
+        { exerciseId: 'ex2', order: 1, targetSets: [{ type: 'weight-reps', reps: 3, weightKg: 60 }] },
+      ],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    dayRepo.days = [dayWithMultipleExercises];
+    exerciseRepo.exercises = [
+      makeExercise('weight-reps'),                                   // ex1
+      { ...makeExercise('weight-reps'), id: 'ex2', name: 'Squat' }, // ex2
+    ];
+
+    await useCase.execute({
+      dayId: 'd1',
+      exerciseId: 'ex1',
+      targetSets: [{ type: 'weight-reps', reps: 8, weightKg: 100 }],
+    });
+
+    const saved = dayRepo.days.find(d => d.id === 'd1')!;
+    const ex2 = saved.exercises.find(e => e.exerciseId === 'ex2')!;
+    // ex2 must remain untouched
+    expect(ex2.targetSets).toEqual([{ type: 'weight-reps', reps: 3, weightKg: 60 }]);
+  });
 });

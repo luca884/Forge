@@ -27,6 +27,10 @@ export class SetTargetSetsUseCase {
       throw new Error(`TrainingDay not found: ${input.dayId}`);
     }
 
+    if (!day.exercises.some(e => e.exerciseId === input.exerciseId)) {
+      throw new Error(`Exercise not in day: ${input.exerciseId}`);
+    }
+
     // Validate all target sets have matching type
     for (const targetSet of input.targetSets) {
       if (targetSet.type !== exercise.trackingType) {
