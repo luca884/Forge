@@ -38,7 +38,10 @@ Capturas en [`./qa-shots/`](./qa-shots/).
 | Input peso/reps (stepper lento) | ✅ RESUELTO — input mixto: peso = teclado numérico, reps = select desplegable. |
 | Notificaciones del celular | ⛔ WONTFIX — ver N-3 abajo. Las del rest-timer ("¡Descanso terminado!") YA funcionan. El recordatorio de entrenar requiere backend (Web Push); decisión de Luca: no se justifica. |
 
-**Pendientes menores nuevos**: F-12 (estilo del `TargetSetEditorComponent` algo plano vs el DS — funcional pero pulible). Prefill de peso/reps en el set-logger desde el target (hoy arranca en 0/—).
+**Pendientes menores nuevos**:
+- F-12 (estilo del `TargetSetEditorComponent`) → ✅ RESUELTO — reconstruido con el design system (set rows estilo set-logger, `fg-button`, tipografía DS).
+- Prefill de peso/reps en el set-logger desde el target → ✅ RESUELTO — `prefillTarget` en la `exercise-session-card`, prefill por índice de set con guard pristine. Cubre weight-reps y bodyweight.
+- 🐛 **NUEVO (sin resolver)**: el `onSubmit` del set-logger NO emite `durationSec` ni `distanceKm` (líneas ~184-193) → loguear un set de **time / distance-time** pierde el valor. Pre-existente, fuera del scope del prefill. A confirmar si Luca usa esos tracking types.
 
 ---
 
