@@ -231,4 +231,44 @@ describe('ExerciseSessionCardComponent', () => {
     );
     expect(checkIcons.length).toBe(0);
   });
+
+  // ── PREFILL TARGET PROPAGATION TESTS ──────────────────────────────────────
+
+  it('nextTarget returns the target at loggedSets.length index when in range', () => {
+    const t1: TargetSet = { type: 'weight-reps', reps: 5, weightKg: 100 };
+    const t2: TargetSet = { type: 'weight-reps', reps: 8, weightKg: 80 };
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', [weightRepsSet]); // 1 done
+    fixture.componentRef.setInput('targetSets', [t1, t2]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.detectChanges();
+
+    // loggedSets.length = 1, so nextTarget should be t2
+    expect(fixture.componentInstance.nextTarget).toEqual(t2);
+  });
+
+  it('nextTarget falls back to last target when loggedSets.length is out of range', () => {
+    const t1: TargetSet = { type: 'weight-reps', reps: 5, weightKg: 100 };
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', [weightRepsSet, weightRepsSet]); // 2 done, only 1 target
+    fixture.componentRef.setInput('targetSets', [t1]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.detectChanges();
+
+    // out of range → falls back to last target
+    expect(fixture.componentInstance.nextTarget).toEqual(t1);
+  });
+
+  it('nextTarget returns null when targetSets is empty', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', []);
+    fixture.componentRef.setInput('targetSets', []);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.nextTarget).toBeNull();
+  });
 });

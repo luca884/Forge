@@ -6,6 +6,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { SetLoggerComponent } from './set-logger.component';
 import type { LogSetInput } from '../../domain/use-cases/log-set.use-case';
+import type { TargetSet } from '@features/routines/domain/target-set';
 
 describe('SetLoggerComponent', () => {
   let fixture: ComponentFixture<SetLoggerComponent>;
@@ -246,5 +247,69 @@ describe('SetLoggerComponent', () => {
     fixture.componentInstance.onSubmit();
 
     expect(captured).toHaveLength(0);
+  });
+
+  // ── PREFILL TARGET TESTS ──────────────────────────────────────────────────
+
+  it('prefillTarget weight-reps: form initialises with weightKg and reps from target', () => {
+    const target: TargetSet = { type: 'weight-reps', reps: 5, weightKg: 100 };
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('exerciseId', 'ex-1');
+    fixture.componentRef.setInput('trackingType', 'weight-reps');
+    fixture.componentRef.setInput('prefillTarget', target);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.form.controls.weightKg.value).toBe(100);
+    expect(fixture.componentInstance.form.controls.reps.value).toBe(5);
+  });
+
+  it('prefillTarget bodyweight-reps: form initialises with extraWeightKg and reps from target', () => {
+    const target: TargetSet = { type: 'bodyweight-reps', reps: 12, extraWeightKg: 10 };
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('exerciseId', 'ex-1');
+    fixture.componentRef.setInput('trackingType', 'bodyweight-reps');
+    fixture.componentRef.setInput('prefillTarget', target);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.form.controls.extraWeightKg.value).toBe(10);
+    expect(fixture.componentInstance.form.controls.reps.value).toBe(12);
+  });
+
+  it('prefillTarget guard: dirty form is NOT overwritten when prefillTarget changes', () => {
+    const target: TargetSet = { type: 'weight-reps', reps: 5, weightKg: 100 };
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('exerciseId', 'ex-1');
+    fixture.componentRef.setInput('trackingType', 'weight-reps');
+    fixture.componentRef.setInput('prefillTarget', target);
+    fixture.detectChanges();
+
+    // User types something (marks form dirty)
+    fixture.componentInstance.form.controls.weightKg.setValue(75);
+    fixture.componentInstance.form.markAsDirty();
+
+    // Now prefillTarget changes
+    const newTarget: TargetSet = { type: 'weight-reps', reps: 8, weightKg: 120 };
+    fixture.componentRef.setInput('prefillTarget', newTarget);
+    fixture.detectChanges();
+
+    // Form should still have the user-typed value
+    expect(fixture.componentInstance.form.controls.weightKg.value).toBe(75);
+  });
+
+  it('after onSubmit, form resets to target values (not 0)', () => {
+    const target: TargetSet = { type: 'weight-reps', reps: 5, weightKg: 100 };
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('exerciseId', 'ex-1');
+    fixture.componentRef.setInput('trackingType', 'weight-reps');
+    fixture.componentRef.setInput('prefillTarget', target);
+    fixture.detectChanges();
+
+    fixture.componentInstance.form.patchValue({ weightKg: 100, reps: 5 });
+    fixture.detectChanges();
+
+    fixture.componentInstance.onSubmit();
+
+    expect(fixture.componentInstance.form.controls.weightKg.value).toBe(100);
+    expect(fixture.componentInstance.form.controls.reps.value).toBe(5);
   });
 });

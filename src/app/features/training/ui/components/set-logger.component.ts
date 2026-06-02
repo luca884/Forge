@@ -5,12 +5,14 @@ import {
   Input,
   OnInit,
   Output,
+  effect,
   inject,
   input,
 } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { TrackingType } from '@core/shared/domain/tracking-type';
 import { LogSetInput } from '../../domain/use-cases/log-set.use-case';
+import { TargetSet } from '@features/routines/domain/target-set';
 import { FgButtonComponent } from '@core/shared/ui';
 import { FgCardComponent } from '@core/shared/ui';
 import { FgIconComponent } from '@core/shared/ui';
@@ -153,6 +155,8 @@ export class SetLoggerComponent implements OnInit {
   readonly targetLabel = input<string>('');
   readonly lastSet = input<string | null>(null);
   readonly state = input<'idle' | 'logged'>('idle');
+  /** Additive prefill via TargetSet (CC-5: legacy prefillWeightKg/prefillReps remain as fallback). */
+  readonly prefillTarget = input<TargetSet | null>(null);
 
   private readonly fb = inject(FormBuilder);
 
@@ -168,12 +172,25 @@ export class SetLoggerComponent implements OnInit {
     note: [''],
   });
 
+  constructor() {
+    effect(() => {
+      const target = this.prefillTarget();
+      if (this.form.pristine) {
+        this.form.patchValue(this.targetFormPatch(target));
+      }
+    });
+  }
+
   ngOnInit(): void {
-    if (this.prefillWeightKg !== undefined) {
-      this.form.patchValue({ weightKg: this.prefillWeightKg });
-    }
-    if (this.prefillReps !== undefined) {
-      this.form.patchValue({ reps: this.prefillReps });
+    // Legacy fallback: prefillWeightKg / prefillReps (CC-5 contract).
+    // Only applied when no prefillTarget is set (target takes precedence).
+    if (this.prefillTarget() === null) {
+      if (this.prefillWeightKg !== undefined) {
+        this.form.patchValue({ weightKg: this.prefillWeightKg });
+      }
+      if (this.prefillReps !== undefined) {
+        this.form.patchValue({ reps: this.prefillReps });
+      }
     }
   }
 
@@ -193,13 +210,43 @@ export class SetLoggerComponent implements OnInit {
     };
 
     this.setLogged.emit(logInput);
-    this.form.reset({
-      reps: this.prefillReps ?? 0,
-      weightKg: this.prefillWeightKg ?? 0,
-      extraWeightKg: null,
+    this.form.reset(this.defaultFormValue());
+  }
+
+  /** Returns form reset values derived from prefillTarget (or legacy scalars, or 0). */
+  private defaultFormValue(): {
+    reps: number;
+    weightKg: number;
+    extraWeightKg: number | null;
+    durationSec: number;
+    distanceKm: number;
+    note: string;
+  } {
+    const patch = this.targetFormPatch(this.prefillTarget());
+    return {
+      reps: patch.reps ?? this.prefillReps ?? 0,
+      weightKg: patch.weightKg ?? this.prefillWeightKg ?? 0,
+      extraWeightKg: patch.extraWeightKg ?? null,
       durationSec: 0,
       distanceKm: 0,
       note: '',
-    });
+    };
+  }
+
+  /** Maps a TargetSet to partial form values. Returns empty object for unhandled types. */
+  private targetFormPatch(target: TargetSet | null): Partial<{
+    reps: number;
+    weightKg: number;
+    extraWeightKg: number | null;
+  }> {
+    if (!target) return {};
+    if (target.type === 'weight-reps') {
+      return { weightKg: target.weightKg ?? this.prefillWeightKg ?? 0, reps: target.reps };
+    }
+    if (target.type === 'bodyweight-reps') {
+      return { extraWeightKg: target.extraWeightKg ?? null, reps: target.reps };
+    }
+    // 'time' | 'distance-time' — not prefilled
+    return {};
   }
 }

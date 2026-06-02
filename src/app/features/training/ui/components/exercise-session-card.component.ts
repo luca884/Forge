@@ -97,6 +97,7 @@ import { FgIconComponent } from '@core/shared/ui';
           [sessionId]="sessionId"
           [exerciseId]="exercise.id"
           [targetSetIndex]="loggedSets.length"
+          [prefillTarget]="nextTarget"
           (setLogged)="onSetLogged($event)"
         ></fg-set-logger>
       }
@@ -147,6 +148,11 @@ export class ExerciseSessionCardComponent {
       label: `— · set ${this.loggedSets.length + i + 1} de ${this.targetSets.length}`,
     }));
   });
+
+  /** Target for the next set (indexed by loggedSets.length, fallback to last target). */
+  get nextTarget(): TargetSet | null {
+    return this.targetSets[this.loggedSets.length] ?? this.targetSets.at(-1) ?? null;
+  }
 
   onSetLogged(input: LogSetInput): void {
     this.setLogged.emit(input);
