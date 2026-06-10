@@ -7,6 +7,7 @@ import { ExerciseRepository } from '../../../exercises/domain/exercise.repositor
 import { LogSetUseCase, LogSetInput } from '../../domain/use-cases/log-set.use-case';
 import { CompleteSessionUseCase } from '../../domain/use-cases/complete-session.use-case';
 import { TrainingSessionStore } from '../services/training-session.store';
+import { RestTimerService } from '../services/rest-timer.service';
 import { ExerciseSessionCardComponent } from '../components/exercise-session-card.component';
 import { RestTimerComponent } from '../components/rest-timer.component';
 import { PrCelebrationComponent } from '../components/pr-celebration.component';
@@ -159,6 +160,7 @@ export class TrainingSessionPage implements OnInit {
   private readonly userPrefs = inject(UserPreferencesService);
   private readonly prRepo = inject(PersonalRecordRepository);
   private readonly toast = inject(ToastService);
+  private readonly restTimer = inject(RestTimerService);
 
   /** Preferred weight unit — propagated to ExerciseSessionCard and PrCelebration (D-5, ADR-22). */
   readonly unit = this.userPrefs.unit;
@@ -244,6 +246,15 @@ export class TrainingSessionPage implements OnInit {
         }
       }
       this.exercisesWithData.set(exercisesWithData);
+
+      // Build rest plan from exercises that have a per-exercise override.
+      const restPlan = new Map<string, number>();
+      for (const exInDay of day.exercises) {
+        if (exInDay.restSeconds !== undefined) {
+          restPlan.set(exInDay.exerciseId, exInDay.restSeconds);
+        }
+      }
+      this.restTimer.setRestPlan(restPlan);
     } finally {
       this.initLoading.set(false);
     }

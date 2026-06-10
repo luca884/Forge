@@ -159,7 +159,7 @@ describe('TrainingSessionPage', () => {
         { provide: PersonalRecordDetector, useValue: { detect: jest.fn().mockResolvedValue(null), isPR: jest.fn().mockReturnValue(false) } },
         { provide: EventBus, useValue: { publish: jest.fn(), subscribe: jest.fn(() => () => {}) } },
         { provide: PersonalRecordRepository, useValue: mockPrRepo },
-        { provide: RestTimerService, useValue: { remaining: signal(null), start: jest.fn(), skip: jest.fn(), cancel: jest.fn() } },
+        { provide: RestTimerService, useValue: { remaining: signal(null), start: jest.fn(), skip: jest.fn(), cancel: jest.fn(), setRestPlan: jest.fn() } },
         { provide: NotificationPermissionService, useValue: { status: signal('default'), requestPermission: jest.fn() } },
       ],
     }).compileComponents();
@@ -402,7 +402,7 @@ describe('TrainingSessionPage', () => {
           { provide: PersonalRecordDetector, useValue: { detect: jest.fn().mockResolvedValue(null), isPR: jest.fn().mockReturnValue(false) } },
           { provide: EventBus, useValue: { publish: jest.fn(), subscribe: jest.fn(() => () => {}) } },
           { provide: PersonalRecordRepository, useValue: { save: jest.fn(), findCurrent: jest.fn(), findAll: jest.fn(), getCurrentForExercise: jest.fn().mockResolvedValue(null), listAll: jest.fn().mockResolvedValue([]) } },
-          { provide: RestTimerService, useValue: { remaining: signal(null), start: jest.fn(), skip: jest.fn(), cancel: jest.fn() } },
+          { provide: RestTimerService, useValue: { remaining: signal(null), start: jest.fn(), skip: jest.fn(), cancel: jest.fn(), setRestPlan: jest.fn() } },
           { provide: NotificationPermissionService, useValue: { status: signal('default'), requestPermission: jest.fn() } },
         ],
       })
@@ -513,7 +513,7 @@ describe('TrainingSessionPage', () => {
           { provide: PersonalRecordDetector, useValue: { detect: jest.fn().mockResolvedValue(null), isPR: jest.fn().mockReturnValue(false) } },
           { provide: EventBus, useValue: { publish: jest.fn(), subscribe: jest.fn(() => () => {}) } },
           { provide: PersonalRecordRepository, useValue: { save: jest.fn(), findCurrent: jest.fn(), findAll: jest.fn(), getCurrentForExercise: jest.fn().mockResolvedValue(null), listAll: jest.fn().mockResolvedValue([]) } },
-          { provide: RestTimerService, useValue: { remaining: signal(null), start: jest.fn(), skip: jest.fn(), cancel: jest.fn() } },
+          { provide: RestTimerService, useValue: { remaining: signal(null), start: jest.fn(), skip: jest.fn(), cancel: jest.fn(), setRestPlan: jest.fn() } },
           { provide: NotificationPermissionService, useValue: { status: signal('default'), requestPermission: jest.fn() } },
         ],
       })

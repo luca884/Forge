@@ -31,12 +31,33 @@ import {
 import { EditTrainingDayUseCase } from '../../domain/use-cases/edit-training-day.use-case';
 import { RemoveExerciseFromDayUseCase } from '../../domain/use-cases/remove-exercise-from-day.use-case';
 import { SetTargetSetsUseCase } from '../../domain/use-cases/set-target-sets.use-case';
+import { SetRestSecondsUseCase } from '../../domain/use-cases/set-rest-seconds.use-case';
 import { TargetSetEditorComponent } from '../components/target-set-editor.component';
 import { TargetSet } from '../../domain/target-set';
 
 @Component({
   selector: 'fg-training-day-editor-page',
   standalone: true,
+  styles: [`
+    .target-num {
+      width: 72px;
+      appearance: none;
+      -webkit-appearance: none;
+      background: transparent;
+      border: none;
+      outline: none;
+      text-align: center;
+      color: rgb(var(--forge-50));
+      font-weight: 600;
+      font-size: 22px;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+    }
+    .target-num::-webkit-outer-spin-button,
+    .target-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  `],
   imports: [
     ReactiveFormsModule,
     FgPageHeaderComponent,
@@ -53,6 +74,7 @@ import { TargetSet } from '../../domain/target-set';
     EditTrainingDayUseCase,
     RemoveExerciseFromDayUseCase,
     SetTargetSetsUseCase,
+    SetRestSecondsUseCase,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -128,12 +150,28 @@ import { TargetSet } from '../../domain/target-set';
                 </div>
 
                 @if (expandedExerciseId() === exercise.exerciseId) {
-                  <div class="mt-3 pt-3 border-t border-forge-800">
+                  <div class="mt-3 pt-3 border-t border-forge-800 space-y-4">
                     <fg-target-set-editor
                       [trackingType]="exercise.trackingType"
                       [targetSets]="exercise.targetSets"
                       (targetSetsChange)="onTargetSetsChange(exercise, $event)"
                     ></fg-target-set-editor>
+
+                    <div class="flex flex-col items-center gap-1">
+                      <span class="t-caption text-forge-500">Descanso</span>
+                      <div class="flex items-baseline gap-1 justify-center">
+                        <input
+                          type="number"
+                          inputmode="numeric"
+                          min="0"
+                          placeholder="90"
+                          class="target-num"
+                          [value]="exercise.restSeconds ?? ''"
+                          (change)="onRestSecondsChange(exercise, $event)"
+                        />
+                        <span class="t-caption text-forge-600">seg</span>
+                      </div>
+                    </div>
                   </div>
                 }
               </fg-card>
@@ -162,6 +200,7 @@ export class TrainingDayEditorPage implements OnInit {
   private readonly editTrainingDay = inject(EditTrainingDayUseCase);
   private readonly removeExerciseFromDay = inject(RemoveExerciseFromDayUseCase);
   private readonly setTargetSets = inject(SetTargetSetsUseCase);
+  private readonly setRestSeconds = inject(SetRestSecondsUseCase);
 
   readonly day = signal<TrainingDayView | null>(null);
   readonly routineId = signal<string>('');
@@ -238,6 +277,18 @@ export class TrainingDayEditorPage implements OnInit {
       dayId: this.dayId(),
       exerciseId: exercise.exerciseId,
       targetSets,
+    });
+    await this.loadDay();
+  }
+
+  async onRestSecondsChange(exercise: ExerciseInDayView, event: Event): Promise<void> {
+    const raw = (event.target as HTMLInputElement).value.trim();
+    const restSeconds = raw === '' ? undefined : parseInt(raw, 10);
+    if (restSeconds !== undefined && (!Number.isInteger(restSeconds) || restSeconds < 0)) return;
+    await this.setRestSeconds.execute({
+      dayId: this.dayId(),
+      exerciseId: exercise.exerciseId,
+      restSeconds,
     });
     await this.loadDay();
   }

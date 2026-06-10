@@ -272,4 +272,57 @@ describe('RestTimerService (Worker-based)', () => {
       expect(() => service.ngOnDestroy()).not.toThrow();
     });
   });
+
+  // -------------------------------------------------------------------------
+  // setRestPlan + WorkedSetLogged per-exercise resolution
+  // -------------------------------------------------------------------------
+  describe('setRestPlan()', () => {
+    const makeEvent = (exerciseId: string) => ({
+      name: 'WorkedSetLogged' as const,
+      occurredAt: new Date(),
+      sessionId: 'session-1',
+      workedSet: { id: 'set-1', exerciseId },
+    });
+
+    it('uses the plan value for a known exerciseId', () => {
+      service.setRestPlan(new Map([['ex-bench', 120]]));
+
+      eventBus.emit('WorkedSetLogged', makeEvent('ex-bench'));
+
+      expect(service.remaining()).toBe(120);
+    });
+
+    it('falls back to DEFAULT_REST_SECONDS (90) for an exerciseId not in the plan', () => {
+      service.setRestPlan(new Map([['ex-bench', 120]]));
+
+      eventBus.emit('WorkedSetLogged', makeEvent('ex-squat'));
+
+      expect(service.remaining()).toBe(90);
+    });
+
+    it('falls back to 90 when no plan has been set', () => {
+      eventBus.emit('WorkedSetLogged', makeEvent('ex-any'));
+
+      expect(service.remaining()).toBe(90);
+    });
+
+    it('does NOT start the timer when restSeconds = 0 (no-rest rule)', () => {
+      // restSeconds = 0 means the athlete wants no rest for this exercise.
+      service.setRestPlan(new Map([['ex-cardio', 0]]));
+
+      eventBus.emit('WorkedSetLogged', makeEvent('ex-cardio'));
+
+      expect(service.isRunning()).toBe(false);
+      expect(service.remaining()).toBeNull();
+    });
+
+    it('replaces a previous plan when called again', () => {
+      service.setRestPlan(new Map([['ex-a', 60]]));
+      service.setRestPlan(new Map([['ex-a', 30]]));
+
+      eventBus.emit('WorkedSetLogged', makeEvent('ex-a'));
+
+      expect(service.remaining()).toBe(30);
+    });
+  });
 });

@@ -10,6 +10,7 @@ import {
 import { EditTrainingDayUseCase } from '../../domain/use-cases/edit-training-day.use-case';
 import { RemoveExerciseFromDayUseCase } from '../../domain/use-cases/remove-exercise-from-day.use-case';
 import { SetTargetSetsUseCase } from '../../domain/use-cases/set-target-sets.use-case';
+import { SetRestSecondsUseCase } from '../../domain/use-cases/set-rest-seconds.use-case';
 import { TargetSet } from '../../domain/target-set';
 
 // ---- Factories ----
@@ -56,6 +57,7 @@ function makeFixture(opts: {
   const editSpy = jest.fn().mockResolvedValue(undefined);
   const removeSpy = jest.fn().mockResolvedValue(undefined);
   const setTargetSetsSpy = jest.fn().mockResolvedValue(undefined);
+  const setRestSecondsSpy = jest.fn().mockResolvedValue(undefined);
 
   const paramMap = {
     get: (k: string) =>
@@ -89,6 +91,10 @@ function makeFixture(opts: {
           {
             provide: SetTargetSetsUseCase,
             useValue: { execute: setTargetSetsSpy },
+          },
+          {
+            provide: SetRestSecondsUseCase,
+            useValue: { execute: setRestSecondsSpy },
           },
         ],
       },
