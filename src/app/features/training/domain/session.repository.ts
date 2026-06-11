@@ -29,4 +29,16 @@ export abstract class SessionRepository {
 
   /** Returns true if any worked set references the given exerciseId. P3-2. */
   abstract existsWorkedSetForExercise(exerciseId: string): Promise<boolean>;
+
+  /**
+   * Permanently deletes the session row.
+   * Used only by CancelSessionUseCase — called after sets are removed.
+   */
+  abstract deleteSession(sessionId: string): Promise<void>;
+
+  /**
+   * Permanently deletes all worked sets that belong to the given session.
+   * Returns the list of deleted set IDs so the caller can cascade to PRs.
+   */
+  abstract deleteSetsBySessionId(sessionId: string): Promise<string[]>;
 }

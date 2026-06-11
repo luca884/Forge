@@ -34,6 +34,12 @@ describe('PersonalRecordRepository port', () => {
       }
       return [...this.savedRecords];
     }
+
+    override async existsByExerciseId(exerciseId: string): Promise<boolean> {
+      return this.savedRecords.some(r => r.exerciseId === exerciseId);
+    }
+
+    override async deleteByWorkedSetIds(_ids: ReadonlySet<string>): Promise<void> {}
   }
 
   let repo: SpyPersonalRecordRepository;

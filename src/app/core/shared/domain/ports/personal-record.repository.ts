@@ -54,4 +54,11 @@ export abstract class PersonalRecordRepository {
    * P3-2.
    */
   abstract existsByExerciseId(exerciseId: string): Promise<boolean>;
+
+  /**
+   * Permanently deletes all PersonalRecord rows whose workedSetId is in the given set.
+   * Used by CancelSessionUseCase to remove orphan PRs when a session is cancelled.
+   * The set may be empty — in that case this is a no-op.
+   */
+  abstract deleteByWorkedSetIds(workedSetIds: ReadonlySet<string>): Promise<void>;
 }

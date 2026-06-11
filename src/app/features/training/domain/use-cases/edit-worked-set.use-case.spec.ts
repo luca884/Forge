@@ -30,6 +30,9 @@ class StubSessionRepository extends SessionRepository {
   override getSetsForSession(_sId: string) { return Promise.resolve(this.workedSets); }
   override getLastWorkedSetForExercise(_eId: string) { return Promise.resolve(null); }
   override getAllSessions(_fromDate?: Date) { return Promise.resolve([]); }
+  override existsWorkedSetForExercise(_eId: string) { return Promise.resolve(false); }
+  override deleteSession(_sessionId: string) { return Promise.resolve(); }
+  override deleteSetsBySessionId(_sessionId: string) { return Promise.resolve([]); }
 }
 
 class StubEventBus extends EventBus {

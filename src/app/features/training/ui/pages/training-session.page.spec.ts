@@ -26,6 +26,7 @@ import { TrainingDayRepository } from '../../../routines/domain/training-day.rep
 import { ExerciseRepository } from '../../../exercises/domain/exercise.repository';
 import { LogSetUseCase } from '../../domain/use-cases/log-set.use-case';
 import { CompleteSessionUseCase } from '../../domain/use-cases/complete-session.use-case';
+import { CancelSessionUseCase } from '../../domain/use-cases/cancel-session.use-case';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import type { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
 import { Router } from '@angular/router';
@@ -250,6 +251,7 @@ describe('TrainingSessionPage', () => {
         providers: [
           { provide: LogSetUseCase, useValue: mockLogSetUseCase },
           { provide: CompleteSessionUseCase, useValue: { execute: jest.fn() } },
+          { provide: CancelSessionUseCase, useValue: { execute: jest.fn() } },
         ],
       },
     });
@@ -411,6 +413,7 @@ describe('TrainingSessionPage', () => {
             providers: [
               { provide: LogSetUseCase, useValue: { execute: jest.fn() } },
               { provide: CompleteSessionUseCase, useValue: mockCompleteUseCase },
+              { provide: CancelSessionUseCase, useValue: { execute: jest.fn() } },
             ],
           },
         })
@@ -522,6 +525,7 @@ describe('TrainingSessionPage', () => {
             providers: [
               { provide: LogSetUseCase, useValue: mockLogSetRejecting },
               { provide: CompleteSessionUseCase, useValue: { execute: jest.fn() } },
+              { provide: CancelSessionUseCase, useValue: { execute: jest.fn() } },
             ],
           },
         })
@@ -545,6 +549,106 @@ describe('TrainingSessionPage', () => {
       });
 
       expect(errorSpy).toHaveBeenCalledWith('No se pudo guardar la serie', 'Intentá de nuevo');
+    });
+  });
+
+  // ── Cancelar entrenamiento desde la sesión ─────────────────────────────────
+
+  describe('cancelSession() — flujo de cancelar', () => {
+    let mockCancelUseCase: { execute: jest.Mock };
+    let mockRestTimer: { remaining: ReturnType<typeof signal<null>>; start: jest.Mock; skip: jest.Mock; cancel: jest.Mock; setRestPlan: jest.Mock };
+    let mockStoreWithSession: typeof mockStore & { clear: jest.Mock };
+    let mockRouterNav: jest.Mock;
+
+    beforeEach(async () => {
+      mockCancelUseCase = { execute: jest.fn().mockResolvedValue(undefined) };
+      mockRestTimer = { remaining: signal(null), start: jest.fn(), skip: jest.fn(), cancel: jest.fn(), setRestPlan: jest.fn() };
+      mockStoreWithSession = {
+        activeSession: signal(makeSession()),
+        workedSets: signal([]),
+        setsByExercise: signal(new Map()),
+        loadActive: jest.fn().mockResolvedValue(undefined),
+        refreshSets: jest.fn().mockResolvedValue(undefined),
+        elapsedSeconds: signal(0),
+        clear: jest.fn(),
+      };
+      mockRouterNav = jest.fn().mockResolvedValue(true);
+
+      await TestBed.configureTestingModule({
+        imports: [TrainingSessionPage],
+        providers: [
+          { provide: UserPreferencesService, useValue: { unit: signal('kg'), loadOnce: jest.fn().mockResolvedValue(undefined) } },
+          { provide: TrainingSessionStore, useValue: mockStoreWithSession },
+          { provide: TrainingDayRepository, useValue: { getById: jest.fn().mockResolvedValue(null) } },
+          { provide: ExerciseRepository, useValue: { getAll: jest.fn().mockResolvedValue([]) } },
+          { provide: LogSetUseCase, useValue: { execute: jest.fn() } },
+          { provide: CompleteSessionUseCase, useValue: { execute: jest.fn() } },
+          { provide: Router, useValue: { navigate: mockRouterNav } },
+          { provide: SessionRepository, useValue: { save: jest.fn(), addSetToSession: jest.fn(), getActive: jest.fn(), getById: jest.fn(), getSetsForSession: jest.fn().mockResolvedValue([]), getAllWorkedSetsForExercise: jest.fn().mockResolvedValue([]) } },
+          { provide: PersonalRecordDetector, useValue: { detect: jest.fn().mockResolvedValue(null), isPR: jest.fn().mockReturnValue(false) } },
+          { provide: EventBus, useValue: { publish: jest.fn(), subscribe: jest.fn(() => () => {}) } },
+          { provide: PersonalRecordRepository, useValue: { save: jest.fn(), getCurrentForExercise: jest.fn().mockResolvedValue(null), listAll: jest.fn().mockResolvedValue([]), existsByExerciseId: jest.fn().mockResolvedValue(false), deleteByWorkedSetIds: jest.fn().mockResolvedValue(undefined) } },
+          { provide: RestTimerService, useValue: mockRestTimer },
+          { provide: NotificationPermissionService, useValue: { status: signal('default'), requestPermission: jest.fn() } },
+        ],
+      })
+        .overrideComponent(TrainingSessionPage, {
+          set: {
+            providers: [
+              { provide: LogSetUseCase, useValue: { execute: jest.fn() } },
+              { provide: CompleteSessionUseCase, useValue: { execute: jest.fn() } },
+              { provide: CancelSessionUseCase, useValue: mockCancelUseCase },
+            ],
+          },
+        })
+        .compileComponents();
+    });
+
+    it('template shows "Cancelar entrenamiento" button', () => {
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      fixture.detectChanges();
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).toContain('Cancelar entrenamiento');
+    });
+
+    it('shows confirmation prompt after clicking "Cancelar entrenamiento"', () => {
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      fixture.detectChanges();
+      fixture.componentInstance.confirmingCancel.set(true);
+      fixture.detectChanges();
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).toContain('¿Seguro?');
+    });
+
+    it('cancelSession() calls use case, clear(), restTimer.cancel() and navigates to /training', async () => {
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      await fixture.componentInstance.cancelSession();
+
+      expect(mockCancelUseCase.execute).toHaveBeenCalledWith({ sessionId: 'session-1' });
+      expect(mockRestTimer.cancel).toHaveBeenCalled();
+      expect(mockStoreWithSession.clear).toHaveBeenCalled();
+      expect(mockRouterNav).toHaveBeenCalledWith(['/training']);
+    });
+
+    it('cancelSession() shows toast and re-enables button on error', async () => {
+      mockCancelUseCase.execute.mockRejectedValue(new Error('DB error'));
+      const toastService = TestBed.inject(ToastService);
+      const errorSpy = jest.spyOn(toastService, 'error');
+
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      await fixture.componentInstance.cancelSession();
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        'No se pudo cancelar el entrenamiento',
+        'Intentá de nuevo',
+      );
+      expect(fixture.componentInstance.cancelling()).toBe(false);
     });
   });
 });

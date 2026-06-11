@@ -41,6 +41,9 @@ class StubSessionRepository extends SessionRepository {
   override getSetsForSession(_sId: string) { return Promise.resolve(this.workedSets); }
   override getLastWorkedSetForExercise(_eId: string) { return Promise.resolve(null); }
   override getAllSessions(_fromDate?: Date) { return Promise.resolve([]); }
+  override existsWorkedSetForExercise(_eId: string) { return Promise.resolve(false); }
+  override deleteSession(_sessionId: string) { return Promise.resolve(); }
+  override deleteSetsBySessionId(_sessionId: string) { return Promise.resolve([]); }
 }
 
 class StubEventBus extends EventBus {
@@ -65,6 +68,8 @@ class StubPersonalRecordRepository extends PersonalRecordRepository {
   override getById(_id: string): Promise<PersonalRecord | null> { return Promise.resolve(null); }
   override getCurrentForExercise(_exerciseId: string, _trackingType: import('@core/shared/domain/tracking-type').TrackingType): Promise<PersonalRecord | null> { return Promise.resolve(null); }
   override listAll(_exerciseId?: string): Promise<PersonalRecord[]> { return Promise.resolve([]); }
+  override existsByExerciseId(_exerciseId: string): Promise<boolean> { return Promise.resolve(false); }
+  override deleteByWorkedSetIds(_ids: ReadonlySet<string>): Promise<void> { return Promise.resolve(); }
 }
 
 function makeInProgressSession(): Session {

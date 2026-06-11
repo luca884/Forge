@@ -224,4 +224,35 @@ describe('DexieSessionRepository', () => {
     const result = await repo.existsWorkedSetForExercise('ex-no-sets');
     expect(result).toBe(false);
   });
+
+  // deleteSession
+  it('deleteSession() removes the session row', async () => {
+    await repo.save(makeSession());
+    await repo.deleteSession('session-1');
+    expect(await repo.getById('session-1')).toBeNull();
+  });
+
+  it('deleteSession() is a no-op on non-existent id', async () => {
+    await expect(repo.deleteSession('no-such-id')).resolves.not.toThrow();
+  });
+
+  // deleteSetsBySessionId
+  it('deleteSetsBySessionId() removes all sets for the session and returns their ids', async () => {
+    await repo.save(makeSession());
+    const s1 = makeWeightRepsSet({ id: 'set-1', sessionId: 'session-1' });
+    const s2 = makeWeightRepsSet({ id: 'set-2', sessionId: 'session-1' });
+    await repo.addSetToSession('session-1', s1);
+    await repo.addSetToSession('session-1', s2);
+
+    const ids = await repo.deleteSetsBySessionId('session-1');
+
+    expect(ids).toEqual(expect.arrayContaining(['set-1', 'set-2']));
+    expect(await repo.getSetsForSession('session-1')).toHaveLength(0);
+  });
+
+  it('deleteSetsBySessionId() returns empty array when session has no sets', async () => {
+    await repo.save(makeSession());
+    const ids = await repo.deleteSetsBySessionId('session-1');
+    expect(ids).toHaveLength(0);
+  });
 });

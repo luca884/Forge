@@ -21,6 +21,9 @@ class StubSessionRepository extends SessionRepository {
     return Promise.resolve(this.lastSet);
   }
   override getAllSessions(_fromDate?: Date) { return Promise.resolve([]); }
+  override existsWorkedSetForExercise(_eId: string) { return Promise.resolve(false); }
+  override deleteSession(_sessionId: string) { return Promise.resolve(); }
+  override deleteSetsBySessionId(_sessionId: string) { return Promise.resolve([]); }
 }
 
 describe('GetLastWorkedSetForExerciseUseCase', () => {

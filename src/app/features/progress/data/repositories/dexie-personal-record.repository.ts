@@ -64,6 +64,18 @@ export class DexiePersonalRecordRepository extends PersonalRecordRepository {
     return (await this.db.personalRecords.where('exerciseId').equals(exerciseId).count()) > 0;
   }
 
+  /** Removes all PR rows whose workedSetId is in the given set. No-op if empty. */
+  async deleteByWorkedSetIds(workedSetIds: ReadonlySet<string>): Promise<void> {
+    if (workedSetIds.size === 0) return;
+    const rows = await this.db.personalRecords.toArray();
+    const idsToDelete = rows
+      .filter(r => workedSetIds.has(r.workedSetId))
+      .map(r => r.id);
+    if (idsToDelete.length > 0) {
+      await this.db.personalRecords.bulkDelete(idsToDelete);
+    }
+  }
+
   /**
    * Returns all PersonalRecord rows, optionally filtered by exerciseId,
    * ordered by achievedAt descending. D-9/R4, D-10/R5.

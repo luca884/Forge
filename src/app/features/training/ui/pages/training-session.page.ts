@@ -6,6 +6,7 @@ import { TrainingDayRepository } from '../../../routines/domain/training-day.rep
 import { ExerciseRepository } from '../../../exercises/domain/exercise.repository';
 import { LogSetUseCase, LogSetInput } from '../../domain/use-cases/log-set.use-case';
 import { CompleteSessionUseCase } from '../../domain/use-cases/complete-session.use-case';
+import { CancelSessionUseCase } from '../../domain/use-cases/cancel-session.use-case';
 import { TrainingSessionStore } from '../services/training-session.store';
 import { RestTimerService } from '../services/rest-timer.service';
 import { ExerciseSessionCardComponent } from '../components/exercise-session-card.component';
@@ -53,6 +54,7 @@ function formatHMS(totalSeconds: number): string {
   providers: [
     LogSetUseCase,
     CompleteSessionUseCase,
+    CancelSessionUseCase,
   ],
   template: `
     <div class="min-h-screen bg-forge-950 text-forge-100 flex flex-col">
@@ -139,12 +141,36 @@ function formatHMS(totalSeconds: number): string {
 
         } <!-- end @if (!initLoading()) -->
 
-        <!-- CTA -->
-        <div class="mt-4">
+        <!-- CTA: terminar y cancelar -->
+        <div class="mt-4 flex flex-col gap-2">
           <button fg-button variant="ghost" size="md" [full]="true" leadingIcon="check"
-                  (click)="completeSession()" [disabled]="completing()">
+                  (click)="completeSession()" [disabled]="completing() || cancelling()">
             {{ completing() ? 'Completando...' : 'Terminar sesión' }}
           </button>
+
+          <div class="pt-2 border-t border-forge-800">
+            @if (!confirmingCancel()) {
+              <button fg-button variant="destructive" size="md" [full]="true" leadingIcon="x"
+                      (click)="confirmingCancel.set(true)"
+                      [disabled]="completing() || cancelling()">
+                Cancelar entrenamiento
+              </button>
+            } @else {
+              <div class="flex flex-col gap-2">
+                <span class="t-body-sm text-forge-300">¿Seguro? No se guarda nada y se borran los PRs de esta sesión.</span>
+                <div class="flex gap-2">
+                  <button fg-button variant="secondary" size="sm" class="flex-1"
+                          (click)="confirmingCancel.set(false)">
+                    Seguir entrenando
+                  </button>
+                  <button fg-button variant="destructive" size="sm" class="flex-1"
+                          (click)="cancelSession()" [disabled]="cancelling()">
+                    {{ cancelling() ? 'Cancelando...' : 'Sí, cancelar' }}
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
         </div>
       </main>
     </div>
@@ -156,6 +182,7 @@ export class TrainingSessionPage implements OnInit {
   private readonly exerciseRepo = inject(ExerciseRepository);
   private readonly logSetUseCase = inject(LogSetUseCase);
   private readonly completeSessionUseCase = inject(CompleteSessionUseCase);
+  private readonly cancelSessionUseCase = inject(CancelSessionUseCase);
   private readonly router = inject(Router);
   private readonly userPrefs = inject(UserPreferencesService);
   private readonly prRepo = inject(PersonalRecordRepository);
@@ -168,6 +195,8 @@ export class TrainingSessionPage implements OnInit {
   readonly exercisesWithData = signal<ExerciseWithData[]>([]);
   readonly initLoading = signal(true);
   readonly completing = signal(false);
+  readonly cancelling = signal(false);
+  readonly confirmingCancel = signal(false);
   readonly prVisible = signal(false);
   readonly latestPrSet = signal<WorkedSet | null>(null);
   readonly latestPrExerciseName = signal('');
@@ -299,6 +328,23 @@ export class TrainingSessionPage implements OnInit {
     } catch {
       this.completing.set(false);
       this.toast.error('No se pudo completar la sesión', 'Intentá de nuevo');
+    }
+  }
+
+  async cancelSession(): Promise<void> {
+    const session = this.store.activeSession();
+    if (!session) return;
+
+    this.cancelling.set(true);
+    try {
+      await this.cancelSessionUseCase.execute({ sessionId: session.id });
+      this.restTimer.cancel();
+      this.store.clear();
+      void this.router.navigate(['/training']);
+    } catch {
+      this.cancelling.set(false);
+      this.confirmingCancel.set(false);
+      this.toast.error('No se pudo cancelar el entrenamiento', 'Intentá de nuevo');
     }
   }
 

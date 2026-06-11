@@ -55,4 +55,10 @@ export class TrainingSessionStore {
     const sets = await this.sessionRepo.getSetsForSession(session.id);
     this.workedSets.set(sets);
   }
+
+  /** Limpia el estado en memoria de la sesión activa y sus sets. Usado al cancelar. */
+  clear(): void {
+    this.activeSession.set(null);
+    this.workedSets.set([]);
+  }
 }

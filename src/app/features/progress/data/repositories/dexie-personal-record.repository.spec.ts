@@ -217,4 +217,39 @@ describe('DexiePersonalRecordRepository', () => {
     const result = await repo.existsByExerciseId('ex-no-prs');
     expect(result).toBe(false);
   });
+
+  // deleteByWorkedSetIds
+  it('deleteByWorkedSetIds() removes PRs whose workedSetId is in the set', async () => {
+    const pr1 = makePersonalRecord({ id: 'pr-1', workedSetId: 'set-1', set: makeWeightRepsSet('set-1') });
+    const pr2 = makePersonalRecord({ id: 'pr-2', workedSetId: 'set-2', set: makeWeightRepsSet('set-2') });
+    await repo.save(pr1);
+    await repo.save(pr2);
+
+    await repo.deleteByWorkedSetIds(new Set(['set-1']));
+
+    const all = await repo.listAll();
+    expect(all).toHaveLength(1);
+    expect(all[0]!.id).toBe('pr-2');
+  });
+
+  it('deleteByWorkedSetIds() is a no-op when the set is empty', async () => {
+    await repo.save(makePersonalRecord());
+
+    await repo.deleteByWorkedSetIds(new Set());
+
+    const all = await repo.listAll();
+    expect(all).toHaveLength(1);
+  });
+
+  it('deleteByWorkedSetIds() does not remove PRs from other sessions', async () => {
+    const prA = makePersonalRecord({ id: 'pr-A', workedSetId: 'set-A', set: makeWeightRepsSet('set-A') });
+    const prB = makePersonalRecord({ id: 'pr-B', workedSetId: 'set-B', set: makeWeightRepsSet('set-B') });
+    await repo.save(prA);
+    await repo.save(prB);
+
+    await repo.deleteByWorkedSetIds(new Set(['set-A']));
+
+    const remaining = await repo.listAll();
+    expect(remaining.map(r => r.id)).toEqual(['pr-B']);
+  });
 });

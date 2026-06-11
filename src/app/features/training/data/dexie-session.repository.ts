@@ -82,4 +82,17 @@ export class DexieSessionRepository extends SessionRepository {
   async existsWorkedSetForExercise(exerciseId: string): Promise<boolean> {
     return (await this.db.workedSets.where('exerciseId').equals(exerciseId).count()) > 0;
   }
+
+  async deleteSession(sessionId: string): Promise<void> {
+    await this.db.sessions.delete(sessionId);
+  }
+
+  async deleteSetsBySessionId(sessionId: string): Promise<string[]> {
+    const rows = await this.db.workedSets.where('sessionId').equals(sessionId).toArray();
+    const ids = rows.map(r => r.id);
+    if (ids.length > 0) {
+      await this.db.workedSets.bulkDelete(ids);
+    }
+    return ids;
+  }
 }

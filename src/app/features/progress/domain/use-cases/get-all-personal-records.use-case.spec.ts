@@ -34,6 +34,8 @@ class StubPersonalRecordRepository extends PersonalRecordRepository {
     this.lastListAllArg = exerciseId;
     return this.records;
   }
+  override async existsByExerciseId(_exerciseId: string): Promise<boolean> { return false; }
+  override async deleteByWorkedSetIds(_ids: ReadonlySet<string>): Promise<void> {}
 }
 
 describe('GetAllPersonalRecordsUseCase', () => {

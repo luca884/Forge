@@ -8,10 +8,12 @@ import { TrainingDayRepository } from '../../../routines/domain/training-day.rep
 import { StartSessionUseCase } from '../../domain/use-cases/start-session.use-case';
 import { GetActiveSessionUseCase } from '../../domain/use-cases/get-active-session.use-case';
 import { GetSuggestedDayForTodayUseCase, SuggestedDayResult } from '../../domain/use-cases/get-suggested-day-for-today.use-case';
+import { CancelSessionUseCase } from '../../domain/use-cases/cancel-session.use-case';
 import { TrainingSessionStore } from '../services/training-session.store';
 import { SessionAlreadyInProgressError } from '../../domain/errors/session-already-in-progress.error';
 import { FgCardComponent } from '@core/shared/ui';
 import { FgButtonComponent } from '@core/shared/ui';
+import { ToastService } from '@core/shared/ui';
 import { DAYS_OF_WEEK, DayOfWeek } from '../../../routines/domain/value-objects/weekly-schedule';
 
 // ─── File-local types ─────────────────────────────────────────────────────────
@@ -66,12 +68,57 @@ const DOW_LABELS: Record<DayOfWeek, string> = {
     StartSessionUseCase,
     GetActiveSessionUseCase,
     GetSuggestedDayForTodayUseCase,
+    CancelSessionUseCase,
   ],
   template: `
     <section class="training-home bg-forge-900 min-h-screen flex flex-col gap-4 p-4">
       <header>
         <h1 class="t-h3 text-forge-50">Entrenar</h1>
       </header>
+
+      <!-- ENTRENAMIENTO EN CURSO -->
+      @if (activeSessionDay()) {
+        <fg-card data-in-progress [padding]="16" class="border border-accent-500/40">
+          <div class="flex flex-col gap-3">
+            <span class="t-micro text-accent-300 tracking-widest uppercase">ENTRENAMIENTO EN CURSO</span>
+            <h2 class="t-h3 text-forge-50">{{ activeSessionDay()!.name }}</h2>
+            <div class="flex gap-2">
+              <button
+                fg-button
+                variant="primary"
+                size="md"
+                class="flex-1"
+                leadingIcon="play"
+                (click)="resumeSession()"
+                [disabled]="loading() || cancellingFromHome()"
+              >Continuar</button>
+              @if (!confirmingCancelFromHome()) {
+                <button
+                  fg-button
+                  variant="destructive"
+                  size="md"
+                  class="flex-1"
+                  leadingIcon="x"
+                  (click)="confirmingCancelFromHome.set(true)"
+                  [disabled]="loading() || cancellingFromHome()"
+                >Cancelar</button>
+              } @else {
+                <div class="flex flex-col gap-2 flex-1">
+                  <span class="t-caption text-forge-300">¿Seguro? No se guarda nada.</span>
+                  <div class="flex gap-2">
+                    <button fg-button variant="secondary" size="sm" class="flex-1"
+                            (click)="confirmingCancelFromHome.set(false)">Volver</button>
+                    <button fg-button variant="destructive" size="sm" class="flex-1"
+                            (click)="cancelSessionFromHome()" [disabled]="cancellingFromHome()">
+                      {{ cancellingFromHome() ? 'Cancelando...' : 'Sí, cancelar' }}
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        </fg-card>
+      }
 
       @if (activeRoutine()) {
         <!-- HERO CARD -->
@@ -209,8 +256,10 @@ export class TrainingHomePage implements OnInit {
   private readonly startSessionUseCase = inject(StartSessionUseCase);
   private readonly getActiveSessionUseCase = inject(GetActiveSessionUseCase);
   private readonly getSuggestedDayUseCase = inject(GetSuggestedDayForTodayUseCase);
+  private readonly cancelSessionUseCase = inject(CancelSessionUseCase);
   private readonly store = inject(TrainingSessionStore);
   private readonly router = inject(Router);
+  private readonly toast = inject(ToastService);
 
   readonly activeRoutine = signal<Routine | null>(null);
   readonly trainingDays = signal<TrainingDay[]>([]);
@@ -218,6 +267,16 @@ export class TrainingHomePage implements OnInit {
   readonly errorMessage = signal<string | null>(null);
   /** Discriminated union — null until init resolves. D-33. */
   readonly suggestedDay = signal<SuggestedDayResult | null>(null);
+
+  /**
+   * TrainingDay correspondiente a la sesión in-progress, o null si no hay.
+   * Cuando no es null, se muestra la card "Entrenamiento en curso".
+   */
+  readonly activeSessionDay = signal<TrainingDay | null>(null);
+
+  /** Controla la confirmación de cancelar desde la home. */
+  readonly confirmingCancelFromHome = signal(false);
+  readonly cancellingFromHome = signal(false);
 
   /** Computed week strip — 7 cells always, derived from trainingDays + schedule + local Date. ADR-34. */
   readonly weekCells = computed<WeekCell[]>(() => {
@@ -242,12 +301,13 @@ export class TrainingHomePage implements OnInit {
   }
 
   private async init(): Promise<void> {
-    // Check if a session is already in progress — resume it
     const activeSession = await this.getActiveSessionUseCase.execute();
     if (activeSession) {
       await this.store.loadActive();
-      void this.router.navigate(['/training/session']);
-      return;
+      // No redirigir — mostrar card "Entrenamiento en curso" en la home.
+      const day = await this.trainingDayRepo.getById(activeSession.dayId);
+      this.activeSessionDay.set(day);
+      // También cargar rutina y días para mostrar la home completa debajo.
     }
 
     const routine = await this.routineRepo.getActive();
@@ -260,6 +320,29 @@ export class TrainingHomePage implements OnInit {
       ]);
       this.trainingDays.set(days);
       this.suggestedDay.set(suggested);
+    }
+  }
+
+  /** Navega a la sesión en curso. */
+  resumeSession(): void {
+    void this.router.navigate(['/training/session']);
+  }
+
+  /** Cancela la sesión in-progress desde la home (sin entrar a ella). */
+  async cancelSessionFromHome(): Promise<void> {
+    const session = this.store.activeSession();
+    if (!session) return;
+
+    this.cancellingFromHome.set(true);
+    try {
+      await this.cancelSessionUseCase.execute({ sessionId: session.id });
+      this.store.clear();
+      this.activeSessionDay.set(null);
+      this.confirmingCancelFromHome.set(false);
+    } catch {
+      this.cancellingFromHome.set(false);
+      this.confirmingCancelFromHome.set(false);
+      this.toast.error('No se pudo cancelar el entrenamiento', 'Intentá de nuevo');
     }
   }
 
@@ -279,7 +362,7 @@ export class TrainingHomePage implements OnInit {
       void this.router.navigate(['/training/session']);
     } catch (err) {
       if (err instanceof SessionAlreadyInProgressError) {
-        // Resume existing session
+        // Retomar sesión existente
         await this.store.loadActive();
         void this.router.navigate(['/training/session']);
       } else {

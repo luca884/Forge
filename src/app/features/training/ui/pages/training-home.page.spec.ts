@@ -17,6 +17,7 @@ import { TrainingDayRepository } from '../../../routines/domain/training-day.rep
 import { StartSessionUseCase } from '../../domain/use-cases/start-session.use-case';
 import { GetActiveSessionUseCase } from '../../domain/use-cases/get-active-session.use-case';
 import { GetSuggestedDayForTodayUseCase } from '../../domain/use-cases/get-suggested-day-for-today.use-case';
+import { CancelSessionUseCase } from '../../domain/use-cases/cancel-session.use-case';
 import { TrainingSessionStore } from '../services/training-session.store';
 import type { Routine } from '../../../routines/domain/routine.entity';
 import type { TrainingDay } from '../../../routines/domain/training-day.entity';
@@ -59,7 +60,8 @@ describe('TrainingHomePage', () => {
   let startUCMock: { execute: jest.Mock };
   let activeSessionUCMock: { execute: jest.Mock };
   let suggestedUCMock: { execute: jest.Mock };
-  let storeMock: { loadActive: jest.Mock; activeSession: ReturnType<typeof signal<null>> };
+  let storeMock: { loadActive: jest.Mock; activeSession: ReturnType<typeof signal<null>>; clear: jest.Mock };
+  let cancelUCMock: { execute: jest.Mock };
 
   async function setup(overrides: {
     routine?: Routine | null;
@@ -82,7 +84,8 @@ describe('TrainingHomePage', () => {
     startUCMock = { execute: jest.fn().mockResolvedValue(undefined) };
     activeSessionUCMock = { execute: jest.fn().mockResolvedValue(activeSession) };
     suggestedUCMock = { execute: jest.fn().mockResolvedValue(suggestedDay) };
-    storeMock = { loadActive: jest.fn().mockResolvedValue(undefined), activeSession: signal(null) };
+    cancelUCMock = { execute: jest.fn().mockResolvedValue(undefined) };
+    storeMock = { loadActive: jest.fn().mockResolvedValue(undefined), activeSession: signal(null), clear: jest.fn() };
 
     await TestBed.configureTestingModule({
       imports: [TrainingHomePage, RouterTestingModule],
@@ -98,6 +101,7 @@ describe('TrainingHomePage', () => {
             { provide: StartSessionUseCase, useValue: startUCMock },
             { provide: GetActiveSessionUseCase, useValue: activeSessionUCMock },
             { provide: GetSuggestedDayForTodayUseCase, useValue: suggestedUCMock },
+            { provide: CancelSessionUseCase, useValue: cancelUCMock },
           ],
         },
       })
@@ -207,5 +211,83 @@ describe('TrainingHomePage', () => {
     expect(btn).not.toBeNull();
     if (!btn) return;
     expect(btn.disabled).toBe(true);
+  });
+
+  // ── No auto-redirect ───────────────────────────────────────────────────────
+  it('does NOT auto-navigate to /training/session when there is an active session', async () => {
+    const activeSessionObj = { id: 's-1', dayId: 'd-1', status: 'in-progress' };
+    await setup({ activeSession: activeSessionObj });
+
+    // There must be NO call to navigate('/training/session') during init
+    expect(navigateSpy).not.toHaveBeenCalledWith(['/training/session']);
+  });
+
+  // ── Card "Entrenamiento en curso" ──────────────────────────────────────────
+  it('shows fg-card[data-in-progress] when there is an active session', async () => {
+    const activeSessionObj = { id: 's-1', dayId: 'd-1', status: 'in-progress' };
+    await setup({ activeSession: activeSessionObj });
+
+    // activeSessionDay should be set (trainingDayRepoMock.getById returns mockDay)
+    fixture.componentInstance.activeSessionDay.set(mockDay);
+    fixture.detectChanges();
+
+    const card = (fixture.nativeElement as HTMLElement).querySelector('fg-card[data-in-progress]');
+    expect(card).not.toBeNull();
+  });
+
+  it('shows "Entrenamiento en curso" label in the in-progress card', async () => {
+    await setup({ activeSession: null });
+    fixture.componentInstance.activeSessionDay.set(mockDay);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toMatch(/entrenamiento en curso/i);
+  });
+
+  it('shows day name in the in-progress card', async () => {
+    await setup({ activeSession: null });
+    fixture.componentInstance.activeSessionDay.set(mockDay);
+    fixture.detectChanges();
+
+    const card = (fixture.nativeElement as HTMLElement).querySelector('[data-in-progress]');
+    expect(card?.textContent).toContain('Piernas');
+  });
+
+  it('"Continuar" button in in-progress card navigates to /training/session', async () => {
+    await setup({ activeSession: null });
+    fixture.componentInstance.activeSessionDay.set(mockDay);
+    fixture.detectChanges();
+
+    fixture.componentInstance.resumeSession();
+
+    expect(navigateSpy).toHaveBeenCalledWith(['/training/session']);
+  });
+
+  it('shows confirmation when "Cancelar" is clicked in in-progress card', async () => {
+    await setup({ activeSession: null });
+    fixture.componentInstance.activeSessionDay.set(mockDay);
+    fixture.detectChanges();
+
+    fixture.componentInstance.confirmingCancelFromHome.set(true);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('¿Seguro?');
+  });
+
+  it('cancelSessionFromHome() calls cancelUseCase, store.clear(), and clears activeSessionDay', async () => {
+    const activeSessionObj = { id: 's-1', dayId: 'd-1', status: 'in-progress' };
+    await setup({ activeSession: activeSessionObj });
+
+    // Inject the session into the store mock so cancelSession has an ID to work with
+    storeMock.activeSession.set(activeSessionObj as any);
+    fixture.componentInstance.activeSessionDay.set(mockDay);
+    fixture.detectChanges();
+
+    await fixture.componentInstance.cancelSessionFromHome();
+
+    expect(cancelUCMock.execute).toHaveBeenCalledWith({ sessionId: 's-1' });
+    expect(storeMock.clear).toHaveBeenCalled();
+    expect(fixture.componentInstance.activeSessionDay()).toBeNull();
   });
 });

@@ -42,6 +42,9 @@ class StubSessionRepository extends SessionRepository {
   override async getAllSessions(_fromDate?: Date): Promise<import('../../domain/session.entity').Session[]> {
     return [];
   }
+  override async existsWorkedSetForExercise(_eId: string): Promise<boolean> { return false; }
+  override async deleteSession(_sessionId: string): Promise<void> {}
+  override async deleteSetsBySessionId(_sessionId: string): Promise<string[]> { return []; }
 }
 
 class StubEventBus extends EventBus {
