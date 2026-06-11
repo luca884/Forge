@@ -13,6 +13,7 @@ import { TrainingSessionStore } from '../services/training-session.store';
 import { SessionAlreadyInProgressError } from '../../domain/errors/session-already-in-progress.error';
 import { FgCardComponent } from '@core/shared/ui';
 import { FgButtonComponent } from '@core/shared/ui';
+import { FgIconComponent } from '@core/shared/ui';
 import { ToastService } from '@core/shared/ui';
 import { DAYS_OF_WEEK, DayOfWeek } from '../../../routines/domain/value-objects/weekly-schedule';
 
@@ -63,7 +64,7 @@ const DOW_LABELS: Record<DayOfWeek, string> = {
 @Component({
   selector: 'fg-training-home-page',
   standalone: true,
-  imports: [FgCardComponent, FgButtonComponent, RouterLink],
+  imports: [FgCardComponent, FgButtonComponent, FgIconComponent, RouterLink],
   providers: [
     StartSessionUseCase,
     GetActiveSessionUseCase,
@@ -211,17 +212,31 @@ const DOW_LABELS: Record<DayOfWeek, string> = {
         <!-- DAYS LIST -->
         <section data-days-list>
           <p class="t-micro text-forge-400 tracking-widest uppercase mb-2">DÍAS DE LA RUTINA</p>
-          <div class="flex flex-col gap-2">
+          <div class="grid grid-cols-2 gap-3">
             @for (day of trainingDays(); track day.id) {
               <button
-                fg-button
-                variant="secondary"
-                size="md"
-                [full]="true"
+                type="button"
                 (click)="startSession(day)"
                 [disabled]="loading()"
+                [attr.aria-label]="'Empezar sesión de ' + day.name"
+                class="aspect-square flex flex-col justify-between p-4 rounded-2xl bg-forge-900 ring-1 ring-inset text-left transition-transform active:scale-[0.97] disabled:opacity-50"
+                [class]="suggestedDay()?.day?.id === day.id ? 'ring-accent-500/60' : 'ring-white/5'"
               >
-                {{ day.name }}{{ day.label ? ' · ' + day.label : '' }}
+                <div class="flex items-center justify-between w-full">
+                  <fg-icon name="dumbbell" [size]="22" class="text-forge-400"></fg-icon>
+                  @if (suggestedDay()?.day?.id === day.id) {
+                    <span class="t-micro text-accent-300 tracking-widest uppercase">HOY</span>
+                  }
+                </div>
+                <div class="flex flex-col gap-0.5">
+                  <span class="t-h3 text-forge-50">{{ day.name }}</span>
+                  @if (day.label) {
+                    <span class="t-body-sm text-accent-300">{{ day.label }}</span>
+                  }
+                  <span class="t-caption text-forge-400">
+                    {{ day.exercises.length }} {{ day.exercises.length === 1 ? 'ejercicio' : 'ejercicios' }}
+                  </span>
+                </div>
               </button>
             } @empty {
               <fg-card [padding]="16">
