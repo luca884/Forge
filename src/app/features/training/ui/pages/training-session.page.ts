@@ -58,8 +58,9 @@ function formatHMS(totalSeconds: number): string {
   ],
   template: `
     <div class="min-h-screen bg-forge-950 text-forge-100 flex flex-col">
-      <!-- Sticky header -->
-      <header class="sticky top-0 z-10 px-5 pt-1 pb-3 bg-forge-950">
+      <!-- Header + rest timer pinned together so the timer follows the scroll -->
+      <div class="sticky top-0 z-10" data-testid="session-sticky">
+      <header class="px-5 pt-1 pb-3 bg-forge-950">
         <div class="flex items-center justify-between">
           <button fg-button variant="ghost" size="sm" leadingIcon="chevron-left"
                   (click)="goBack()" aria-label="Atrás">
@@ -81,8 +82,9 @@ function formatHMS(totalSeconds: number): string {
         </div>
       </header>
 
-      <!-- Rest timer -->
+      <!-- Rest timer — pinned right under the header -->
       <fg-rest-timer></fg-rest-timer>
+      </div>
 
       <!-- Scroll area -->
       <main class="flex-1 overflow-y-auto px-5 pb-24 pt-3 flex flex-col gap-3">
