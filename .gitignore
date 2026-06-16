@@ -44,3 +44,6 @@ Thumbs.db
 # Playwright
 playwright-report/
 test-results/
+
+# Claude Code local config + agent worktrees
+.claude/

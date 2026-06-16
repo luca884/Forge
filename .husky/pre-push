@@ -1,0 +1,5 @@
+echo "🔒 Pre-push gate: tests + build de producción (strictTemplates)…"
+
+# Jest NO valida strictTemplates ni type errors puros (ts-jest transpila sin typecheck).
+# Por eso el gate corre las DOS cosas: si una da rojo, el push se bloquea.
+npm test && npm run build
