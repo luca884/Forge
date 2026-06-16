@@ -1,11 +1,17 @@
 import { Injectable, signal } from '@angular/core';
 import { ToastKind } from './toast.component';
 
+export interface ToastAction {
+  readonly label: string;
+  readonly handler: () => void;
+}
+
 export interface Toast {
   readonly id: number;
   readonly title: string;
   readonly body?: string;
   readonly kind: ToastKind;
+  readonly action?: ToastAction;
 }
 
 const DEFAULT_DURATION = 4000;
@@ -23,6 +29,7 @@ export class ToastService {
     body?: string;
     kind?: ToastKind;
     duration?: number;
+    action?: ToastAction;
   }): number {
     const id = this._nextId++;
     const toast: Toast = {
@@ -30,6 +37,7 @@ export class ToastService {
       title: input.title,
       body: input.body,
       kind: input.kind ?? 'info',
+      action: input.action,
     };
 
     this._toasts.update(current => [...current, toast]);

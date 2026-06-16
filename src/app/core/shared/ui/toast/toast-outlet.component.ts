@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { FgToastComponent } from './toast.component';
-import { ToastService } from './toast.service';
+import { ToastService, type Toast } from './toast.service';
 
 @Component({
   selector: 'fg-toast-outlet',
@@ -15,6 +15,8 @@ import { ToastService } from './toast.service';
             [title]="t.title"
             [body]="t.body"
             [kind]="t.kind"
+            [action]="t.action"
+            (actionClick)="onAction(t)"
             (dismiss)="toastService.dismiss(t.id)"
           />
         </div>
@@ -24,4 +26,9 @@ import { ToastService } from './toast.service';
 })
 export class FgToastOutletComponent {
   readonly toastService = inject(ToastService);
+
+  onAction(toast: Toast): void {
+    toast.action?.handler();
+    this.toastService.dismiss(toast.id);
+  }
 }

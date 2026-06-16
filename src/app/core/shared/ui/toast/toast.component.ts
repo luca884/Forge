@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { FgIconComponent, type IconName } from '../icon';
+import type { ToastAction } from './toast.service';
 
 export type ToastKind = 'info' | 'success' | 'error';
 
@@ -44,6 +45,16 @@ const KIND_MAP: Record<ToastKind, ToastKindStyle> = {
         <div class="t-body-sm text-forge-300 mt-0.5">{{ body() }}</div>
       }
     </div>
+    @if (action(); as a) {
+      <button
+        type="button"
+        data-testid="action"
+        class="t-body-sm font-semibold text-accent-300 hover:text-accent-200 cursor-pointer bg-transparent border-0 p-0 flex-shrink-0 self-center"
+        (click)="actionClick.emit()"
+      >
+        {{ a.label }}
+      </button>
+    }
     <button
       type="button"
       aria-label="Cerrar"
@@ -62,8 +73,10 @@ export class FgToastComponent {
   readonly title = input.required<string>();
   readonly body = input<string | undefined>(undefined);
   readonly kind = input<ToastKind>('info');
+  readonly action = input<ToastAction | undefined>(undefined);
 
   readonly dismiss = output<void>();
+  readonly actionClick = output<void>();
 
   readonly kindStyle = computed(() => KIND_MAP[this.kind()]);
 }

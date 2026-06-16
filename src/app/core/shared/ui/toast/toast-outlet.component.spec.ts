@@ -50,6 +50,19 @@ describe('FgToastOutletComponent', () => {
     expect(nativeEl.textContent).toContain('Toast Beta');
   });
 
+  it('runs the action handler and dismisses the toast when actionClick is emitted', () => {
+    const handler = jest.fn();
+    service.show({ title: 'Update', duration: 0, action: { label: 'Actualizar', handler } });
+    fixture.detectChanges();
+
+    const toastEl = fixture.debugElement.query(By.css('fg-toast'));
+    (toastEl.componentInstance as { actionClick: { emit: () => void } }).actionClick.emit();
+    fixture.detectChanges();
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(fixture.debugElement.queryAll(By.css('fg-toast'))).toHaveLength(0);
+  });
+
   it('removes the toast from view when dismiss is emitted on the fg-toast', async () => {
     service.show({ title: 'Dismissable', duration: 0 });
     fixture.detectChanges();

@@ -9,4 +9,4 @@ export { FgPageHeaderComponent, type PageHeaderAction } from './page-header/page
 export { FgSkeletonComponent } from './skeleton/skeleton.component';
 export { FgToastComponent, type ToastKind } from './toast/toast.component';
 export { FgToastOutletComponent } from './toast/toast-outlet.component';
-export { ToastService, type Toast } from './toast/toast.service';
+export { ToastService, type Toast, type ToastAction } from './toast/toast.service';

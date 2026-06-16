@@ -15,11 +15,13 @@ describe('FgToastComponent', () => {
     kind?: 'info' | 'success' | 'error';
     title?: string;
     body?: string;
+    action?: { label: string; handler: () => void };
   } = {}): void {
     fixture = TestBed.createComponent(FgToastComponent);
     fixture.componentRef.setInput('title', inputs.title ?? 'Test title');
     if (inputs.kind !== undefined) fixture.componentRef.setInput('kind', inputs.kind);
     if (inputs.body !== undefined) fixture.componentRef.setInput('body', inputs.body);
+    if (inputs.action !== undefined) fixture.componentRef.setInput('action', inputs.action);
     fixture.detectChanges();
   }
 
@@ -90,6 +92,30 @@ describe('FgToastComponent', () => {
       // We verify by checking there's no second content block beyond the title
       const bodyDiv = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="body"]');
       expect(bodyDiv).toBeNull();
+    });
+  });
+
+  describe('action (optional)', () => {
+    it('renderiza el botón de acción con el label cuando se pasa action', () => {
+      create({ action: { label: 'Actualizar', handler: jest.fn() } });
+      const actionBtn = fixture.debugElement.query(By.css('button[data-testid="action"]'));
+      expect(actionBtn).toBeTruthy();
+      expect((actionBtn.nativeElement as HTMLButtonElement).textContent).toContain('Actualizar');
+    });
+
+    it('no renderiza el botón de acción cuando no se pasa action', () => {
+      create();
+      const actionBtn = fixture.debugElement.query(By.css('button[data-testid="action"]'));
+      expect(actionBtn).toBeNull();
+    });
+
+    it('emite actionClick al hacer click en el botón de acción', () => {
+      create({ action: { label: 'Actualizar', handler: jest.fn() } });
+      let emitted = false;
+      fixture.componentInstance.actionClick.subscribe(() => { emitted = true; });
+      const actionBtn = fixture.debugElement.query(By.css('button[data-testid="action"]'));
+      (actionBtn.nativeElement as HTMLButtonElement).click();
+      expect(emitted).toBe(true);
     });
   });
 

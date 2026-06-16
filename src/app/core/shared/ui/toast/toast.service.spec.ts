@@ -51,6 +51,22 @@ describe('ToastService', () => {
     });
   });
 
+  // ---- action ---------------------------------------------------------------
+
+  describe('action', () => {
+    it('stores the action when provided', () => {
+      const handler = jest.fn();
+      service.show({ title: 'Update', action: { label: 'Actualizar', handler } });
+      const [toast] = service.toasts();
+      expect(toast.action).toEqual({ label: 'Actualizar', handler });
+    });
+
+    it('leaves action undefined when omitted', () => {
+      service.show({ title: 'Plain' });
+      expect(service.toasts()[0].action).toBeUndefined();
+    });
+  });
+
   // ---- convenience methods --------------------------------------------------
 
   describe('success()', () => {

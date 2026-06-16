@@ -14,6 +14,7 @@ import { InMemoryEventBus } from '@core/shared/events/in-memory-event-bus';
 import { AuditEventLogRepository, AuditEventFilter } from '@core/shared/events/audit-event-log.repository';
 import { AuditEvent } from '@core/shared/events/audit-event';
 import { AuditEventLogListener } from '@core/shared/events/audit-event-log.listener';
+import { PwaUpdateService } from '@core/pwa/pwa-update.service';
 
 // Profile repository at root so UserPreferencesService (root-scoped) can inject it.
 // ADR-22 addendum — consistent with AuditEventLogRepository pattern.
@@ -99,6 +100,15 @@ export const appConfig: ApplicationConfig = {
       provide: APP_INITIALIZER,
       useFactory: (listener: AuditEventLogListener) => () => listener.start(),
       deps: [AuditEventLogListener],
+      multi: true,
+    },
+
+    // PWA update banner — listens for ngsw VERSION_READY and offers Actualizar.
+    // No-op in dev (SwUpdate.isEnabled === false). Mirrors the listener pattern above.
+    {
+      provide: APP_INITIALIZER,
+      useFactory: (pwaUpdate: PwaUpdateService) => () => pwaUpdate.start(),
+      deps: [PwaUpdateService],
       multi: true,
     },
 
