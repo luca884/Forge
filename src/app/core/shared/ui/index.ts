@@ -10,3 +10,4 @@ export { FgSkeletonComponent } from './skeleton/skeleton.component';
 export { FgToastComponent, type ToastKind } from './toast/toast.component';
 export { FgToastOutletComponent } from './toast/toast-outlet.component';
 export { ToastService, type Toast, type ToastAction } from './toast/toast.service';
+export { FgWheelPickerComponent, WHEEL_ITEM_HEIGHT } from './wheel-picker/wheel-picker.component';

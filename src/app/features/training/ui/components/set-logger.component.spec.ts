@@ -124,17 +124,21 @@ describe('SetLoggerComponent', () => {
     expect(fixture.componentInstance.form.controls.weightKg.value).toBe(82.5);
   });
 
-  it('weight-reps usa un select de reps con opciones 1..50', () => {
+  it('weight-reps usa un wheel-picker de reps (no un select fullscreen) integrado al form', () => {
     fixture.componentRef.setInput('sessionId', 's-1');
     fixture.componentRef.setInput('exerciseId', 'ex-1');
     fixture.componentRef.setInput('trackingType', 'weight-reps');
     fixture.detectChanges();
 
-    const select = (fixture.nativeElement as HTMLElement).querySelector('select[aria-label="Repeticiones"]') as HTMLSelectElement;
-    expect(select).toBeTruthy();
-    // placeholder "—" + reps 1..50
-    expect(select.options.length).toBe(51);
+    // ya no hay select nativo (el que abría el picker que tapaba la pantalla)
+    const select = (fixture.nativeElement as HTMLElement).querySelector('select[aria-label="Repeticiones"]');
+    expect(select).toBeNull();
 
+    // hay un wheel-picker para reps
+    const wheel = (fixture.nativeElement as HTMLElement).querySelector('fg-wheel-picker [aria-label="Repeticiones"]');
+    expect(wheel).toBeTruthy();
+
+    // sigue integrado al form control via CVA
     fixture.componentInstance.form.controls.reps.setValue(8);
     fixture.detectChanges();
     expect(fixture.componentInstance.form.controls.reps.value).toBe(8);
@@ -247,6 +251,51 @@ describe('SetLoggerComponent', () => {
     fixture.componentInstance.onSubmit();
 
     expect(captured).toHaveLength(0);
+  });
+
+  // ── CLEAR-ZERO-ON-FOCUS ────────────────────────────────────────────────────
+
+  describe('peso: el 0 inicial desaparece al enfocar', () => {
+    beforeEach(() => {
+      fixture.componentRef.setInput('sessionId', 's-1');
+      fixture.componentRef.setInput('exerciseId', 'ex-1');
+      fixture.componentRef.setInput('trackingType', 'weight-reps');
+      fixture.detectChanges();
+    });
+
+    it('onNumberFocus vacía el campo cuando vale 0', () => {
+      fixture.componentInstance.form.controls.weightKg.setValue(0);
+      fixture.componentInstance.onNumberFocus('weightKg');
+      expect(fixture.componentInstance.form.controls.weightKg.value).toBeNull();
+    });
+
+    it('onNumberFocus NO toca un valor distinto de 0', () => {
+      fixture.componentInstance.form.controls.weightKg.setValue(100);
+      fixture.componentInstance.onNumberFocus('weightKg');
+      expect(fixture.componentInstance.form.controls.weightKg.value).toBe(100);
+    });
+
+    it('onNumberBlur restaura 0 cuando se deja vacío', () => {
+      fixture.componentInstance.form.controls.weightKg.setValue(null);
+      fixture.componentInstance.onNumberBlur('weightKg');
+      expect(fixture.componentInstance.form.controls.weightKg.value).toBe(0);
+    });
+
+    it('onNumberBlur respeta un peso real escrito', () => {
+      fixture.componentInstance.form.controls.weightKg.setValue(82.5);
+      fixture.componentInstance.onNumberBlur('weightKg');
+      expect(fixture.componentInstance.form.controls.weightKg.value).toBe(82.5);
+    });
+
+    it('el input de peso dispara onNumberFocus al recibir focus (vacía el 0)', () => {
+      fixture.componentInstance.form.controls.weightKg.setValue(0);
+      const input = (fixture.nativeElement as HTMLElement).querySelector(
+        'input[aria-label="Peso en kg"]',
+      ) as HTMLInputElement;
+      input.dispatchEvent(new Event('focus'));
+      fixture.detectChanges();
+      expect(fixture.componentInstance.form.controls.weightKg.value).toBeNull();
+    });
   });
 
   // ── PREFILL TARGET TESTS ──────────────────────────────────────────────────

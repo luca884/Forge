@@ -16,14 +16,15 @@ import { TargetSet } from '@features/routines/domain/target-set';
 import { FgButtonComponent } from '@core/shared/ui';
 import { FgCardComponent } from '@core/shared/ui';
 import { FgIconComponent } from '@core/shared/ui';
+import { FgWheelPickerComponent } from '@core/shared/ui';
 
 @Component({
   selector: 'fg-set-logger',
   standalone: true,
-  imports: [ReactiveFormsModule, FgButtonComponent, FgCardComponent, FgIconComponent],
+  imports: [ReactiveFormsModule, FgButtonComponent, FgCardComponent, FgIconComponent, FgWheelPickerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   styles: [`
-    .set-num, .set-select {
+    .set-num {
       width: 100%;
       appearance: none;
       -webkit-appearance: none;
@@ -41,7 +42,6 @@ import { FgIconComponent } from '@core/shared/ui';
     }
     .set-num::-webkit-outer-spin-button,
     .set-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-    .set-select { text-align-last: center; }
   `],
   template: `
     <form [formGroup]="form" (ngSubmit)="onSubmit()">
@@ -57,17 +57,14 @@ import { FgIconComponent } from '@core/shared/ui';
               <label class="bg-forge-900 rounded-xl py-2.5 px-3 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
                 <span class="t-caption text-forge-500">Peso</span>
                 <div class="flex items-baseline gap-1 w-full">
-                  <input type="number" inputmode="decimal" step="0.5" min="0" formControlName="weightKg" aria-label="Peso en kg" class="set-num" />
+                  <input type="number" inputmode="decimal" step="0.5" min="0" formControlName="weightKg" aria-label="Peso en kg" class="set-num" (focus)="onNumberFocus('weightKg')" (blur)="onNumberBlur('weightKg')" />
                   <span class="t-caption text-forge-600">kg</span>
                 </div>
               </label>
-              <label class="bg-forge-900 rounded-xl py-2.5 px-3 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
+              <div class="bg-forge-900 rounded-xl py-2.5 px-2 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
                 <span class="t-caption text-forge-500">Reps</span>
-                <select formControlName="reps" aria-label="Repeticiones" class="set-select">
-                  <option [ngValue]="0" disabled>—</option>
-                  @for (r of repsOptions; track r) { <option [ngValue]="r">{{ r }}</option> }
-                </select>
-              </label>
+                <fg-wheel-picker class="w-full" formControlName="reps" [min]="1" [max]="50" ariaLabel="Repeticiones" />
+              </div>
             </div>
           }
           @case ('bodyweight-reps') {
@@ -79,13 +76,10 @@ import { FgIconComponent } from '@core/shared/ui';
                   <span class="t-caption text-forge-600">kg</span>
                 </div>
               </label>
-              <label class="bg-forge-900 rounded-xl py-2.5 px-3 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
+              <div class="bg-forge-900 rounded-xl py-2.5 px-2 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
                 <span class="t-caption text-forge-500">Reps</span>
-                <select formControlName="reps" aria-label="Repeticiones" class="set-select">
-                  <option [ngValue]="0" disabled>—</option>
-                  @for (r of repsOptions; track r) { <option [ngValue]="r">{{ r }}</option> }
-                </select>
-              </label>
+                <fg-wheel-picker class="w-full" formControlName="reps" [min]="1" [max]="50" ariaLabel="Repeticiones" />
+              </div>
             </div>
           }
           @case ('time') {
@@ -93,7 +87,7 @@ import { FgIconComponent } from '@core/shared/ui';
               <label class="bg-forge-900 rounded-xl py-2.5 px-3 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
                 <span class="t-caption text-forge-500">Duración</span>
                 <div class="flex items-baseline gap-1 w-full justify-center">
-                  <input type="number" inputmode="numeric" step="5" min="0" formControlName="durationSec" aria-label="Duración en segundos" class="set-num" />
+                  <input type="number" inputmode="numeric" step="5" min="0" formControlName="durationSec" aria-label="Duración en segundos" class="set-num" (focus)="onNumberFocus('durationSec')" (blur)="onNumberBlur('durationSec')" />
                   <span class="t-caption text-forge-600">seg</span>
                 </div>
               </label>
@@ -104,14 +98,14 @@ import { FgIconComponent } from '@core/shared/ui';
               <label class="bg-forge-900 rounded-xl py-2.5 px-3 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
                 <span class="t-caption text-forge-500">Distancia</span>
                 <div class="flex items-baseline gap-1 w-full">
-                  <input type="number" inputmode="decimal" step="0.1" min="0" formControlName="distanceKm" aria-label="Distancia en km" class="set-num" />
+                  <input type="number" inputmode="decimal" step="0.1" min="0" formControlName="distanceKm" aria-label="Distancia en km" class="set-num" (focus)="onNumberFocus('distanceKm')" (blur)="onNumberBlur('distanceKm')" />
                   <span class="t-caption text-forge-600">km</span>
                 </div>
               </label>
               <label class="bg-forge-900 rounded-xl py-2.5 px-3 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
                 <span class="t-caption text-forge-500">Duración</span>
                 <div class="flex items-baseline gap-1 w-full">
-                  <input type="number" inputmode="numeric" step="5" min="0" formControlName="durationSec" aria-label="Duración en segundos" class="set-num" />
+                  <input type="number" inputmode="numeric" step="5" min="0" formControlName="durationSec" aria-label="Duración en segundos" class="set-num" (focus)="onNumberFocus('durationSec')" (blur)="onNumberBlur('durationSec')" />
                   <span class="t-caption text-forge-600">seg</span>
                 </div>
               </label>
@@ -160,9 +154,6 @@ export class SetLoggerComponent implements OnInit {
 
   private readonly fb = inject(FormBuilder);
 
-  /** Reps options for the dropdown (1–50). Mixto input: reps via select. */
-  readonly repsOptions: readonly number[] = Array.from({ length: 50 }, (_, i) => i + 1);
-
   readonly form = this.fb.group({
     reps: [0, [Validators.min(0)]],
     weightKg: [0, [Validators.min(0.1)]],
@@ -192,6 +183,18 @@ export class SetLoggerComponent implements OnInit {
         this.form.patchValue({ reps: this.prefillReps });
       }
     }
+  }
+
+  /** Clears the field when it still holds the default 0, so the user types over a blank. */
+  onNumberFocus(control: 'weightKg' | 'durationSec' | 'distanceKm'): void {
+    const c = this.form.controls[control];
+    if (c.value === 0) c.setValue(null);
+  }
+
+  /** Restores 0 when the field is left empty, keeping the form state defined. */
+  onNumberBlur(control: 'weightKg' | 'durationSec' | 'distanceKm'): void {
+    const c = this.form.controls[control];
+    if (c.value === null || c.value === undefined) c.setValue(0);
   }
 
   onSubmit(): void {
