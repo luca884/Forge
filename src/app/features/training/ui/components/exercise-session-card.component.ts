@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, input, computed } from '@angular/core';
+import { Component, Input, Output, EventEmitter, input } from '@angular/core';
 import { Exercise } from '../../../exercises/domain/exercise.entity';
 import { TargetSet } from '../../../routines/domain/target-set';
 import { WorkedSet } from '../../domain/worked-set';
@@ -90,8 +90,8 @@ import { FgIconComponent } from '@core/shared/ui';
         </div>
       }
 
-      <!-- Set logger (child component) -->
-      @if (sessionId) {
+      <!-- Set logger — hidden once the exercise reached its target sets (no over-logging) -->
+      @if (sessionId && !allDone()) {
         <fg-set-logger
           [trackingType]="exercise.trackingType"
           [sessionId]="sessionId"
@@ -118,13 +118,20 @@ export class ExerciseSessionCardComponent {
 
   @Output() setLogged = new EventEmitter<LogSetInput>();
 
-  readonly isPR = computed(() => this.loggedSets.some((s) => s.isPR));
+  // NOTE: these are plain methods (not computed()) on purpose — they derive from
+  // @Input() properties, which are NOT signals. A computed() over non-signal reads
+  // memoizes once and never recomputes, so it would go stale on a persistent card
+  // (focused view). Methods re-evaluate every change-detection pass.
 
-  readonly allDone = computed(
-    () => this.targetSets.length > 0 && this.loggedSets.length >= this.targetSets.length,
-  );
+  isPR(): boolean {
+    return this.loggedSets.some((s) => s.isPR);
+  }
 
-  readonly targetLabel = computed(() => {
+  allDone(): boolean {
+    return this.targetSets.length > 0 && this.loggedSets.length >= this.targetSets.length;
+  }
+
+  targetLabel(): string {
     const first = this.targetSets[0];
     if (!first) return '';
     if (first.type === 'weight-reps') {
@@ -140,14 +147,14 @@ export class ExerciseSessionCardComponent {
       return `${this.targetSets.length}×${first.distanceKm}km`;
     }
     return '';
-  });
+  }
 
-  readonly pendingSlots = computed(() => {
+  pendingSlots(): { label: string }[] {
     const remaining = Math.max(0, this.targetSets.length - this.loggedSets.length);
     return Array.from({ length: remaining }, (_, i) => ({
       label: `— · set ${this.loggedSets.length + i + 1} de ${this.targetSets.length}`,
     }));
-  });
+  }
 
   /** Target for the next set (indexed by loggedSets.length, fallback to last target). */
   get nextTarget(): TargetSet | null {

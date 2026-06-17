@@ -271,4 +271,50 @@ describe('ExerciseSessionCardComponent', () => {
 
     expect(fixture.componentInstance.nextTarget).toBeNull();
   });
+
+  // ── No over-logging: logger hidden once target reached ─────────────────────
+
+  it('hides the set-logger once the target sets are reached', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('targetSets', [targetSet, targetSet]); // 2 target
+    fixture.componentRef.setInput('loggedSets', [weightRepsSet, weightRepsSet]); // 2 logged → done
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('fg-set-logger')).toBeNull();
+  });
+
+  it('shows the set-logger while sets are still pending', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('targetSets', [targetSet, targetSet]); // 2 target
+    fixture.componentRef.setInput('loggedSets', [weightRepsSet]); // 1 logged → pending
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('fg-set-logger')).toBeTruthy();
+  });
+
+  // Regression: derived state must react to loggedSets changing on a PERSISTENT card
+  // (focused view). computed() over plain @Input would memoize once and go stale.
+  it('reacts to loggedSets changing on a live card: hides logger + clears pending slots at target', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('targetSets', [targetSet, targetSet]); // 2 target
+    fixture.componentRef.setInput('loggedSets', [weightRepsSet]); // 1 logged
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('fg-set-logger')).toBeTruthy();
+    expect(fixture.componentInstance.pendingSlots().length).toBe(1);
+
+    // Log the 2nd set on the SAME instance → completes the target.
+    fixture.componentRef.setInput('loggedSets', [weightRepsSet, weightRepsSet]);
+    fixture.detectChanges();
+
+    expect(el.querySelector('fg-set-logger')).toBeNull();
+    expect(fixture.componentInstance.pendingSlots().length).toBe(0);
+  });
 });

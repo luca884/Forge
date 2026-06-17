@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { NgClass } from '@angular/common';
 import { Router } from '@angular/router';
 import { Exercise } from '../../../exercises/domain/exercise.entity';
 import { ExerciseInDay } from '../../../routines/domain/training-day.entity';
@@ -43,6 +44,7 @@ function formatHMS(totalSeconds: number): string {
   selector: 'fg-training-session-page',
   standalone: true,
   imports: [
+    NgClass,
     ExerciseSessionCardComponent,
     RestTimerComponent,
     PrCelebrationComponent,
@@ -100,7 +102,7 @@ function formatHMS(totalSeconds: number): string {
           </fg-pr-celebration>
         }
 
-        <!-- Exercise list with auto-collapse -->
+        <!-- Step-by-step: exercise rail + single focused exercise -->
         @if (initLoading()) {
           <fg-card>
             <fg-skeleton [height]="72"></fg-skeleton>
@@ -110,38 +112,58 @@ function formatHMS(totalSeconds: number): string {
           </fg-card>
         }
         @if (!initLoading()) {
-        @for (item of exercisesWithData(); track item.exercise.id) {
-          @let isCollapsed = collapsedIds().has(item.exercise.id);
-          @if (isCollapsed) {
-            <!-- Compact collapsed card -->
-            <button type="button" (click)="toggleExpanded(item.exercise.id)"
-                    class="w-full px-4 py-3.5 flex justify-between items-center bg-forge-900 rounded-xl">
-              <div class="text-left">
-                <div class="t-body text-forge-200">{{ item.exercise.name }}</div>
-                <div class="t-caption text-forge-600 mt-0.5 tabular-nums">
-                  {{ targetLabel(item) }}
-                </div>
-              </div>
-              <fg-icon name="chevron-down" [size]="16" class="text-forge-700"></fg-icon>
-            </button>
-          } @else {
-            <fg-exercise-session-card
-              [exercise]="item.exercise"
-              [targetSets]="item.exerciseInDay.targetSets"
-              [loggedSets]="store.setsByExercise().get(item.exercise.id) ?? []"
-              [sessionId]="store.activeSession()?.id ?? ''"
-              [unit]="unit()"
-              [expanded]="true"
-              (setLogged)="onSetLogged($event)">
-            </fg-exercise-session-card>
-          }
-        } @empty {
-          <p class="t-body text-forge-500 text-center py-12">
-            No hay ejercicios en este día de entrenamiento.
-          </p>
-        }
+          @if (exercisesWithData().length > 0) {
+            <!-- Rail: tap any exercise to focus / edit it -->
+            <div class="flex gap-2 overflow-x-auto pb-1 -mx-5 px-5" role="tablist" aria-label="Ejercicios">
+              @for (item of exercisesWithData(); track item.exercise.id) {
+                @let focused = item.exercise.id === focusedId();
+                <button
+                  type="button"
+                  role="tab"
+                  [attr.aria-selected]="focused"
+                  (click)="focus(item.exercise.id)"
+                  class="flex-shrink-0 max-w-[160px] px-3 py-2 rounded-xl text-left ring-1 ring-inset transition-colors"
+                  [ngClass]="focused ? 'bg-forge-800 ring-white/20' : 'bg-forge-900 ring-white/5'"
+                >
+                  <div class="flex items-center gap-1.5">
+                    @if (isComplete(item)) {
+                      <fg-icon name="check-circle" [size]="13" class="text-accent-300 flex-shrink-0"></fg-icon>
+                    } @else {
+                      <span class="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                            [class.bg-accent-400]="focused"
+                            [class.bg-forge-600]="!focused"></span>
+                    }
+                    <span class="t-body-sm truncate"
+                          [class.text-forge-100]="focused"
+                          [class.text-forge-400]="!focused">
+                      {{ item.exercise.name }}
+                    </span>
+                  </div>
+                  <div class="t-caption text-forge-500 tabular-nums mt-0.5">
+                    {{ loggedCountFor(item) }}/{{ item.exerciseInDay.targetSets.length }}
+                  </div>
+                </button>
+              }
+            </div>
 
-        } <!-- end @if (!initLoading()) -->
+            <!-- Focused exercise only -->
+            @if (focusedItem(); as item) {
+              <fg-exercise-session-card
+                [exercise]="item.exercise"
+                [targetSets]="item.exerciseInDay.targetSets"
+                [loggedSets]="store.setsByExercise().get(item.exercise.id) ?? []"
+                [sessionId]="store.activeSession()?.id ?? ''"
+                [unit]="unit()"
+                [expanded]="true"
+                (setLogged)="onSetLogged($event)">
+              </fg-exercise-session-card>
+            }
+          } @else {
+            <p class="t-body text-forge-500 text-center py-12">
+              No hay ejercicios en este día de entrenamiento.
+            </p>
+          }
+        }
 
         <!-- CTA: terminar y cancelar -->
         <div class="mt-4 flex flex-col gap-2">
@@ -205,22 +227,19 @@ export class TrainingSessionPage implements OnInit {
   readonly latestPrDelta = signal<string | null>(null);
   readonly dayLabel = signal('Sesión');
 
-  /** XOR override layer: set of exerciseIds manually toggled by the user. */
-  readonly userOverrides = signal<ReadonlySet<string>>(new Set());
+  /** Exercise the user is currently focused on (step-by-step). Null → falls back to first incomplete. */
+  readonly focusedExerciseId = signal<string | null>(null);
 
-  /** Computed set of collapsed exercise IDs (auto-collapse XOR userOverrides). */
-  readonly collapsedIds = computed(() => {
-    const result = new Set<string>();
-    for (const item of this.exercisesWithData()) {
-      const logged = this.store.setsByExercise().get(item.exercise.id)?.length ?? 0;
-      const target = item.exerciseInDay.targetSets.length;
-      const autoCollapsed = logged >= target && target > 0;
-      const overridden = this.userOverrides().has(item.exercise.id);
-      // XOR: if auto-collapsed but overridden → expanded. If not auto but overridden → collapsed.
-      if (autoCollapsed !== overridden) result.add(item.exercise.id);
-    }
-    return result;
+  /** The single exercise shown in the focused view. Defaults to the first item when nothing is focused. */
+  readonly focusedItem = computed<ExerciseWithData | null>(() => {
+    const items = this.exercisesWithData();
+    if (items.length === 0) return null;
+    const id = this.focusedExerciseId();
+    return items.find((i) => i.exercise.id === id) ?? items[0] ?? null;
   });
+
+  /** Id of the focused exercise (or null) — used by the rail to highlight the active chip. */
+  readonly focusedId = computed<string | null>(() => this.focusedItem()?.exercise.id ?? null);
 
   /** Total logged sets across all exercises in this session. */
   readonly totalLoggedCount = computed(() => this.store.workedSets().length);
@@ -277,6 +296,9 @@ export class TrainingSessionPage implements OnInit {
         }
       }
       this.exercisesWithData.set(exercisesWithData);
+
+      // Step-by-step: start focused on the first exercise that still has sets pending.
+      this.focusedExerciseId.set(this.firstIncompleteId(exercisesWithData));
 
       // Build rest plan from exercises that have a per-exercise override.
       const restPlan = new Map<string, number>();
@@ -361,22 +383,26 @@ export class TrainingSessionPage implements OnInit {
     void this.router.navigate(['/training']);
   }
 
-  toggleExpanded(exerciseId: string): void {
-    this.userOverrides.update(s => {
-      const next = new Set(s);
-      if (next.has(exerciseId)) {
-        next.delete(exerciseId);
-      } else {
-        next.add(exerciseId);
-      }
-      return next;
-    });
+  /** Focuses an exercise (rail tap) — shows it as the single active card. */
+  focus(exerciseId: string): void {
+    this.focusedExerciseId.set(exerciseId);
   }
 
-  targetLabel(item: ExerciseWithData): string {
-    const logged = this.store.setsByExercise().get(item.exercise.id)?.length ?? 0;
+  /** Logged sets count for an exercise in the current session. */
+  loggedCountFor(item: ExerciseWithData): number {
+    return this.store.setsByExercise().get(item.exercise.id)?.length ?? 0;
+  }
+
+  /** True when the exercise has logged all its target sets. */
+  isComplete(item: ExerciseWithData): boolean {
     const target = item.exerciseInDay.targetSets.length;
-    return `${logged} / ${target} sets`;
+    return target > 0 && this.loggedCountFor(item) >= target;
+  }
+
+  /** Id of the first exercise with sets still pending, or the first exercise as fallback. */
+  private firstIncompleteId(items: ExerciseWithData[]): string | null {
+    const incomplete = items.find((i) => !this.isComplete(i));
+    return (incomplete ?? items[0])?.exercise.id ?? null;
   }
 
   /** Format the PR delta as a human-readable string. Returns null for first-ever PR. */

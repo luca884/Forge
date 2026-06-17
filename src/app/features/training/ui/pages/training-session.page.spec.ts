@@ -310,47 +310,61 @@ describe('TrainingSessionPage', () => {
     expect(prComp!.delta()).toBe('+5 kg');
   });
 
-  // --- D-4: Auto-collapse (V-D1-Spec-4) ---
+  // --- Step-by-step: focused single-exercise view + rail ---
 
-  it('completed exercise renders collapsed and incomplete renders expanded (V-D1-Spec-4)', async () => {
-    const completedId = 'ex-complete';
-    const incompleteId = 'ex-incomplete';
+  const completedId = 'ex-complete';
+  const incompleteId = 'ex-incomplete';
 
+  async function arrangeTwoExercises(): Promise<void> {
     const completedExercise = makeExercise(completedId, 'Press de banca');
     const incompleteExercise = makeExercise(incompleteId, 'Remo con barra');
-
-    const completedInDay = makeExerciseInDay(completedId, 3);  // 3 target
-    const incompleteInDay = makeExerciseInDay(incompleteId, 3); // 3 target, 1 logged
-
-    const completedSets = Array.from({ length: 3 }, () => makeWorkedSet(completedId));
-    const incompleteSets = [makeWorkedSet(incompleteId)];
+    const completedInDay = makeExerciseInDay(completedId, 3); // 3/3 → complete
+    const incompleteInDay = makeExerciseInDay(incompleteId, 3); // 1/3 → incomplete
 
     mockDayRepo.getById.mockResolvedValue({ exercises: [completedInDay, incompleteInDay] });
     mockExerciseRepo.getAll.mockResolvedValue([completedExercise, incompleteExercise]);
     activeSessionSignal.set(makeSession());
-    setsByExerciseSignal.set(new Map([
-      [completedId, completedSets],
-      [incompleteId, incompleteSets],
+    setsByExerciseSignal.set(new Map<string, unknown[]>([
+      [completedId, Array.from({ length: 3 }, () => makeWorkedSet(completedId))],
+      [incompleteId, [makeWorkedSet(incompleteId)]],
     ]));
 
     fixture = TestBed.createComponent(TrainingSessionPage);
     fixture.detectChanges();
     await fixture.whenStable();
-    // Extra flushes for sequential async calls in init() (loadActive → refreshSets → getById loops)
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
     fixture.detectChanges();
+  }
 
-    // The incomplete exercise must have fg-exercise-session-card with [expanded]="true"
+  it('renders only the focused exercise as a card + one rail chip per exercise', async () => {
+    await arrangeTwoExercises();
+
+    // Only ONE exercise card is rendered (the focused one), not the whole list.
     const sessionCards = fixture.debugElement.queryAll(By.css('fg-exercise-session-card'));
-    expect(sessionCards.length).toBeGreaterThanOrEqual(1);
-    // At least one card should have [expanded] binding true (for incomplete exercise).
-    // ng-reflect-expanded is a dev-mode attribute serialization of the input binding.
-    const expandedCard = sessionCards.find(
-      (card) => card.attributes['ng-reflect-expanded'] === 'true',
-    );
-    expect(expandedCard).toBeDefined();
+    expect(sessionCards.length).toBe(1);
+    expect(sessionCards[0].attributes['ng-reflect-expanded']).toBe('true');
+
+    // The rail shows a chip (role=tab) for every exercise of the day.
+    const chips = fixture.debugElement.queryAll(By.css('[role="tab"]'));
+    expect(chips.length).toBe(2);
+  });
+
+  it('initial focus is the first incomplete exercise', async () => {
+    await arrangeTwoExercises();
+    expect(fixture.componentInstance.focusedItem()?.exercise.id).toBe(incompleteId);
+  });
+
+  it('tapping a rail chip focuses that exercise (edit a past one anytime)', async () => {
+    await arrangeTwoExercises();
+
+    // chips follow exercise order: [completed, incomplete]
+    const chips = fixture.debugElement.queryAll(By.css('[role="tab"]'));
+    (chips[0].nativeElement as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.focusedItem()?.exercise.id).toBe(completedId);
   });
 
   // --- D-1: CTA button text ---
