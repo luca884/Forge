@@ -22,9 +22,11 @@ export class RemoveWorkedSetUseCase {
       throw new SessionNotInProgressError(input.sessionId, session.status);
     }
 
-    // Find the set before removing for event payload
-    const allSets = await this.sessionRepo.getAllWorkedSetsForExercise('');
-    const removedSet = allSets.find(s => s.id === input.setId);
+    // Find the set before removing for event payload.
+    // Scope by sessionId (valid index) — NOT getAllWorkedSetsForExercise(''),
+    // which never matches in the real Dexie repo and silently drops the event.
+    const sessionSets = await this.sessionRepo.getSetsForSession(input.sessionId);
+    const removedSet = sessionSets.find(s => s.id === input.setId);
 
     await this.sessionRepo.removeWorkedSet(input.sessionId, input.setId);
 

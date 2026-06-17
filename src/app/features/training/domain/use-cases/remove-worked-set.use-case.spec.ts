@@ -5,6 +5,7 @@ import { Session } from '../session.entity';
 import { WorkedSet, WeightRepsSet } from '../worked-set';
 import { EventBus } from '@core/shared/events/event-bus';
 import { DomainEvent } from '@core/shared/events/domain-event';
+import { WorkedSetRemovedEvent } from '../events/worked-set-removed.event';
 import { SessionNotInProgressError } from '../errors/session-not-in-progress.error';
 import { Reps } from '@core/shared/domain/value-objects/reps';
 import { Weight } from '@core/shared/domain/value-objects/weight';
@@ -23,7 +24,10 @@ class StubSessionRepository extends SessionRepository {
     return Promise.resolve();
   }
   override getSetsForSession(_sId: string) { return Promise.resolve(this.workedSets); }
-  override getAllWorkedSetsForExercise(_eId: string) { return Promise.resolve(this.workedSets); }
+  // Realistic: filters by exerciseId like the Dexie repo. Passing '' returns [] (no match).
+  override getAllWorkedSetsForExercise(eId: string) {
+    return Promise.resolve(this.workedSets.filter(s => s.exerciseId === eId));
+  }
   override getLastWorkedSetForExercise(_eId: string) { return Promise.resolve(null); }
   override getAllSessions(_fromDate?: Date) { return Promise.resolve([]); }
   override existsWorkedSetForExercise(_eId: string) { return Promise.resolve(false); }
@@ -95,7 +99,10 @@ describe('RemoveWorkedSetUseCase', () => {
 
     await useCase.execute({ sessionId: 'session-1', setId: 'set-1' });
 
-    const removedEvent = eventBus.publishedEvents.find(e => e.name === 'WorkedSetRemoved');
+    const removedEvent = eventBus.publishedEvents.find(
+      e => e.name === 'WorkedSetRemoved',
+    ) as WorkedSetRemovedEvent | undefined;
     expect(removedEvent).toBeDefined();
+    expect(removedEvent!.removedSet.id).toBe('set-1');
   });
 });
