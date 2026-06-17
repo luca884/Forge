@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, input } from '@angular/core';
+import { Component, Input, Output, EventEmitter, input, signal } from '@angular/core';
 import { Exercise } from '../../../exercises/domain/exercise.entity';
 import { TargetSet } from '../../../routines/domain/target-set';
 import { WorkedSet } from '../../domain/worked-set';
@@ -42,38 +42,58 @@ import { FgIconComponent } from '@core/shared/ui';
       <!-- Sets list (only when expanded) -->
       @if (expanded() && (loggedSets.length > 0 || pendingSlots().length > 0)) {
         <div class="border-t border-forge-800">
-          <!-- Done sets -->
+          <!-- Done sets — tap a row to edit/remove it inline -->
           @for (set of loggedSets; track set.id; let i = $index, last = $last) {
-            <div class="px-4 py-3 flex items-center gap-3 border-b border-forge-800/50"
-                 [class.border-b-0]="last && pendingSlots().length === 0">
-              <!-- Done indicator dot -->
-              <div class="w-6 h-6 rounded-full bg-accent-500 text-white flex items-center justify-center flex-shrink-0">
-                <fg-icon name="check" [size]="12"></fg-icon>
+            @if (editingSetId() === set.id) {
+              <!-- Inline editor: replaces the row with the set logger in edit mode -->
+              <div class="px-3 py-3 border-b border-forge-800/50"
+                   [class.border-b-0]="last && pendingSlots().length === 0">
+                <fg-set-logger
+                  [trackingType]="exercise.trackingType"
+                  [sessionId]="sessionId"
+                  [exerciseId]="exercise.id"
+                  [editSet]="set"
+                  (setEdited)="onSetEdited($event)"
+                  (setRemoved)="onSetRemoved($event)"
+                  (editCancelled)="cancelEdit()"
+                ></fg-set-logger>
               </div>
-              <!-- Weight × reps -->
-              <div class="flex-1 font-sans text-[15px] font-medium tabular-nums text-forge-200">
-                @switch (set.type) {
-                  @case ('weight-reps') {
-                    {{ set.weight.value | displayWeight: unit() }} × <span class="text-forge-100">{{ set.reps.value }}</span>
-                  }
-                  @case ('bodyweight-reps') {
-                    {{ set.reps.value }} reps
-                    @if (set.extraWeight) {
-                      (+ {{ set.extraWeight.value | displayWeight: unit() }})
+            } @else {
+              <button type="button"
+                      (click)="startEdit(set.id)"
+                      aria-label="Editar set"
+                      class="w-full text-left px-4 py-3 flex items-center gap-3 border-b border-forge-800/50"
+                      [class.border-b-0]="last && pendingSlots().length === 0">
+                <!-- Done indicator dot -->
+                <div class="w-6 h-6 rounded-full bg-accent-500 text-white flex items-center justify-center flex-shrink-0">
+                  <fg-icon name="check" [size]="12"></fg-icon>
+                </div>
+                <!-- Weight × reps -->
+                <div class="flex-1 font-sans text-[15px] font-medium tabular-nums text-forge-200">
+                  @switch (set.type) {
+                    @case ('weight-reps') {
+                      {{ set.weight.value | displayWeight: unit() }} × <span class="text-forge-100">{{ set.reps.value }}</span>
+                    }
+                    @case ('bodyweight-reps') {
+                      {{ set.reps.value }} reps
+                      @if (set.extraWeight) {
+                        (+ {{ set.extraWeight.value | displayWeight: unit() }})
+                      }
+                    }
+                    @case ('time') {
+                      {{ set.durationSec }}s
+                    }
+                    @case ('distance-time') {
+                      {{ set.distanceKm }} km en {{ set.durationSec }}s
                     }
                   }
-                  @case ('time') {
-                    {{ set.durationSec }}s
-                  }
-                  @case ('distance-time') {
-                    {{ set.distanceKm }} km en {{ set.durationSec }}s
-                  }
+                </div>
+                @if (set.isPR) {
+                  <fg-chip size="sm">PR</fg-chip>
                 }
-              </div>
-              @if (set.isPR) {
-                <fg-chip size="sm">PR</fg-chip>
-              }
-            </div>
+                <fg-icon name="edit" [size]="14" class="text-forge-600 flex-shrink-0"></fg-icon>
+              </button>
+            }
           }
 
           <!-- Pending slots -->
@@ -117,6 +137,13 @@ export class ExerciseSessionCardComponent {
   readonly expanded = input<boolean>(true);
 
   @Output() setLogged = new EventEmitter<LogSetInput>();
+
+  // ── Edit / remove past sets (slice 2) ──────────────────────────────────────
+  /** Id of the set currently being edited inline, or null when none. */
+  readonly editingSetId = signal<string | null>(null);
+
+  @Output() setEdited = new EventEmitter<WorkedSet>();
+  @Output() setRemoved = new EventEmitter<string>();
 
   // NOTE: these are plain methods (not computed()) on purpose — they derive from
   // @Input() properties, which are NOT signals. A computed() over non-signal reads
@@ -163,5 +190,27 @@ export class ExerciseSessionCardComponent {
 
   onSetLogged(input: LogSetInput): void {
     this.setLogged.emit(input);
+  }
+
+  /** Opens the inline editor for a logged set. */
+  startEdit(setId: string): void {
+    this.editingSetId.set(setId);
+  }
+
+  /** Closes the inline editor without changes. */
+  cancelEdit(): void {
+    this.editingSetId.set(null);
+  }
+
+  /** Re-emits the edited set upward and closes the editor. */
+  onSetEdited(set: WorkedSet): void {
+    this.editingSetId.set(null);
+    this.setEdited.emit(set);
+  }
+
+  /** Re-emits the removed set id upward and closes the editor. */
+  onSetRemoved(setId: string): void {
+    this.editingSetId.set(null);
+    this.setRemoved.emit(setId);
   }
 }

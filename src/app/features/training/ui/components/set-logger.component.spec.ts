@@ -7,6 +7,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { SetLoggerComponent } from './set-logger.component';
 import type { LogSetInput } from '../../domain/use-cases/log-set.use-case';
 import type { TargetSet } from '@features/routines/domain/target-set';
+import type { WorkedSet } from '../../domain/worked-set';
 
 describe('SetLoggerComponent', () => {
   let fixture: ComponentFixture<SetLoggerComponent>;
@@ -360,5 +361,94 @@ describe('SetLoggerComponent', () => {
 
     expect(fixture.componentInstance.form.controls.weightKg.value).toBe(100);
     expect(fixture.componentInstance.form.controls.reps.value).toBe(5);
+  });
+
+  // ── EDIT MODE (slice 2: editar/borrar sets pasados) ───────────────────────
+
+  describe('modo edición (editSet)', () => {
+    const editingSet: WorkedSet = {
+      id: 'ws-9',
+      sessionId: 's-1',
+      exerciseId: 'ex-1',
+      type: 'weight-reps',
+      reps: { value: 8 } as never,
+      weight: { value: 80 } as never,
+      isPR: false,
+      createdAt: new Date('2026-01-01'),
+    };
+
+    function setupEdit(): void {
+      fixture.componentRef.setInput('sessionId', 's-1');
+      fixture.componentRef.setInput('exerciseId', 'ex-1');
+      fixture.componentRef.setInput('trackingType', 'weight-reps');
+      fixture.componentRef.setInput('editSet', editingSet);
+      fixture.detectChanges();
+    }
+
+    it('prellena el form con reps y weightKg del set a editar', () => {
+      setupEdit();
+      expect(fixture.componentInstance.form.controls.weightKg.value).toBe(80);
+      expect(fixture.componentInstance.form.controls.reps.value).toBe(8);
+    });
+
+    it('submit emite setEdited con el WorkedSet actualizado conservando el id', () => {
+      setupEdit();
+      const captured: WorkedSet[] = [];
+      fixture.componentInstance.setEdited.subscribe((s: WorkedSet) => captured.push(s));
+
+      fixture.componentInstance.form.patchValue({ reps: 12, weightKg: 100 });
+      fixture.componentInstance.onSubmit();
+
+      expect(captured).toHaveLength(1);
+      expect(captured[0].id).toBe('ws-9');
+      expect((captured[0] as { reps: { value: number } }).reps.value).toBe(12);
+      expect((captured[0] as { weight: { value: number } }).weight.value).toBe(100);
+    });
+
+    it('en edición NO emite setLogged al hacer submit', () => {
+      setupEdit();
+      const logged: LogSetInput[] = [];
+      fixture.componentInstance.setLogged.subscribe((v: LogSetInput) => logged.push(v));
+
+      fixture.componentInstance.form.patchValue({ reps: 12, weightKg: 100 });
+      fixture.componentInstance.onSubmit();
+
+      expect(logged).toHaveLength(0);
+    });
+
+    it('el botón Borrar emite setRemoved con el id del set', () => {
+      setupEdit();
+      const removed: string[] = [];
+      fixture.componentInstance.setRemoved.subscribe((id: string) => removed.push(id));
+
+      const btn = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+        'button[aria-label="Borrar set"]',
+      );
+      expect(btn).toBeTruthy();
+      btn!.click();
+
+      expect(removed).toEqual(['ws-9']);
+    });
+
+    it('el botón Cancelar emite editCancelled', () => {
+      setupEdit();
+      const cancelled: number[] = [];
+      fixture.componentInstance.editCancelled.subscribe(() => cancelled.push(1));
+
+      const btn = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+        'button[aria-label="Cancelar edición"]',
+      );
+      expect(btn).toBeTruthy();
+      btn!.click();
+
+      expect(cancelled).toHaveLength(1);
+    });
+
+    it('muestra "Guardar" y no el texto de logueo', () => {
+      setupEdit();
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).toContain('Guardar');
+      expect(text).not.toContain('Loguear set');
+    });
   });
 });

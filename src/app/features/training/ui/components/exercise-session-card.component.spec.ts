@@ -317,4 +317,92 @@ describe('ExerciseSessionCardComponent', () => {
     expect(el.querySelector('fg-set-logger')).toBeNull();
     expect(fixture.componentInstance.pendingSlots().length).toBe(0);
   });
+
+  // ── EDIT / REMOVE PAST SETS (slice 2) ──────────────────────────────────────
+
+  it('cada set logueado es un botón "Editar set" tappable', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', [weightRepsSet]);
+    fixture.componentRef.setInput('targetSets', [targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('expanded', true);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('button[aria-label="Editar set"]')).toBeTruthy();
+  });
+
+  it('tap en la fila abre el editor inline (fg-set-logger en modo edición)', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', [weightRepsSet]);
+    fixture.componentRef.setInput('targetSets', [targetSet]); // allDone → logger de logueo oculto
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('expanded', true);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+
+    // allDone → no hay logger de logueo
+    expect(el.querySelector('fg-set-logger')).toBeNull();
+
+    const row = el.querySelector<HTMLButtonElement>('button[aria-label="Editar set"]')!;
+    row.click();
+    fixture.detectChanges();
+
+    // ahora aparece el editor inline para ese set
+    expect(el.querySelector('fg-set-logger')).toBeTruthy();
+    expect(fixture.componentInstance.editingSetId()).toBe('ws-1');
+  });
+
+  it('onSetEdited re-emite setEdited hacia arriba y cierra el editor', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', [weightRepsSet]);
+    fixture.componentRef.setInput('targetSets', [targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.detectChanges();
+
+    fixture.componentInstance.startEdit('ws-1');
+    const captured: WorkedSet[] = [];
+    fixture.componentInstance.setEdited.subscribe((s: WorkedSet) => captured.push(s));
+
+    const updated = { ...weightRepsSet, reps: { value: 12 } as never };
+    fixture.componentInstance.onSetEdited(updated);
+
+    expect(captured).toEqual([updated]);
+    expect(fixture.componentInstance.editingSetId()).toBeNull();
+  });
+
+  it('onSetRemoved re-emite setRemoved hacia arriba y cierra el editor', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', [weightRepsSet]);
+    fixture.componentRef.setInput('targetSets', [targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.detectChanges();
+
+    fixture.componentInstance.startEdit('ws-1');
+    const removed: string[] = [];
+    fixture.componentInstance.setRemoved.subscribe((id: string) => removed.push(id));
+
+    fixture.componentInstance.onSetRemoved('ws-1');
+
+    expect(removed).toEqual(['ws-1']);
+    expect(fixture.componentInstance.editingSetId()).toBeNull();
+  });
+
+  it('cancelEdit cierra el editor sin emitir nada', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', [weightRepsSet]);
+    fixture.componentRef.setInput('targetSets', [targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.detectChanges();
+
+    fixture.componentInstance.startEdit('ws-1');
+    expect(fixture.componentInstance.editingSetId()).toBe('ws-1');
+
+    fixture.componentInstance.cancelEdit();
+    expect(fixture.componentInstance.editingSetId()).toBeNull();
+  });
 });

@@ -27,8 +27,11 @@ import { ExerciseRepository } from '../../../exercises/domain/exercise.repositor
 import { LogSetUseCase } from '../../domain/use-cases/log-set.use-case';
 import { CompleteSessionUseCase } from '../../domain/use-cases/complete-session.use-case';
 import { CancelSessionUseCase } from '../../domain/use-cases/cancel-session.use-case';
+import { EditWorkedSetUseCase } from '../../domain/use-cases/edit-worked-set.use-case';
+import { RemoveWorkedSetUseCase } from '../../domain/use-cases/remove-worked-set.use-case';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import type { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
+import type { WorkedSet } from '../../domain/worked-set';
 import { Router } from '@angular/router';
 import { SessionRepository } from '../../domain/session.repository';
 import { PersonalRecordDetector } from '../../domain/services/personal-record-detector';
@@ -252,6 +255,8 @@ describe('TrainingSessionPage', () => {
           { provide: LogSetUseCase, useValue: mockLogSetUseCase },
           { provide: CompleteSessionUseCase, useValue: { execute: jest.fn() } },
           { provide: CancelSessionUseCase, useValue: { execute: jest.fn() } },
+          { provide: EditWorkedSetUseCase, useValue: { execute: jest.fn() } },
+          { provide: RemoveWorkedSetUseCase, useValue: { execute: jest.fn() } },
         ],
       },
     });
@@ -428,6 +433,8 @@ describe('TrainingSessionPage', () => {
               { provide: LogSetUseCase, useValue: { execute: jest.fn() } },
               { provide: CompleteSessionUseCase, useValue: mockCompleteUseCase },
               { provide: CancelSessionUseCase, useValue: { execute: jest.fn() } },
+              { provide: EditWorkedSetUseCase, useValue: { execute: jest.fn() } },
+              { provide: RemoveWorkedSetUseCase, useValue: { execute: jest.fn() } },
             ],
           },
         })
@@ -540,6 +547,8 @@ describe('TrainingSessionPage', () => {
               { provide: LogSetUseCase, useValue: mockLogSetRejecting },
               { provide: CompleteSessionUseCase, useValue: { execute: jest.fn() } },
               { provide: CancelSessionUseCase, useValue: { execute: jest.fn() } },
+              { provide: EditWorkedSetUseCase, useValue: { execute: jest.fn() } },
+              { provide: RemoveWorkedSetUseCase, useValue: { execute: jest.fn() } },
             ],
           },
         })
@@ -612,6 +621,8 @@ describe('TrainingSessionPage', () => {
               { provide: LogSetUseCase, useValue: { execute: jest.fn() } },
               { provide: CompleteSessionUseCase, useValue: { execute: jest.fn() } },
               { provide: CancelSessionUseCase, useValue: mockCancelUseCase },
+              { provide: EditWorkedSetUseCase, useValue: { execute: jest.fn() } },
+              { provide: RemoveWorkedSetUseCase, useValue: { execute: jest.fn() } },
             ],
           },
         })
@@ -676,6 +687,108 @@ describe('TrainingSessionPage', () => {
         'Intentá de nuevo',
       );
       expect(fixture.componentInstance.cancelling()).toBe(false);
+    });
+  });
+
+  // ── Editar / borrar sets pasados (slice 2) ─────────────────────────────────
+
+  describe('editar/borrar sets pasados', () => {
+    let mockEditUseCase: { execute: jest.Mock };
+    let mockRemoveUseCase: { execute: jest.Mock };
+
+    beforeEach(async () => {
+      mockEditUseCase = { execute: jest.fn().mockResolvedValue(undefined) };
+      mockRemoveUseCase = { execute: jest.fn().mockResolvedValue(undefined) };
+
+      await TestBed.configureTestingModule({
+        imports: [TrainingSessionPage],
+        providers: [
+          { provide: UserPreferencesService, useValue: { unit: signal('kg'), loadOnce: jest.fn().mockResolvedValue(undefined) } },
+          { provide: TrainingSessionStore, useValue: {
+            activeSession: signal(makeSession()),
+            workedSets: signal([]),
+            setsByExercise: signal(new Map()),
+            loadActive: jest.fn().mockResolvedValue(undefined),
+            refreshSets: jest.fn().mockResolvedValue(undefined),
+            elapsedSeconds: signal(0),
+          }},
+          { provide: TrainingDayRepository, useValue: { getById: jest.fn().mockResolvedValue(null) } },
+          { provide: ExerciseRepository, useValue: { getAll: jest.fn().mockResolvedValue([]) } },
+          { provide: LogSetUseCase, useValue: { execute: jest.fn() } },
+          { provide: CompleteSessionUseCase, useValue: { execute: jest.fn() } },
+          { provide: Router, useValue: { navigate: jest.fn() } },
+          { provide: SessionRepository, useValue: { save: jest.fn(), addSetToSession: jest.fn(), getActive: jest.fn(), getById: jest.fn(), getSetsForSession: jest.fn().mockResolvedValue([]), getAllWorkedSetsForExercise: jest.fn().mockResolvedValue([]) } },
+          { provide: PersonalRecordDetector, useValue: { detect: jest.fn().mockResolvedValue(null), isPR: jest.fn().mockReturnValue(false) } },
+          { provide: EventBus, useValue: { publish: jest.fn(), subscribe: jest.fn(() => () => {}) } },
+          { provide: PersonalRecordRepository, useValue: { save: jest.fn(), getCurrentForExercise: jest.fn().mockResolvedValue(null), listAll: jest.fn().mockResolvedValue([]) } },
+          { provide: RestTimerService, useValue: { remaining: signal(null), start: jest.fn(), skip: jest.fn(), cancel: jest.fn(), setRestPlan: jest.fn() } },
+          { provide: NotificationPermissionService, useValue: { status: signal('default'), requestPermission: jest.fn() } },
+        ],
+      })
+        .overrideComponent(TrainingSessionPage, {
+          set: {
+            providers: [
+              { provide: LogSetUseCase, useValue: { execute: jest.fn() } },
+              { provide: CompleteSessionUseCase, useValue: { execute: jest.fn() } },
+              { provide: CancelSessionUseCase, useValue: { execute: jest.fn() } },
+              { provide: EditWorkedSetUseCase, useValue: mockEditUseCase },
+              { provide: RemoveWorkedSetUseCase, useValue: mockRemoveUseCase },
+            ],
+          },
+        })
+        .compileComponents();
+    });
+
+    const updatedSet = {
+      id: 'ws-1', sessionId: 'session-1', exerciseId: 'ex-1',
+      type: 'weight-reps', reps: { value: 12 }, weight: { value: 100 },
+      isPR: false, createdAt: new Date(),
+    } as unknown as WorkedSet;
+
+    it('onWorkedSetEdited llama editWorkedSetUseCase con sessionId y el set actualizado', async () => {
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      await fixture.componentInstance.onWorkedSetEdited(updatedSet);
+
+      expect(mockEditUseCase.execute).toHaveBeenCalledWith({ sessionId: 'session-1', updatedSet });
+    });
+
+    it('onWorkedSetEdited muestra toast.error cuando el use case rechaza', async () => {
+      mockEditUseCase.execute.mockRejectedValue(new Error('db'));
+      const errorSpy = jest.spyOn(TestBed.inject(ToastService), 'error');
+
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      await fixture.componentInstance.onWorkedSetEdited(updatedSet);
+
+      expect(errorSpy).toHaveBeenCalledWith('No se pudo editar la serie', 'Intentá de nuevo');
+    });
+
+    it('onWorkedSetRemoved llama removeWorkedSetUseCase con sessionId y setId', async () => {
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      await fixture.componentInstance.onWorkedSetRemoved('ws-1');
+
+      expect(mockRemoveUseCase.execute).toHaveBeenCalledWith({ sessionId: 'session-1', setId: 'ws-1' });
+    });
+
+    it('onWorkedSetRemoved muestra toast.error cuando el use case rechaza', async () => {
+      mockRemoveUseCase.execute.mockRejectedValue(new Error('db'));
+      const errorSpy = jest.spyOn(TestBed.inject(ToastService), 'error');
+
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      await fixture.componentInstance.onWorkedSetRemoved('ws-1');
+
+      expect(errorSpy).toHaveBeenCalledWith('No se pudo borrar la serie', 'Intentá de nuevo');
     });
   });
 });

@@ -5,6 +5,7 @@ import {
   Input,
   OnInit,
   Output,
+  computed,
   effect,
   inject,
   input,
@@ -13,6 +14,8 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { TrackingType } from '@core/shared/domain/tracking-type';
 import { LogSetInput } from '../../domain/use-cases/log-set.use-case';
 import { TargetSet } from '@features/routines/domain/target-set';
+import { WorkedSet } from '../../domain/worked-set';
+import { applySetEdit } from './set-edit.mapper';
 import { FgButtonComponent } from '@core/shared/ui';
 import { FgCardComponent } from '@core/shared/ui';
 import { FgIconComponent } from '@core/shared/ui';
@@ -47,8 +50,12 @@ import { FgWheelPickerComponent } from '@core/shared/ui';
     <form [formGroup]="form" (ngSubmit)="onSubmit()">
       <fg-card [padding]="16" class="ring-1 ring-inset ring-white/8">
         <header class="flex justify-between items-baseline mb-3">
-          <span class="t-micro text-forge-400">SET {{ setNumber() !== null ? setNumber() : '' }} · OBJETIVO</span>
-          <span class="t-caption text-forge-300 tabular-nums">{{ targetLabel() }}</span>
+          @if (isEditing()) {
+            <span class="t-micro text-accent-300">EDITAR SET</span>
+          } @else {
+            <span class="t-micro text-forge-400">SET {{ setNumber() !== null ? setNumber() : '' }} · OBJETIVO</span>
+            <span class="t-caption text-forge-300 tabular-nums">{{ targetLabel() }}</span>
+          }
         </header>
 
         @switch (trackingType) {
@@ -113,22 +120,53 @@ import { FgWheelPickerComponent } from '@core/shared/ui';
           }
         }
 
-        @if (lastSet()) {
+        @if (lastSet() && !isEditing()) {
           <div class="t-body-sm text-forge-500 mb-2.5 flex items-center gap-1.5">
             <fg-icon name="history" [size]="12"></fg-icon>
             <span class="tabular-nums">{{ lastSet() }}</span>
           </div>
         }
 
-        <button fg-button
-                type="submit"
-                [variant]="state() === 'logged' ? 'accent_soft' : 'primary'"
-                size="lg"
-                [full]="true"
-                leadingIcon="check"
-                [disabled]="form.invalid">
-          {{ state() === 'logged' ? 'Set logueado · descanso 1:30' : 'Loguear set' }}
-        </button>
+        @if (isEditing()) {
+          <button fg-button
+                  type="submit"
+                  variant="primary"
+                  size="lg"
+                  [full]="true"
+                  leadingIcon="check"
+                  [disabled]="form.invalid">
+            Guardar cambios
+          </button>
+          <div class="grid grid-cols-2 gap-2 mt-2">
+            <button fg-button
+                    type="button"
+                    variant="ghost"
+                    size="md"
+                    (click)="onCancel()"
+                    aria-label="Cancelar edición">
+              Cancelar
+            </button>
+            <button fg-button
+                    type="button"
+                    variant="destructive"
+                    size="md"
+                    leadingIcon="trash"
+                    (click)="onRemove()"
+                    aria-label="Borrar set">
+              Borrar
+            </button>
+          </div>
+        } @else {
+          <button fg-button
+                  type="submit"
+                  [variant]="state() === 'logged' ? 'accent_soft' : 'primary'"
+                  size="lg"
+                  [full]="true"
+                  leadingIcon="check"
+                  [disabled]="form.invalid">
+            {{ state() === 'logged' ? 'Set logueado · descanso 1:30' : 'Loguear set' }}
+          </button>
+        }
       </fg-card>
     </form>
   `,
@@ -143,6 +181,15 @@ export class SetLoggerComponent implements OnInit {
   @Input() prefillReps?: number;
 
   @Output() readonly setLogged = new EventEmitter<LogSetInput>();
+
+  // ── Edit mode (slice 2: editar/borrar sets pasados) ────────────────────────
+  /** When set, the logger renders in edit mode for this existing WorkedSet. */
+  readonly editSet = input<WorkedSet | null>(null);
+  readonly isEditing = computed(() => this.editSet() !== null);
+
+  @Output() readonly setEdited = new EventEmitter<WorkedSet>();
+  @Output() readonly setRemoved = new EventEmitter<string>();
+  @Output() readonly editCancelled = new EventEmitter<void>();
 
   // ── Additive optional signal inputs (D-1 redesign, not breaking consumers) ─
   readonly setNumber = input<number | null>(null);
@@ -164,10 +211,20 @@ export class SetLoggerComponent implements OnInit {
   });
 
   constructor() {
+    // Prefill from a target (logging mode) — skipped while editing an existing set.
     effect(() => {
       const target = this.prefillTarget();
+      if (this.editSet()) return;
       if (this.form.pristine) {
         this.form.patchValue(this.targetFormPatch(target));
+      }
+    });
+
+    // Prefill from the existing set (edit mode).
+    effect(() => {
+      const set = this.editSet();
+      if (set && this.form.pristine) {
+        this.form.patchValue(this.editFormPatch(set));
       }
     });
   }
@@ -201,6 +258,21 @@ export class SetLoggerComponent implements OnInit {
     if (this.form.invalid) return;
     const value = this.form.getRawValue();
 
+    // Edit mode: emit the updated WorkedSet, do NOT log a new set.
+    const editing = this.editSet();
+    if (editing) {
+      this.setEdited.emit(
+        applySetEdit(editing, {
+          reps: value.reps,
+          weightKg: value.weightKg,
+          extraWeightKg: value.extraWeightKg,
+          durationSec: value.durationSec,
+          distanceKm: value.distanceKm,
+        }),
+      );
+      return;
+    }
+
     const logInput: LogSetInput = {
       sessionId: this.sessionId,
       exerciseId: this.exerciseId,
@@ -214,6 +286,37 @@ export class SetLoggerComponent implements OnInit {
 
     this.setLogged.emit(logInput);
     this.form.reset(this.defaultFormValue());
+  }
+
+  /** Edit mode: removes the set being edited. */
+  onRemove(): void {
+    const editing = this.editSet();
+    if (editing) this.setRemoved.emit(editing.id);
+  }
+
+  /** Edit mode: discards changes and closes the editor. */
+  onCancel(): void {
+    this.editCancelled.emit();
+  }
+
+  /** Maps an existing WorkedSet to the form values for edit-mode prefill. */
+  private editFormPatch(set: WorkedSet): Partial<{
+    reps: number;
+    weightKg: number;
+    extraWeightKg: number | null;
+    durationSec: number;
+    distanceKm: number;
+  }> {
+    switch (set.type) {
+      case 'weight-reps':
+        return { reps: set.reps.value, weightKg: set.weight.value };
+      case 'bodyweight-reps':
+        return { reps: set.reps.value, extraWeightKg: set.extraWeight?.value ?? null };
+      case 'time':
+        return { durationSec: set.durationSec };
+      case 'distance-time':
+        return { distanceKm: set.distanceKm, durationSec: set.durationSec };
+    }
   }
 
   /** Returns form reset values derived from prefillTarget (or legacy scalars, or 0). */

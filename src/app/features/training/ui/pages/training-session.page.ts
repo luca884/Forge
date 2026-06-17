@@ -8,6 +8,8 @@ import { ExerciseRepository } from '../../../exercises/domain/exercise.repositor
 import { LogSetUseCase, LogSetInput } from '../../domain/use-cases/log-set.use-case';
 import { CompleteSessionUseCase } from '../../domain/use-cases/complete-session.use-case';
 import { CancelSessionUseCase } from '../../domain/use-cases/cancel-session.use-case';
+import { EditWorkedSetUseCase } from '../../domain/use-cases/edit-worked-set.use-case';
+import { RemoveWorkedSetUseCase } from '../../domain/use-cases/remove-worked-set.use-case';
 import { TrainingSessionStore } from '../services/training-session.store';
 import { RestTimerService } from '../services/rest-timer.service';
 import { ExerciseSessionCardComponent } from '../components/exercise-session-card.component';
@@ -57,6 +59,8 @@ function formatHMS(totalSeconds: number): string {
     LogSetUseCase,
     CompleteSessionUseCase,
     CancelSessionUseCase,
+    EditWorkedSetUseCase,
+    RemoveWorkedSetUseCase,
   ],
   template: `
     <div class="min-h-screen bg-forge-950 text-forge-100 flex flex-col">
@@ -155,7 +159,9 @@ function formatHMS(totalSeconds: number): string {
                 [sessionId]="store.activeSession()?.id ?? ''"
                 [unit]="unit()"
                 [expanded]="true"
-                (setLogged)="onSetLogged($event)">
+                (setLogged)="onSetLogged($event)"
+                (setEdited)="onWorkedSetEdited($event)"
+                (setRemoved)="onWorkedSetRemoved($event)">
               </fg-exercise-session-card>
             }
           } @else {
@@ -207,6 +213,8 @@ export class TrainingSessionPage implements OnInit {
   private readonly logSetUseCase = inject(LogSetUseCase);
   private readonly completeSessionUseCase = inject(CompleteSessionUseCase);
   private readonly cancelSessionUseCase = inject(CancelSessionUseCase);
+  private readonly editWorkedSetUseCase = inject(EditWorkedSetUseCase);
+  private readonly removeWorkedSetUseCase = inject(RemoveWorkedSetUseCase);
   private readonly router = inject(Router);
   private readonly userPrefs = inject(UserPreferencesService);
   private readonly prRepo = inject(PersonalRecordRepository);
@@ -338,6 +346,28 @@ export class TrainingSessionPage implements OnInit {
         console.error('[TrainingSessionPage] onSetLogged error (should be unreachable):', err);
       }
       this.toast.error('No se pudo guardar la serie', 'Intentá de nuevo');
+    }
+  }
+
+  /** Edits a past set. The store refreshes via the WorkedSetEdited event. */
+  async onWorkedSetEdited(updatedSet: WorkedSet): Promise<void> {
+    const session = this.store.activeSession();
+    if (!session) return;
+    try {
+      await this.editWorkedSetUseCase.execute({ sessionId: session.id, updatedSet });
+    } catch {
+      this.toast.error('No se pudo editar la serie', 'Intentá de nuevo');
+    }
+  }
+
+  /** Removes a past set. The store refreshes via the WorkedSetRemoved event. */
+  async onWorkedSetRemoved(setId: string): Promise<void> {
+    const session = this.store.activeSession();
+    if (!session) return;
+    try {
+      await this.removeWorkedSetUseCase.execute({ sessionId: session.id, setId });
+    } catch {
+      this.toast.error('No se pudo borrar la serie', 'Intentá de nuevo');
     }
   }
 
