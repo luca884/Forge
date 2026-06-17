@@ -280,8 +280,8 @@ describe('LogSetUseCase', () => {
     ).rejects.toThrow(InvalidSetInputError);
   });
 
-  // Línea 132: type 'time' — happy path
-  it('should log a time set with durationSec from repsValue', async () => {
+  // type 'time' — happy path: durationSec viene de durationSecValue (NO de repsValue)
+  it('should log a time set with durationSec from durationSecValue', async () => {
     repo.sessions['session-1'] = makeInProgressSession();
     prDetector.returnValue = false;
 
@@ -289,7 +289,7 @@ describe('LogSetUseCase', () => {
       sessionId: 'session-1',
       exerciseId: 'ex-1',
       type: 'time',
-      repsValue: 90,
+      durationSecValue: 90,
     });
 
     expect(result.type).toBe('time');
@@ -300,8 +300,8 @@ describe('LogSetUseCase', () => {
     expect(result.sessionId).toBe('session-1');
   });
 
-  // Líneas 134-135: type 'distance-time' — happy path
-  it('should log a distance-time set with durationSec from repsValue and distanceKm=0', async () => {
+  // type 'distance-time' — happy path: distanceKm y durationSec vienen de sus propios valores
+  it('should log a distance-time set with distanceKm and durationSec from their own values', async () => {
     repo.sessions['session-1'] = makeInProgressSession();
     prDetector.returnValue = false;
 
@@ -309,13 +309,14 @@ describe('LogSetUseCase', () => {
       sessionId: 'session-1',
       exerciseId: 'ex-1',
       type: 'distance-time',
-      repsValue: 1800,
+      distanceKmValue: 5,
+      durationSecValue: 1800,
     });
 
     expect(result.type).toBe('distance-time');
     if (result.type === 'distance-time') {
       expect(result.durationSec).toBe(1800);
-      expect(result.distanceKm).toBe(0);
+      expect(result.distanceKm).toBe(5);
     }
     expect(result.isPR).toBe(false);
   });
@@ -329,7 +330,7 @@ describe('LogSetUseCase', () => {
       sessionId: 'session-1',
       exerciseId: 'ex-1',
       type: 'time',
-      repsValue: 60,
+      durationSecValue: 60,
     });
 
     expect(repo.workedSets).toHaveLength(1);
@@ -346,7 +347,8 @@ describe('LogSetUseCase', () => {
       sessionId: 'session-1',
       exerciseId: 'ex-1',
       type: 'distance-time',
-      repsValue: 3600,
+      distanceKmValue: 10,
+      durationSecValue: 3600,
     });
 
     expect(repo.workedSets).toHaveLength(1);

@@ -23,6 +23,8 @@ export interface LogSetInput {
   repsValue?: number;
   weightKgValue?: number;
   extraWeightKgValue?: number;
+  durationSecValue?: number;
+  distanceKmValue?: number;
   note?: string;
 }
 
@@ -129,10 +131,15 @@ export class LogSetUseCase {
       }
 
       case 'time':
-        return { ...base, type: 'time', durationSec: input.repsValue ?? 0 };
+        return { ...base, type: 'time', durationSec: input.durationSecValue ?? 0 };
 
       case 'distance-time':
-        return { ...base, type: 'distance-time', distanceKm: 0, durationSec: input.repsValue ?? 0 };
+        return {
+          ...base,
+          type: 'distance-time',
+          distanceKm: input.distanceKmValue ?? 0,
+          durationSec: input.durationSecValue ?? 0,
+        };
 
       default:
         return assertNever(input.type);

@@ -230,6 +230,14 @@ export class SetLoggerComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // weightKg's min(0.1) only makes sense for weight-reps. For the other
+    // tracking types the field is unused but would keep the form permanently
+    // invalid (weightKg=0 < 0.1) and block the submit button. Drop it.
+    if (this.trackingType !== 'weight-reps') {
+      this.form.controls.weightKg.clearValidators();
+      this.form.controls.weightKg.updateValueAndValidity();
+    }
+
     // Legacy fallback: prefillWeightKg / prefillReps (CC-5 contract).
     // Only applied when no prefillTarget is set (target takes precedence).
     if (this.prefillTarget() === null) {
@@ -281,6 +289,8 @@ export class SetLoggerComponent implements OnInit {
       repsValue: value.reps ?? undefined,
       weightKgValue: value.weightKg ?? undefined,
       extraWeightKgValue: value.extraWeightKg ?? undefined,
+      durationSecValue: value.durationSec ?? undefined,
+      distanceKmValue: value.distanceKm ?? undefined,
       note: value.note || undefined,
     };
 

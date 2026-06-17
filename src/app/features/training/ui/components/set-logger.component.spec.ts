@@ -222,6 +222,78 @@ describe('SetLoggerComponent', () => {
     expect(fixture.componentInstance.form.controls.weightKg.valid).toBe(true);
   });
 
+  // ── weightKg min(0.1) NO debe bloquear tipos sin peso (fix logueo no-peso) ──
+
+  it('bodyweight-reps: el form es VÁLIDO con solo reps (weightKg no bloquea)', () => {
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('exerciseId', 'ex-1');
+    fixture.componentRef.setInput('trackingType', 'bodyweight-reps');
+    fixture.detectChanges();
+
+    fixture.componentInstance.form.controls.reps.setValue(10);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.form.valid).toBe(true);
+  });
+
+  it('time: el form es VÁLIDO con solo duración (weightKg no bloquea)', () => {
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('exerciseId', 'ex-1');
+    fixture.componentRef.setInput('trackingType', 'time');
+    fixture.detectChanges();
+
+    fixture.componentInstance.form.controls.durationSec.setValue(30);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.form.valid).toBe(true);
+  });
+
+  it('distance-time: el form es VÁLIDO con distancia y duración (weightKg no bloquea)', () => {
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('exerciseId', 'ex-1');
+    fixture.componentRef.setInput('trackingType', 'distance-time');
+    fixture.detectChanges();
+
+    fixture.componentInstance.form.patchValue({ distanceKm: 5, durationSec: 1200 });
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.form.valid).toBe(true);
+  });
+
+  // ── onSubmit manda durationSec/distanceKm (no se pierden) ──────────────────
+
+  it('time: setLogged emite durationSecValue (no lo pierde)', () => {
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('exerciseId', 'ex-1');
+    fixture.componentRef.setInput('trackingType', 'time');
+    fixture.detectChanges();
+
+    const captured: LogSetInput[] = [];
+    fixture.componentInstance.setLogged.subscribe((v: LogSetInput) => captured.push(v));
+
+    fixture.componentInstance.form.patchValue({ durationSec: 45 });
+    fixture.componentInstance.onSubmit();
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0]).toMatchObject({ type: 'time', durationSecValue: 45 });
+  });
+
+  it('distance-time: setLogged emite distanceKmValue y durationSecValue', () => {
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('exerciseId', 'ex-1');
+    fixture.componentRef.setInput('trackingType', 'distance-time');
+    fixture.detectChanges();
+
+    const captured: LogSetInput[] = [];
+    fixture.componentInstance.setLogged.subscribe((v: LogSetInput) => captured.push(v));
+
+    fixture.componentInstance.form.patchValue({ distanceKm: 5, durationSec: 1200 });
+    fixture.componentInstance.onSubmit();
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0]).toMatchObject({ type: 'distance-time', distanceKmValue: 5, durationSecValue: 1200 });
+  });
+
   it('submit button is disabled when weightKg=0', () => {
     fixture.componentRef.setInput('sessionId', 's-1');
     fixture.componentRef.setInput('exerciseId', 'ex-1');
