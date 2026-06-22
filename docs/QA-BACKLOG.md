@@ -95,4 +95,3 @@ Capturas en [`./qa-shots/`](./qa-shots/).
 ---
 
 > Reproducción: `npm start` + Playwright (`NODE_PATH=./node_modules node <script>.js`).
-> Taskboard canónico = vault Obsidian; este archivo es el handoff committeable.
