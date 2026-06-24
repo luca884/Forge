@@ -17,7 +17,7 @@ export interface CreateCustomExerciseInput {
 export class CreateCustomExerciseUseCase {
   private readonly repo = inject(ExerciseRepository);
 
-  async execute(input: CreateCustomExerciseInput): Promise<void> {
+  async execute(input: CreateCustomExerciseInput): Promise<Exercise> {
     const trimmedName = input.name.trim();
 
     if (trimmedName === '') {
@@ -45,5 +45,6 @@ export class CreateCustomExerciseUseCase {
     };
 
     await this.repo.save(exercise);
+    return exercise;
   }
 }

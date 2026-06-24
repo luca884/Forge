@@ -136,4 +136,18 @@ describe('CreateCustomExerciseUseCase', () => {
 
     expect(repo.savedExercises[0]!.equipment).toBe('cable');
   });
+
+  it('should return the created exercise with its generated id (D-19/S6)', async () => {
+    const result = await useCase.execute({
+      name: 'Push Up',
+      muscleGroup: 'chest',
+      trackingType: 'bodyweight-reps',
+    });
+
+    expect(result).toBeDefined();
+    expect(result.id).toBeTruthy();
+    expect(result.name).toBe('Push Up');
+    expect(result.isCustom).toBe(true);
+    expect(repo.savedExercises[0]!.id).toBe(result.id);
+  });
 });

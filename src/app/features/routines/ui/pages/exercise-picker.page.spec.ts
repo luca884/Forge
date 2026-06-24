@@ -39,6 +39,7 @@ function makeFixture(opts: {
   exercises?: Exercise[];
   getExercisesSpy?: jest.Mock;
   seedSpy?: jest.Mock;
+  queryParamMapGet?: jest.Mock;
 } = {}): {
   fixture: ComponentFixture<ExercisePickerPage>;
   navigateSpy: jest.Mock;
@@ -64,11 +65,15 @@ function makeFixture(opts: {
         : (opts.dayId ?? 'd-1'),
   };
 
+  const queryParamMap = {
+    get: opts.queryParamMapGet ?? jest.fn().mockReturnValue(null),
+  };
+
   void TestBed.configureTestingModule({
     imports: [ExercisePickerPage, ReactiveFormsModule],
     providers: [
       { provide: Router, useValue: { navigate: navigateSpy } },
-      { provide: ActivatedRoute, useValue: { snapshot: { paramMap } } },
+      { provide: ActivatedRoute, useValue: { snapshot: { paramMap, queryParamMap } } },
     ],
   })
     .overrideComponent(ExercisePickerPage, {
@@ -232,6 +237,51 @@ describe('ExercisePickerPage', () => {
 
       expect(addSpy).toHaveBeenCalledWith({ dayId: 'd-1', exerciseIds: ['ex-1', 'ex-2'] });
       expect(navigateSpy).toHaveBeenCalledWith(['/routines', 'r-1', 'days', 'd-1']);
+    });
+  });
+
+  describe('create exercise button', () => {
+    it('renders a "Crear ejercicio nuevo" button above the exercise list', async () => {
+      const { fixture } = makeFixture({ routineId: 'r-1', dayId: 'd-1' });
+      await flush(fixture);
+
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).toContain('Crear ejercicio nuevo');
+    });
+
+    it('navigates to /exercises/new with returnRoutineId and returnDayId query params when clicked', async () => {
+      const { fixture, navigateSpy } = makeFixture({ routineId: 'r-1', dayId: 'd-1' });
+      await flush(fixture);
+
+      const btn = fixture.debugElement
+        .queryAll(By.css('button[fg-button]'))
+        .find((b) => /Crear ejercicio nuevo/.test((b.nativeElement as HTMLButtonElement).textContent ?? ''));
+      expect(btn).toBeTruthy();
+      (btn!.nativeElement as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(navigateSpy).toHaveBeenCalledWith(
+        ['/exercises/new'],
+        { queryParams: { returnRoutineId: 'r-1', returnDayId: 'd-1' } },
+      );
+    });
+  });
+
+  describe('pre-select on return from create (selectedExerciseId query param)', () => {
+    it('pre-selects the exercise if selectedExerciseId query param is set and reloads catalog', async () => {
+      const getExercisesSpy = jest.fn().mockResolvedValue([
+        makeExercise('ex-1', 'Press de banca'),
+      ]);
+      const queryParamMapGet = jest.fn().mockImplementation((key: string) =>
+        key === 'selectedExerciseId' ? 'ex-1' : null,
+      );
+
+      const { fixture } = makeFixture({ getExercisesSpy, queryParamMapGet });
+      await flush(fixture);
+
+      expect(fixture.componentInstance.isSelected('ex-1')).toBe(true);
+      // Called multiple times: effect() + initial load + selectedExerciseId reload
+      expect(getExercisesSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
     });
   });
 });

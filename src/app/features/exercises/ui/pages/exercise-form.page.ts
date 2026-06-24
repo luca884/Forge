@@ -174,6 +174,8 @@ export class ExerciseFormPage implements OnInit {
   readonly loadedExercise = signal<Exercise | null>(null);
   readonly nameError = signal<string | null>(null);
   readonly formError = signal<string | null>(null);
+  readonly returnRoutineId = signal<string | null>(null);
+  readonly returnDayId = signal<string | null>(null);
 
   readonly exerciseForm = this.fb.group({
     // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -190,6 +192,9 @@ export class ExerciseFormPage implements OnInit {
   }
 
   private async loadForm(): Promise<void> {
+    this.returnRoutineId.set(this.route.snapshot.queryParamMap.get('returnRoutineId'));
+    this.returnDayId.set(this.route.snapshot.queryParamMap.get('returnDayId'));
+
     const id = this.route.snapshot.paramMap.get('id');
 
     if (id) {
@@ -232,15 +237,25 @@ export class ExerciseFormPage implements OnInit {
           muscleGroup: muscleGroup as MuscleGroup,
           equipment: equipment ? (equipment as Equipment) : undefined,
         });
+        await this.router.navigate(['/exercises']);
       } else {
-        await this.createUseCase.execute({
+        const created = await this.createUseCase.execute({
           name,
           muscleGroup: muscleGroup as MuscleGroup,
           trackingType: trackingType as TrackingType,
           equipment: equipment ? (equipment as Equipment) : undefined,
         });
+        const returnRoutineId = this.returnRoutineId();
+        const returnDayId = this.returnDayId();
+        if (returnRoutineId && returnDayId) {
+          await this.router.navigate(
+            ['/routines', returnRoutineId, 'days', returnDayId, 'pick-exercise'],
+            { queryParams: { selectedExerciseId: created.id } },
+          );
+        } else {
+          await this.router.navigate(['/exercises']);
+        }
       }
-      await this.router.navigate(['/exercises']);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error al guardar';
       if (message.toLowerCase().includes('already exists') || message.toLowerCase().includes('name')) {
@@ -275,6 +290,12 @@ export class ExerciseFormPage implements OnInit {
   }
 
   back(): void {
-    void this.router.navigate(['/exercises']);
+    const returnRoutineId = this.returnRoutineId();
+    const returnDayId = this.returnDayId();
+    if (returnRoutineId && returnDayId) {
+      void this.router.navigate(['/routines', returnRoutineId, 'days', returnDayId, 'pick-exercise']);
+    } else {
+      void this.router.navigate(['/exercises']);
+    }
   }
 }

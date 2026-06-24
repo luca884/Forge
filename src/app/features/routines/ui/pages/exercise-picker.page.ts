@@ -83,6 +83,18 @@ const MUSCLE_GROUPS: MuscleGroup[] = [
         }
       </div>
 
+      <button
+        fg-button
+        variant="secondary"
+        size="md"
+        class="w-full"
+        type="button"
+        (click)="createExercise()"
+      >
+        <fg-icon name="plus" [size]="18"></fg-icon>
+        Crear ejercicio nuevo
+      </button>
+
       @if (exercises().length === 0) {
         <fg-empty-state
           icon="dumbbell"
@@ -169,6 +181,16 @@ export class ExercisePickerPage implements OnInit {
     // Exercises tab, then reload so the picker isn't empty on a fresh DB. F-1.
     await this.seedExercises.execute();
     await this.loadExercises();
+
+    // Pre-select exercise returned from create-exercise flow (query param).
+    const selectedExerciseId = this.route.snapshot.queryParamMap.get('selectedExerciseId');
+    if (selectedExerciseId) {
+      // Reload so any newly created exercise appears in the list.
+      await this.loadExercises();
+      const next = new Set(this.selectedIds());
+      next.add(selectedExerciseId);
+      this.selectedIds.set(next);
+    }
   }
 
   toggleMuscleGroup(group: MuscleGroup): void {
@@ -207,6 +229,13 @@ export class ExercisePickerPage implements OnInit {
       'days',
       this.dayId(),
     ]);
+  }
+
+  createExercise(): void {
+    void this.router.navigate(
+      ['/exercises/new'],
+      { queryParams: { returnRoutineId: this.routineId(), returnDayId: this.dayId() } },
+    );
   }
 
   back(): void {
