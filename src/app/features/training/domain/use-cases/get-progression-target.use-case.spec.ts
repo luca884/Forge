@@ -137,4 +137,32 @@ describe('GetProgressionTargetUseCase', () => {
     expect(result!.reps).toBe(7);
     expect(result!.previousBest.reps).toBe(6);
   });
+
+  // ── Slice B: progresión en placas (incremento +1 entero) ──────────────────
+
+  it('placas: reps >= objetivo → sube +1 placa (incremento entero, no 2.5)', async () => {
+    // marca pasada: placa 5 × 12 (la magnitud de placa viaja en weight)
+    const prev = makeWRSet('ex-1', 'prev-session', 12, 5, new Date('2026-01-01'));
+    repo.setDataForExercise('ex-1', [prev]);
+    const result = await useCase.execute('ex-1', 'active-session', 12, 'weight-reps', 'plates');
+    expect(result).not.toBeNull();
+    expect(result!.weightKg).toBe(6); // placa 5 + 1, NO 7.5
+    expect(result!.reps).toBe(12);
+    expect(result!.previousBest.weightKg).toBe(5);
+  });
+
+  it('placas: reps < objetivo → misma placa, +1 rep', async () => {
+    const prev = makeWRSet('ex-1', 'prev-session', 10, 5, new Date('2026-01-01'));
+    repo.setDataForExercise('ex-1', [prev]);
+    const result = await useCase.execute('ex-1', 'active-session', 12, 'weight-reps', 'plates');
+    expect(result!.weightKg).toBe(5); // misma placa
+    expect(result!.reps).toBe(11); // 10 + 1
+  });
+
+  it('weightUnit "kg" (default) mantiene incremento 2.5 — progresión kg intacta', async () => {
+    const prev = makeWRSet('ex-1', 'prev-session', 8, 80, new Date('2026-01-01'));
+    repo.setDataForExercise('ex-1', [prev]);
+    const result = await useCase.execute('ex-1', 'active-session', 8, 'weight-reps', 'kg');
+    expect(result!.weightKg).toBe(82.5); // +2.5
+  });
 });

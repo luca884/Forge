@@ -427,6 +427,58 @@ describe('ExerciseSessionCardComponent', () => {
     expect(text).not.toContain('Objetivo');
   });
 
+  // ── SLICE B: progresión en placas — formato "placa N × R" ──────────────────
+
+  it('placas: objetivo formateado como "placa N × R (superá placa M × R)" (sin kg)', () => {
+    const platesExercise: Exercise = { ...mockExercise, weightUnit: 'plates' };
+    // weightKg porta el número de placa: objetivo placa 6 × 12, superá placa 5 × 12
+    const platesTarget = {
+      weightKg: 6,
+      reps: 12,
+      previousBest: { weightKg: 5, reps: 12 },
+    };
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', platesExercise);
+    fixture.componentRef.setInput('loggedSets', []);
+    fixture.componentRef.setInput('targetSets', [targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('progressionTargetData', platesTarget);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('placa 6 × 12');
+    expect(text).toContain('superá placa 5 × 12');
+    // El objetivo de progresión NO debe decir "kg" (placa 6, no 6kg).
+    // Aislamos la línea del objetivo — el header del card sí puede tener el label de rutina "@70kg".
+    const objetivoLine = text.slice(text.indexOf('Objetivo:'));
+    expect(objetivoLine).not.toContain('kg');
+  });
+
+  it('placas: badge "¡Objetivo cumplido!" cuando el set logueado alcanza placa+reps', () => {
+    const platesExercise: Exercise = { ...mockExercise, weightUnit: 'plates' };
+    const platesTarget = {
+      weightKg: 6,
+      reps: 12,
+      previousBest: { weightKg: 5, reps: 12 },
+    };
+    // set logueado: placa 6 × 12 (la magnitud de placa viaja en weight.value)
+    const meetingSet: WorkedSet = {
+      id: 'ws-plate', sessionId: 's-1', exerciseId: 'ex-1', type: 'weight-reps',
+      reps: { value: 12 } as any, weight: { value: 6 } as any, isPR: false, createdAt: new Date('2026-01-01'),
+    };
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', platesExercise);
+    fixture.componentRef.setInput('loggedSets', [meetingSet]);
+    fixture.componentRef.setInput('targetSets', [targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('progressionTargetData', platesTarget);
+    fixture.componentRef.setInput('expanded', true);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('¡Objetivo cumplido!');
+  });
+
   // ── SLICE 2: "¡Objetivo cumplido!" badge per logged set ────────────────────
 
   it('shows "¡Objetivo cumplido!" badge on a logged set that meets the target', () => {

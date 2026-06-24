@@ -200,8 +200,11 @@ export class ExerciseSessionCardComponent {
   progressionTargetStr(): string | null {
     const target = this.progressionTargetData();
     if (!target) return null;
-    const goal = this.progressionCalculator.formatTarget(target);
-    const prev = this.progressionCalculator.formatPreviousBest(target.previousBest);
+    // Slice B: pass the exercise weightUnit so plates exercises format as
+    // "placa N × R (superá placa M × R)"; kg exercises are unaffected.
+    const unit = this.exerciseWeightUnit();
+    const goal = this.progressionCalculator.formatTarget(target, unit);
+    const prev = this.progressionCalculator.formatPreviousBest(target.previousBest, unit);
     return `${goal} (superá ${prev})`;
   }
 

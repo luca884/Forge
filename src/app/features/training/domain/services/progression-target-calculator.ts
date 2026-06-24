@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { TrackingType } from '@core/shared/domain/tracking-type';
+import { WeightUnit } from '@core/shared/domain/weight-unit';
 import { WorkedSet, WeightRepsSet, BodyweightRepsSet } from '../worked-set';
 
 export interface ProgressionTarget {
@@ -106,9 +107,17 @@ export class ProgressionTargetCalculator {
     }
   }
 
-  /** Formats the goal part of the objective string (e.g. "82.5kg × 8" or "11 reps"). */
-  formatTarget(target: ProgressionTarget): string {
+  /**
+   * Formats the goal part of the objective string.
+   * - kg weight-reps:     "82.5kg × 8"
+   * - plates weight-reps: "placa 6 × 12"  (Slice B — integer plate number, no kg)
+   * - bodyweight:         "11 reps (+20kg lastre)" / "11 reps"
+   */
+  formatTarget(target: ProgressionTarget, weightUnit: WeightUnit = 'kg'): string {
     if (target.weightKg !== undefined) {
+      if (weightUnit === 'plates') {
+        return `placa ${this.fmt(target.weightKg)} × ${target.reps}`;
+      }
       return `${this.fmt(target.weightKg)}kg × ${target.reps}`;
     }
     if (target.extraWeightKg !== undefined) {
@@ -155,9 +164,20 @@ export class ProgressionTargetCalculator {
     }
   }
 
-  /** Formats the "previous best" reference (e.g. "80kg × 8" or "10 reps"). */
-  formatPreviousBest(prev: ProgressionTarget['previousBest']): string {
+  /**
+   * Formats the "previous best" reference.
+   * - kg weight-reps:     "80kg × 8"
+   * - plates weight-reps: "placa 5 × 12"  (Slice B)
+   * - bodyweight:         "10 reps (+20kg lastre)" / "10 reps"
+   */
+  formatPreviousBest(
+    prev: ProgressionTarget['previousBest'],
+    weightUnit: WeightUnit = 'kg',
+  ): string {
     if (prev.weightKg !== undefined) {
+      if (weightUnit === 'plates') {
+        return `placa ${this.fmt(prev.weightKg)} × ${prev.reps}`;
+      }
       return `${this.fmt(prev.weightKg)}kg × ${prev.reps}`;
     }
     if (prev.extraWeightKg !== undefined) {

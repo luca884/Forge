@@ -201,6 +201,43 @@ describe('ProgressionTargetCalculator', () => {
     });
   });
 
+  // ── calculateTarget (placas — Slice B: incremento +1 entero) ──────────────
+
+  describe('calculateTarget() — weight-reps en placas (increment 1)', () => {
+    it('reps >= targetReps → sube +1 placa, reps vuelven al objetivo', () => {
+      // marca pasada: placa 5 × 12, objetivo de reps 12
+      const prev = makeWeightRepsSet(12, 5, PREV_SESSION_1, jan1);
+      const target = calc.calculateTarget(prev, 12, 'weight-reps', 1);
+      expect(target!.weightKg).toBe(6); // placa 5 + 1
+      expect(target!.reps).toBe(12);
+      expect(target!.previousBest.weightKg).toBe(5);
+      expect(target!.previousBest.reps).toBe(12);
+    });
+
+    it('reps > targetReps → igual sube +1 placa (cubierto por reps >= targetReps)', () => {
+      const prev = makeWeightRepsSet(15, 5, PREV_SESSION_1, jan1); // 15 > 12
+      const target = calc.calculateTarget(prev, 12, 'weight-reps', 1);
+      expect(target!.weightKg).toBe(6);
+      expect(target!.reps).toBe(12);
+    });
+
+    it('reps < targetReps → misma placa, +1 rep', () => {
+      // marca pasada: placa 5 × 10, objetivo de reps 12
+      const prev = makeWeightRepsSet(10, 5, PREV_SESSION_1, jan1);
+      const target = calc.calculateTarget(prev, 12, 'weight-reps', 1);
+      expect(target!.weightKg).toBe(5); // misma placa
+      expect(target!.reps).toBe(11); // 10 + 1
+      expect(target!.previousBest.weightKg).toBe(5);
+      expect(target!.previousBest.reps).toBe(10);
+    });
+
+    it('el incremento de placas es entero (1), no 2.5', () => {
+      const prev = makeWeightRepsSet(8, 7, PREV_SESSION_1, jan1);
+      const target = calc.calculateTarget(prev, 8, 'weight-reps', 1);
+      expect(target!.weightKg).toBe(8); // placa 7 + 1 = 8, NO 9.5
+    });
+  });
+
   // ── calculateTarget (bodyweight-reps) ────────────────────────────────────
 
   describe('calculateTarget() — bodyweight-reps', () => {
@@ -286,6 +323,24 @@ describe('ProgressionTargetCalculator', () => {
       const target = { reps: 11, previousBest: { reps: 10 } };
       expect(calc.formatPreviousBest(target.previousBest)).toBe('10 reps');
     });
+
+    // ── Slice B: formato en placas ──────────────────────────────────────────
+
+    it('formats weight-reps placas target as "placa N × R" (entero, sin kg)', () => {
+      const target = { weightKg: 6, reps: 12, previousBest: { weightKg: 5, reps: 12 } };
+      expect(calc.formatTarget(target, 'plates')).toBe('placa 6 × 12');
+    });
+
+    it('formats placas previousBest as "placa M × R"', () => {
+      const target = { weightKg: 6, reps: 12, previousBest: { weightKg: 5, reps: 12 } };
+      expect(calc.formatPreviousBest(target.previousBest, 'plates')).toBe('placa 5 × 12');
+    });
+
+    it('weightUnit "kg" explícito formatea igual que el default (Xkg × Y)', () => {
+      const target = { weightKg: 82.5, reps: 8, previousBest: { weightKg: 80, reps: 8 } };
+      expect(calc.formatTarget(target, 'kg')).toBe('82.5kg × 8');
+      expect(calc.formatPreviousBest(target.previousBest, 'kg')).toBe('80kg × 8');
+    });
   });
 
   // ── meetsTarget (slice 2: feedback objetivo cumplido) ────────────────────
@@ -366,6 +421,26 @@ describe('ProgressionTargetCalculator', () => {
     it('returns false when set type does not match target type (bodyweight set vs weight-reps target)', () => {
       const set = makeBodyweightSet(8, 100, ACTIVE_SESSION, jan1);
       expect(calc.meetsTarget(set, wrTarget)).toBe(false);
+    });
+
+    // ── Slice B: placas (la comparación numérica es la misma — placa y reps son números) ──
+    it('placas: set que alcanza placa y reps del objetivo cumple (true)', () => {
+      // objetivo: placa 6 × 12 (weightKg porta el número de placa)
+      const platesTarget = { weightKg: 6, reps: 12, previousBest: { weightKg: 5, reps: 12 } };
+      const set = makeWeightRepsSet(12, 6, ACTIVE_SESSION, jan1); // placa 6 × 12
+      expect(calc.meetsTarget(set, platesTarget)).toBe(true);
+    });
+
+    it('placas: set que supera placa y reps cumple (true)', () => {
+      const platesTarget = { weightKg: 6, reps: 12, previousBest: { weightKg: 5, reps: 12 } };
+      const set = makeWeightRepsSet(14, 7, ACTIVE_SESSION, jan1); // placa 7 × 14
+      expect(calc.meetsTarget(set, platesTarget)).toBe(true);
+    });
+
+    it('placas: set con menos placa NO cumple (false)', () => {
+      const platesTarget = { weightKg: 6, reps: 12, previousBest: { weightKg: 5, reps: 12 } };
+      const set = makeWeightRepsSet(12, 5, ACTIVE_SESSION, jan1); // placa 5 × 12
+      expect(calc.meetsTarget(set, platesTarget)).toBe(false);
     });
 
     // time / distance-time

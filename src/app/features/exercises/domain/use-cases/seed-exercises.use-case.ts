@@ -82,6 +82,7 @@ export class SeedExercisesUseCase {
         muscleGroup: entry.muscleGroup,
         equipment: entry.equipment,
         trackingType: entry.trackingType,
+        weightUnit: 'kg',
         isCustom: false,
         createdAt: now,
         updatedAt: now,
