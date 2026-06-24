@@ -8,12 +8,12 @@ export function toSession(row: SessionRow): Session {
     routineId: row.routineId,
     dayId: row.dayId,
     date: row.date,
-    startedAt: row.startedAt,
-    endedAt: row.endedAt,
+    startedAt: new Date(row.startedAt),
+    endedAt: row.endedAt != null ? new Date(row.endedAt) : undefined,
     status: row.status as SessionStatus,
     notes: row.notes,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
+    createdAt: new Date(row.createdAt),
+    updatedAt: new Date(row.updatedAt),
   };
 }
 
