@@ -76,6 +76,7 @@ describe('SeedExercisesUseCase', () => {
       name: `Pre Exercise ${i}`,
       muscleGroup: 'chest',
       trackingType: 'weight-reps',
+      weightUnit: 'kg',
       isCustom: false,
       createdAt: new Date(),
       updatedAt: new Date(),

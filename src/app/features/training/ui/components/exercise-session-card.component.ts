@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, input, signal, inject } from '@angular/core';
+import { Component, Input, Output, EventEmitter, input, signal, inject, computed } from '@angular/core';
 import { Exercise } from '../../../exercises/domain/exercise.entity';
 import { TargetSet } from '../../../routines/domain/target-set';
 import { WorkedSet } from '../../domain/worked-set';
@@ -58,6 +58,7 @@ import { FgIconComponent } from '@core/shared/ui';
                   [sessionId]="sessionId"
                   [exerciseId]="exercise.id"
                   [editSet]="set"
+                  [weightUnit]="exerciseWeightUnit()"
                   (setEdited)="onSetEdited($event)"
                   (setRemoved)="onSetRemoved($event)"
                   (editCancelled)="cancelEdit()"
@@ -77,7 +78,11 @@ import { FgIconComponent } from '@core/shared/ui';
                 <div class="flex-1 font-sans text-[15px] font-medium tabular-nums text-forge-200">
                   @switch (set.type) {
                     @case ('weight-reps') {
-                      {{ set.weight.value | displayWeight: unit() }} × <span class="text-forge-100">{{ set.reps.value }}</span>
+                      @if (exerciseWeightUnit() === 'plates') {
+                        {{ set.weight.value }} placas × <span class="text-forge-100">{{ set.reps.value }}</span>
+                      } @else {
+                        {{ set.weight.value | displayWeight: unit() }} × <span class="text-forge-100">{{ set.reps.value }}</span>
+                      }
                     }
                     @case ('bodyweight-reps') {
                       {{ set.reps.value }} reps
@@ -131,6 +136,7 @@ import { FgIconComponent } from '@core/shared/ui';
           [targetSetIndex]="loggedSets.length"
           [prefillTarget]="nextTarget"
           [progressionTarget]="progressionTargetStr()"
+          [weightUnit]="exerciseWeightUnit()"
           (setLogged)="onSetLogged($event)"
         ></fg-set-logger>
       }
@@ -172,6 +178,15 @@ export class ExerciseSessionCardComponent {
   // @Input() properties, which are NOT signals. A computed() over non-signal reads
   // memoizes once and never recomputes, so it would go stale on a persistent card
   // (focused view). Methods re-evaluate every change-detection pass.
+
+  /**
+   * Returns the weightUnit from the exercise.
+   * Plain method (NOT computed over @Input) so it re-evaluates on every CD pass
+   * and stays correct as the focused exercise changes (see note on computed/@Input bug).
+   */
+  exerciseWeightUnit(): import('@core/shared/domain/weight-unit').WeightUnit {
+    return this.exercise?.weightUnit ?? 'kg';
+  }
 
   isPR(): boolean {
     return this.loggedSets.some((s) => s.isPR);

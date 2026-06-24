@@ -301,6 +301,13 @@ export class TrainingSessionPage implements OnInit {
       const targetReps =
         firstTarget && 'reps' in firstTarget ? (firstTarget as { reps: number }).reps : 0;
 
+      // Slice A: plates exercises have no kg-based progression target.
+      // TODO Slice B: progresión en placas (+1 placa)
+      if (item.exercise.weightUnit === 'plates') {
+        this.progressionTargetData.set(null);
+        return;
+      }
+
       void this.getProgressionTargetUseCase
         .execute(item.exercise.id, session.id, targetReps, trackingType)
         .then((target) => {

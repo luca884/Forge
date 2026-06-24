@@ -61,7 +61,7 @@ const mockPR: PersonalRecord = {
   workedSetId: 'ws-1',
 };
 
-const mockExercise = { id: 'ex-1', name: 'Sentadilla', muscleGroup: 'legs' as const, trackingType: 'weight-reps' as const, isCustom: false, createdAt: new Date('2026-01-01') };
+const mockExercise = { id: 'ex-1', name: 'Sentadilla', muscleGroup: 'legs' as const, trackingType: 'weight-reps' as const, weightUnit: 'kg' as const, isCustom: false, createdAt: new Date('2026-01-01') };
 
 describe('ExerciseHistoryPage', () => {
   let fixture: ComponentFixture<ExerciseHistoryPage>;

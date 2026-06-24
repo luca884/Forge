@@ -12,6 +12,7 @@ import {
 } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { TrackingType } from '@core/shared/domain/tracking-type';
+import { WeightUnit } from '@core/shared/domain/weight-unit';
 import { LogSetInput } from '../../domain/use-cases/log-set.use-case';
 import { TargetSet } from '@features/routines/domain/target-set';
 import { WorkedSet } from '../../domain/worked-set';
@@ -62,11 +63,19 @@ import { FgWheelPickerComponent } from '@core/shared/ui';
           @case ('weight-reps') {
             <div class="grid grid-cols-2 gap-2.5 mb-3">
               <label class="bg-forge-900 rounded-xl py-2.5 px-3 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
-                <span class="t-caption text-forge-500">Peso</span>
-                <div class="flex items-baseline gap-1 w-full">
-                  <input type="number" inputmode="decimal" step="0.5" min="0" formControlName="weightKg" aria-label="Peso en kg" class="set-num" (focus)="onNumberFocus('weightKg')" (blur)="onNumberBlur('weightKg')" />
-                  <span class="t-caption text-forge-600">kg</span>
-                </div>
+                @if (weightUnit() === 'plates') {
+                  <span class="t-caption text-forge-500">Placas</span>
+                  <div class="flex items-baseline gap-1 w-full">
+                    <input type="number" inputmode="numeric" step="1" min="1" formControlName="weightKg" aria-label="Placas" class="set-num" (focus)="onNumberFocus('weightKg')" (blur)="onNumberBlur('weightKg')" />
+                    <span class="t-caption text-forge-600">placas</span>
+                  </div>
+                } @else {
+                  <span class="t-caption text-forge-500">Peso</span>
+                  <div class="flex items-baseline gap-1 w-full">
+                    <input type="number" inputmode="decimal" step="0.5" min="0" formControlName="weightKg" aria-label="Peso en kg" class="set-num" (focus)="onNumberFocus('weightKg')" (blur)="onNumberBlur('weightKg')" />
+                    <span class="t-caption text-forge-600">kg</span>
+                  </div>
+                }
               </label>
               <div class="bg-forge-900 rounded-xl py-2.5 px-2 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
                 <span class="t-caption text-forge-500">Reps</span>
@@ -211,6 +220,14 @@ export class SetLoggerComponent implements OnInit {
    */
   readonly progressionTarget = input<string | null>(null);
 
+  /**
+   * Unit of measurement for weight-reps exercises (Slice A — plates feature).
+   * 'kg'     → standard decimal input (step 0.5, min 0.1).
+   * 'plates' → integer input (step 1, min 1, label "placas").
+   * Signal input — avoids the computed()-over-@Input reactiviy bug.
+   */
+  readonly weightUnit = input<WeightUnit>('kg');
+
   private readonly fb = inject(FormBuilder);
 
   readonly form = this.fb.group({
@@ -242,11 +259,15 @@ export class SetLoggerComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // weightKg's min(0.1) only makes sense for weight-reps. For the other
+    // weightKg's min(0.1) only makes sense for weight-reps/kg. For other
     // tracking types the field is unused but would keep the form permanently
     // invalid (weightKg=0 < 0.1) and block the submit button. Drop it.
+    // For 'plates', enforce min(1) integer instead of min(0.1) decimal.
     if (this.trackingType !== 'weight-reps') {
       this.form.controls.weightKg.clearValidators();
+      this.form.controls.weightKg.updateValueAndValidity();
+    } else if (this.weightUnit() === 'plates') {
+      this.form.controls.weightKg.setValidators([Validators.min(1)]);
       this.form.controls.weightKg.updateValueAndValidity();
     }
 

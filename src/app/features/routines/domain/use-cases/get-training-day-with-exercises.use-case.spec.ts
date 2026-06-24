@@ -55,6 +55,7 @@ const makeExercise = (id: string, name: string): Exercise => ({
   name,
   muscleGroup: 'chest',
   trackingType: 'weight-reps',
+  weightUnit: 'kg',
   isCustom: false,
   createdAt: new Date(),
   updatedAt: new Date(),

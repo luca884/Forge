@@ -570,4 +570,77 @@ describe('SetLoggerComponent', () => {
       expect(text).not.toContain('Loguear set');
     });
   });
+
+  // ── SLICE A: weightUnit='plates' ───────────────────────────────────────────
+
+  describe('weightUnit="plates" (Slice A — máquina en placas)', () => {
+    function setupPlates(): void {
+      fixture.componentRef.setInput('sessionId', 's-1');
+      fixture.componentRef.setInput('exerciseId', 'ex-1');
+      fixture.componentRef.setInput('trackingType', 'weight-reps');
+      fixture.componentRef.setInput('weightUnit', 'plates');
+      fixture.detectChanges();
+    }
+
+    it('muestra el label "Placas" (no "Peso") cuando weightUnit="plates"', () => {
+      setupPlates();
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).toContain('Placas');
+    });
+
+    it('el input de placas tiene aria-label="Placas"', () => {
+      setupPlates();
+      const input = (fixture.nativeElement as HTMLElement).querySelector(
+        'input[aria-label="Placas"]',
+      ) as HTMLInputElement | null;
+      expect(input).toBeTruthy();
+    });
+
+    it('el input de placas tiene step="1" (entero)', () => {
+      setupPlates();
+      const input = (fixture.nativeElement as HTMLElement).querySelector(
+        'input[aria-label="Placas"]',
+      ) as HTMLInputElement | null;
+      expect(input).toBeTruthy();
+      expect(input!.step).toBe('1');
+    });
+
+    it('el input de placas tiene min="1"', () => {
+      setupPlates();
+      const input = (fixture.nativeElement as HTMLElement).querySelector(
+        'input[aria-label="Placas"]',
+      ) as HTMLInputElement | null;
+      expect(input).toBeTruthy();
+      expect(input!.min).toBe('1');
+    });
+
+    it('setLogged emite weightKgValue con el número de placa ingresado', () => {
+      setupPlates();
+      const captured: LogSetInput[] = [];
+      fixture.componentInstance.setLogged.subscribe((v: LogSetInput) => captured.push(v));
+
+      fixture.componentInstance.form.patchValue({ weightKg: 5, reps: 10 });
+      fixture.componentInstance.onSubmit();
+
+      expect(captured).toHaveLength(1);
+      expect(captured[0]).toMatchObject({
+        type: 'weight-reps',
+        weightKgValue: 5,
+        repsValue: 10,
+      });
+    });
+
+    it('el formulario con weightUnit="kg" sigue mostrando aria-label="Peso en kg"', () => {
+      fixture.componentRef.setInput('sessionId', 's-1');
+      fixture.componentRef.setInput('exerciseId', 'ex-1');
+      fixture.componentRef.setInput('trackingType', 'weight-reps');
+      fixture.componentRef.setInput('weightUnit', 'kg');
+      fixture.detectChanges();
+
+      const input = (fixture.nativeElement as HTMLElement).querySelector(
+        'input[aria-label="Peso en kg"]',
+      ) as HTMLInputElement | null;
+      expect(input).toBeTruthy();
+    });
+  });
 });

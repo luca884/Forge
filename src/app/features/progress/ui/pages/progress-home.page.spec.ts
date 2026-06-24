@@ -38,6 +38,7 @@ const mockExercise = {
   name: 'Sentadilla',
   muscleGroup: 'legs' as const,
   trackingType: 'weight-reps' as const,
+  weightUnit: 'kg' as const,
   isCustom: false,
   createdAt: new Date('2026-01-01'),
 };

@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Exercise, Equipment, MuscleGroup } from '../exercise.entity';
 import { ExerciseRepository } from '../exercise.repository';
+import { WeightUnit } from '@core/shared/domain/weight-unit';
 import { DuplicateExerciseNameError } from '../errors/duplicate-exercise-name.error';
 import { ExerciseNameRequiredError } from '../errors/exercise-name-required.error';
 import { ExerciseNotFoundError } from '../errors/exercise-not-found.error';
@@ -11,6 +12,8 @@ export interface EditCustomExerciseInput {
   name?: string;
   muscleGroup?: MuscleGroup;
   equipment?: Equipment;
+  /** Only meaningful for weight-reps exercises. */
+  weightUnit?: WeightUnit;
 }
 
 @Injectable()
@@ -51,6 +54,7 @@ export class EditCustomExerciseUseCase {
       name: input.name !== undefined ? input.name.trim() : existing.name,
       muscleGroup: input.muscleGroup ?? existing.muscleGroup,
       equipment: input.equipment !== undefined ? input.equipment : existing.equipment,
+      weightUnit: input.weightUnit ?? existing.weightUnit,
       updatedAt: new Date(),
     };
 

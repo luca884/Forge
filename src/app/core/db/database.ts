@@ -77,6 +77,8 @@ export interface ExerciseRow {
   muscleGroup: string;
   equipment?: string;
   trackingType: string;
+  /** Optional — defaults to 'kg' for backward-compat. NOT indexed (no version bump needed). */
+  weightUnit?: string;
   isCustom: boolean;
   createdAt: Date;
   updatedAt: Date;

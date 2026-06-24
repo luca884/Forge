@@ -54,6 +54,7 @@ const makeExercise = (overrides: Partial<Exercise> = {}): Exercise => ({
   name: 'Bench Press',
   muscleGroup: 'chest',
   trackingType: 'weight-reps',
+  weightUnit: 'kg',
   isCustom: false,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -149,5 +150,32 @@ describe('CreateCustomExerciseUseCase', () => {
     expect(result.name).toBe('Push Up');
     expect(result.isCustom).toBe(true);
     expect(repo.savedExercises[0]!.id).toBe(result.id);
+  });
+
+  // ── Slice A: weightUnit ────────────────────────────────────────────────────
+
+  it('defaults weightUnit to "kg" when not provided', async () => {
+    await useCase.execute({ name: 'Sentadilla', muscleGroup: 'legs', trackingType: 'weight-reps' });
+    expect(repo.savedExercises[0]!.weightUnit).toBe('kg');
+  });
+
+  it('saves weightUnit="plates" when provided', async () => {
+    await useCase.execute({
+      name: 'Prensa máquina',
+      muscleGroup: 'legs',
+      trackingType: 'weight-reps',
+      weightUnit: 'plates',
+    });
+    expect(repo.savedExercises[0]!.weightUnit).toBe('plates');
+  });
+
+  it('saves weightUnit="kg" explicitly when provided', async () => {
+    await useCase.execute({
+      name: 'Curl bíceps',
+      muscleGroup: 'biceps',
+      trackingType: 'weight-reps',
+      weightUnit: 'kg',
+    });
+    expect(repo.savedExercises[0]!.weightUnit).toBe('kg');
   });
 });

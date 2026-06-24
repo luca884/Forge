@@ -23,7 +23,7 @@ describe('AddExercisesToDayUseCase', () => {
   beforeEach(() => {
     getById = jest.fn();
     save = jest.fn().mockResolvedValue(undefined);
-    exGetById = jest.fn().mockImplementation((id: string) => Promise.resolve({ id, name: id, muscleGroup: 'chest', trackingType: 'weight-reps', isCustom: false, createdAt: new Date(), updatedAt: new Date() }));
+    exGetById = jest.fn().mockImplementation((id: string) => Promise.resolve({ id, name: id, muscleGroup: 'chest', trackingType: 'weight-reps', weightUnit: 'kg', isCustom: false, createdAt: new Date(), updatedAt: new Date() }));
 
     TestBed.configureTestingModule({
       providers: [

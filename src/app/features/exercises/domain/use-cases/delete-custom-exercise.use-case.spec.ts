@@ -50,6 +50,7 @@ const makeExercise = (overrides: Partial<Exercise> = {}): Exercise => ({
   name: 'Bench Press',
   muscleGroup: 'chest',
   trackingType: 'weight-reps',
+  weightUnit: 'kg',
   isCustom: true,
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),

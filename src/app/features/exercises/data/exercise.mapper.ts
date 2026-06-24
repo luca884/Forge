@@ -1,6 +1,7 @@
 import { ExerciseRow } from '@core/db/database';
 import { Exercise, Equipment, MuscleGroup } from '../domain/exercise.entity';
 import { TrackingType } from '@core/shared/domain/tracking-type';
+import { WeightUnit } from '@core/shared/domain/weight-unit';
 
 export function toExercise(row: ExerciseRow): Exercise {
   return {
@@ -9,6 +10,8 @@ export function toExercise(row: ExerciseRow): Exercise {
     muscleGroup: row.muscleGroup as MuscleGroup,
     equipment: row.equipment as Equipment | undefined,
     trackingType: row.trackingType as TrackingType,
+    // Backward-compat: rows without weightUnit default to 'kg'
+    weightUnit: (row.weightUnit as WeightUnit | undefined) ?? 'kg',
     isCustom: row.isCustom,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -22,6 +25,7 @@ export function toExerciseRow(exercise: Exercise): ExerciseRow {
     muscleGroup: exercise.muscleGroup,
     equipment: exercise.equipment,
     trackingType: exercise.trackingType,
+    weightUnit: exercise.weightUnit,
     isCustom: exercise.isCustom,
     createdAt: exercise.createdAt,
     updatedAt: exercise.updatedAt,

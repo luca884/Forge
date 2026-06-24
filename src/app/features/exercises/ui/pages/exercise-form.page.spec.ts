@@ -96,6 +96,7 @@ async function makeReturnContextFixture(opts: {
       name: 'Push Up',
       muscleGroup: 'chest',
       trackingType: 'bodyweight-reps',
+      weightUnit: 'kg',
       isCustom: true,
       createdAt: new Date(),
       updatedAt: new Date(),

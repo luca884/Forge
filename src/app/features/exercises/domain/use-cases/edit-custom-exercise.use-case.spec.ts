@@ -45,6 +45,7 @@ const makeExercise = (overrides: Partial<Exercise> = {}): Exercise => ({
   name: 'Bench Press',
   muscleGroup: 'chest',
   trackingType: 'weight-reps',
+  weightUnit: 'kg',
   isCustom: true,
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
@@ -138,5 +139,23 @@ describe('EditCustomExerciseUseCase', () => {
     await useCase.execute({ id: 'ex-1', name: 'Updated Name' });
 
     expect(repo.savedExercises[0]!.updatedAt.getTime()).toBeGreaterThan(originalDate.getTime());
+  });
+
+  // ── Slice A: weightUnit ────────────────────────────────────────────────────
+
+  it('updates weightUnit to "plates" when provided (Slice A)', async () => {
+    repo.setExercises([makeExercise({ id: 'ex-1', isCustom: true, weightUnit: 'kg' })]);
+
+    await useCase.execute({ id: 'ex-1', weightUnit: 'plates' });
+
+    expect(repo.savedExercises[0]!.weightUnit).toBe('plates');
+  });
+
+  it('preserves weightUnit when not provided in input (Slice A)', async () => {
+    repo.setExercises([makeExercise({ id: 'ex-1', isCustom: true, weightUnit: 'plates' })]);
+
+    await useCase.execute({ id: 'ex-1', name: 'Updated Name' });
+
+    expect(repo.savedExercises[0]!.weightUnit).toBe('plates');
   });
 });

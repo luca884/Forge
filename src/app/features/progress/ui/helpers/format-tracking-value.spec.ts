@@ -65,4 +65,18 @@ describe('formatTrackingValue', () => {
   it('weight-reps with unit="kg" returns kg suffix', () => {
     expect(formatTrackingValue(weightRepsSet, 'kg')).toBe('100 kg × 5 reps');
   });
+
+  // ── Slice A: plates weightUnit ─────────────────────────────────────────────
+
+  it('weight-reps with weightUnit="plates" returns "X placas × Y reps" (no kg conversion)', () => {
+    expect(formatTrackingValue(weightRepsSet, 'kg', 'plates')).toBe('100 placas × 5 reps');
+  });
+
+  it('weight-reps with weightUnit="plates" ignores the lb unit preference (no conversion)', () => {
+    expect(formatTrackingValue(weightRepsSet, 'lb', 'plates')).toBe('100 placas × 5 reps');
+  });
+
+  it('weight-reps with explicit weightUnit="kg" behaves same as default', () => {
+    expect(formatTrackingValue(weightRepsSet, 'kg', 'kg')).toBe('100 kg × 5 reps');
+  });
 });

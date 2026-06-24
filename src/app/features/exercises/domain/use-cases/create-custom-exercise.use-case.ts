@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { Exercise, Equipment, MuscleGroup } from '../exercise.entity';
 import { ExerciseRepository } from '../exercise.repository';
 import { TrackingType } from '@core/shared/domain/tracking-type';
+import { WeightUnit } from '@core/shared/domain/weight-unit';
 import { DuplicateExerciseNameError } from '../errors/duplicate-exercise-name.error';
 import { ExerciseNameRequiredError } from '../errors/exercise-name-required.error';
 import { generateUUID } from '@core/shared/utils/uuid';
@@ -11,6 +12,8 @@ export interface CreateCustomExerciseInput {
   muscleGroup: MuscleGroup;
   trackingType: TrackingType;
   equipment?: Equipment;
+  /** Defaults to 'kg' when omitted. Only meaningful for weight-reps exercises. */
+  weightUnit?: WeightUnit;
 }
 
 @Injectable()
@@ -39,6 +42,7 @@ export class CreateCustomExerciseUseCase {
       muscleGroup: input.muscleGroup,
       trackingType: input.trackingType,
       equipment: input.equipment,
+      weightUnit: input.weightUnit ?? 'kg',
       isCustom: true,
       createdAt: now,
       updatedAt: now,

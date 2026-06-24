@@ -8,6 +8,7 @@ import { EditCustomExerciseUseCase } from '../../domain/use-cases/edit-custom-ex
 import { DeleteCustomExerciseUseCase } from '../../domain/use-cases/delete-custom-exercise.use-case';
 import { ExerciseInUseError } from '../../domain/errors/exercise-in-use.error';
 import { TrackingType } from '@core/shared/domain/tracking-type';
+import { WeightUnit, WEIGHT_UNIT_OPTIONS } from '@core/shared/domain/weight-unit';
 import {
   FgPageHeaderComponent,
   FgInputComponent,
@@ -103,6 +104,20 @@ const TRACKING_TYPES: TrackingType[] = ['weight-reps', 'bodyweight-reps', 'time'
               </select>
             </label>
 
+            @if (exerciseForm.get('trackingType')?.value === 'weight-reps') {
+              <label class="flex flex-col gap-1.5">
+                <span class="t-caption text-forge-300">Unidad de peso</span>
+                <select
+                  formControlName="weightUnit"
+                  class="h-11 px-3 rounded-md bg-forge-900 border border-forge-700 text-forge-100 t-body outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+                >
+                  @for (opt of weightUnitOptions; track opt.value) {
+                    <option [value]="opt.value">{{ opt.label }}</option>
+                  }
+                </select>
+              </label>
+            }
+
             <label class="flex flex-col gap-1.5">
               <span class="t-caption text-forge-300">Equipamiento (opcional)</span>
               <select
@@ -177,6 +192,8 @@ export class ExerciseFormPage implements OnInit {
   readonly returnRoutineId = signal<string | null>(null);
   readonly returnDayId = signal<string | null>(null);
 
+  readonly weightUnitOptions = WEIGHT_UNIT_OPTIONS;
+
   readonly exerciseForm = this.fb.group({
     // eslint-disable-next-line @typescript-eslint/unbound-method
     name: ['', Validators.required],
@@ -185,6 +202,7 @@ export class ExerciseFormPage implements OnInit {
     // eslint-disable-next-line @typescript-eslint/unbound-method
     trackingType: ['weight-reps' as TrackingType, Validators.required],
     equipment: [''],
+    weightUnit: ['kg' as WeightUnit],
   });
 
   ngOnInit(): void {
@@ -208,6 +226,7 @@ export class ExerciseFormPage implements OnInit {
             muscleGroup: exercise.muscleGroup,
             trackingType: exercise.trackingType,
             equipment: exercise.equipment ?? '',
+            weightUnit: exercise.weightUnit ?? 'kg',
           });
         }
       } finally {
@@ -221,7 +240,7 @@ export class ExerciseFormPage implements OnInit {
   async onSubmit(): Promise<void> {
     if (this.exerciseForm.invalid) return;
 
-    const { name, muscleGroup, trackingType, equipment } = this.exerciseForm.value;
+    const { name, muscleGroup, trackingType, equipment, weightUnit } = this.exerciseForm.value;
     if (!name || !muscleGroup || !trackingType) return;
 
     this.isSaving.set(true);
@@ -231,19 +250,27 @@ export class ExerciseFormPage implements OnInit {
     try {
       if (this.isEditMode()) {
         const id = this.route.snapshot.paramMap.get('id')!;
+        // weightUnit only applies when trackingType is weight-reps;
+        // for other types it's ignored but harmlessly passed through.
+        const resolvedWeightUnit: WeightUnit =
+          trackingType === 'weight-reps' ? ((weightUnit as WeightUnit) ?? 'kg') : 'kg';
         await this.editUseCase.execute({
           id,
           name,
           muscleGroup: muscleGroup as MuscleGroup,
           equipment: equipment ? (equipment as Equipment) : undefined,
+          weightUnit: resolvedWeightUnit,
         });
         await this.router.navigate(['/exercises']);
       } else {
+        const resolvedWeightUnitCreate: WeightUnit =
+          trackingType === 'weight-reps' ? ((weightUnit as WeightUnit) ?? 'kg') : 'kg';
         const created = await this.createUseCase.execute({
           name,
           muscleGroup: muscleGroup as MuscleGroup,
           trackingType: trackingType as TrackingType,
           equipment: equipment ? (equipment as Equipment) : undefined,
+          weightUnit: resolvedWeightUnitCreate,
         });
         const returnRoutineId = this.returnRoutineId();
         const returnDayId = this.returnDayId();

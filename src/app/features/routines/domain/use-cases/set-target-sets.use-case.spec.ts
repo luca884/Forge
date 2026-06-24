@@ -49,6 +49,7 @@ const makeExercise = (trackingType: string): Exercise => ({
   name: 'Bench Press',
   muscleGroup: 'chest',
   trackingType: trackingType as Exercise['trackingType'],
+  weightUnit: 'kg',
   isCustom: false,
   createdAt: new Date(),
   updatedAt: new Date(),
