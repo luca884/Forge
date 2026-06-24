@@ -435,6 +435,53 @@ describe('SetLoggerComponent', () => {
     expect(fixture.componentInstance.form.controls.reps.value).toBe(5);
   });
 
+  // ── PROGRESSION TARGET (slice 1: objetivo de doble progresión) ───────────
+
+  describe('progressionTarget input', () => {
+    it('does not render progression target section when input is null', () => {
+      fixture.componentRef.setInput('sessionId', 's-1');
+      fixture.componentRef.setInput('exerciseId', 'ex-1');
+      fixture.componentRef.setInput('progressionTarget', null);
+      fixture.detectChanges();
+
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).not.toContain('Objetivo');
+    });
+
+    it('renders "Objetivo hoy:" with formatted goal when progressionTarget is provided', () => {
+      fixture.componentRef.setInput('sessionId', 's-1');
+      fixture.componentRef.setInput('exerciseId', 'ex-1');
+      fixture.componentRef.setInput('progressionTarget', '82.5kg × 8 (superá 80kg × 8)');
+      fixture.detectChanges();
+
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).toContain('Objetivo');
+      expect(text).toContain('82.5kg × 8');
+    });
+
+    it('does not render progression target when in edit mode', () => {
+      const editingSet: WorkedSet = {
+        id: 'ws-edit',
+        sessionId: 's-1',
+        exerciseId: 'ex-1',
+        type: 'weight-reps',
+        reps: { value: 8 } as never,
+        weight: { value: 80 } as never,
+        isPR: false,
+        createdAt: new Date('2026-01-01'),
+      };
+      fixture.componentRef.setInput('sessionId', 's-1');
+      fixture.componentRef.setInput('exerciseId', 'ex-1');
+      fixture.componentRef.setInput('trackingType', 'weight-reps');
+      fixture.componentRef.setInput('editSet', editingSet);
+      fixture.componentRef.setInput('progressionTarget', '82.5kg × 8 (superá 80kg × 8)');
+      fixture.detectChanges();
+
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).not.toContain('Objetivo');
+    });
+  });
+
   // ── EDIT MODE (slice 2: editar/borrar sets pasados) ───────────────────────
 
   describe('modo edición (editSet)', () => {

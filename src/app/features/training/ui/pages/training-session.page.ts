@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
 import { NgClass } from '@angular/common';
 import { Router } from '@angular/router';
 import { Exercise } from '../../../exercises/domain/exercise.entity';
@@ -10,6 +10,11 @@ import { CompleteSessionUseCase } from '../../domain/use-cases/complete-session.
 import { CancelSessionUseCase } from '../../domain/use-cases/cancel-session.use-case';
 import { EditWorkedSetUseCase } from '../../domain/use-cases/edit-worked-set.use-case';
 import { RemoveWorkedSetUseCase } from '../../domain/use-cases/remove-worked-set.use-case';
+import { GetProgressionTargetUseCase } from '../../domain/use-cases/get-progression-target.use-case';
+import {
+  ProgressionTargetCalculator,
+  ProgressionTarget,
+} from '../../domain/services/progression-target-calculator';
 import { TrainingSessionStore } from '../services/training-session.store';
 import { RestTimerService } from '../services/rest-timer.service';
 import { ExerciseSessionCardComponent } from '../components/exercise-session-card.component';
@@ -61,6 +66,8 @@ function formatHMS(totalSeconds: number): string {
     CancelSessionUseCase,
     EditWorkedSetUseCase,
     RemoveWorkedSetUseCase,
+    GetProgressionTargetUseCase,
+    ProgressionTargetCalculator,
   ],
   template: `
     <div class="min-h-screen bg-forge-950 text-forge-100 flex flex-col">
@@ -159,6 +166,7 @@ function formatHMS(totalSeconds: number): string {
                 [sessionId]="store.activeSession()?.id ?? ''"
                 [unit]="unit()"
                 [expanded]="true"
+                [progressionTargetData]="progressionTargetData()"
                 (setLogged)="onSetLogged($event)"
                 (setEdited)="onWorkedSetEdited($event)"
                 (setRemoved)="onWorkedSetRemoved($event)">
@@ -215,6 +223,7 @@ export class TrainingSessionPage implements OnInit {
   private readonly cancelSessionUseCase = inject(CancelSessionUseCase);
   private readonly editWorkedSetUseCase = inject(EditWorkedSetUseCase);
   private readonly removeWorkedSetUseCase = inject(RemoveWorkedSetUseCase);
+  private readonly getProgressionTargetUseCase = inject(GetProgressionTargetUseCase);
   private readonly router = inject(Router);
   private readonly userPrefs = inject(UserPreferencesService);
   private readonly prRepo = inject(PersonalRecordRepository);
@@ -249,6 +258,14 @@ export class TrainingSessionPage implements OnInit {
   /** Id of the focused exercise (or null) — used by the rail to highlight the active chip. */
   readonly focusedId = computed<string | null>(() => this.focusedItem()?.exercise.id ?? null);
 
+  /**
+   * Progression target OBJECT for the focused exercise (slice 1 + 2).
+   * Null when no previous history or the tracking type has no target (time/distance).
+   * The card formats it into a string for the logger AND uses it to evaluate
+   * meetsTarget() per logged set ("¡Objetivo cumplido!" badge).
+   */
+  readonly progressionTargetData = signal<ProgressionTarget | null>(null);
+
   /** Total logged sets across all exercises in this session. */
   readonly totalLoggedCount = computed(() => this.store.workedSets().length);
 
@@ -266,6 +283,31 @@ export class TrainingSessionPage implements OnInit {
 
   /** Elapsed time formatted as M:SS or H:MM:SS. */
   readonly formattedElapsed = computed(() => formatHMS(this.store.elapsedSeconds()));
+
+  constructor() {
+    // Recompute the progression target whenever the focused exercise changes.
+    // Using effect() because getAllWorkedSetsForExercise is async — cannot use computed().
+    // We store the raw ProgressionTarget OBJECT; the card formats the string AND
+    // evaluates meetsTarget() per logged set from it.
+    effect(() => {
+      const item = this.focusedItem();
+      const session = this.store.activeSession();
+      if (!item || !session) {
+        this.progressionTargetData.set(null);
+        return;
+      }
+      const trackingType = item.exercise.trackingType;
+      const firstTarget = item.exerciseInDay.targetSets[0];
+      const targetReps =
+        firstTarget && 'reps' in firstTarget ? (firstTarget as { reps: number }).reps : 0;
+
+      void this.getProgressionTargetUseCase
+        .execute(item.exercise.id, session.id, targetReps, trackingType)
+        .then((target) => {
+          this.progressionTargetData.set(target);
+        });
+    });
+  }
 
   ngOnInit(): void {
     void this.userPrefs.loadOnce();

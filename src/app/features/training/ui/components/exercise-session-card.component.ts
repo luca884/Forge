@@ -1,9 +1,13 @@
-import { Component, Input, Output, EventEmitter, input, signal } from '@angular/core';
+import { Component, Input, Output, EventEmitter, input, signal, inject } from '@angular/core';
 import { Exercise } from '../../../exercises/domain/exercise.entity';
 import { TargetSet } from '../../../routines/domain/target-set';
 import { WorkedSet } from '../../domain/worked-set';
 import { SetLoggerComponent } from './set-logger.component';
 import { LogSetInput } from '../../domain/use-cases/log-set.use-case';
+import {
+  ProgressionTargetCalculator,
+  ProgressionTarget,
+} from '../../domain/services/progression-target-calculator';
 import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
 import { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
 import { FgChipComponent } from '@core/shared/ui/chip/chip.component';
@@ -13,6 +17,7 @@ import { FgIconComponent } from '@core/shared/ui';
   selector: 'fg-exercise-session-card',
   standalone: true,
   imports: [SetLoggerComponent, DisplayWeightPipe, FgChipComponent, FgIconComponent],
+  providers: [ProgressionTargetCalculator],
   template: `
     <div class="bg-forge-900 rounded-[14px] ring-1 ring-inset ring-white/6 overflow-hidden">
       <!-- Header -->
@@ -88,6 +93,13 @@ import { FgIconComponent } from '@core/shared/ui';
                     }
                   }
                 </div>
+                @if (meetsTarget(set)) {
+                  <span class="inline-flex items-center gap-1 px-2 h-6 rounded-full text-[11px] font-semibold tracking-[0.02em] flex-shrink-0
+                               bg-[rgba(var(--accent-rgb),0.16)] text-accent-300 shadow-[inset_0_0_0_1px_rgba(var(--accent-rgb),0.3)]">
+                    <fg-icon name="target" [size]="11"></fg-icon>
+                    ¡Objetivo cumplido!
+                  </span>
+                }
                 @if (set.isPR) {
                   <fg-chip size="sm">PR</fg-chip>
                 }
@@ -118,6 +130,7 @@ import { FgIconComponent } from '@core/shared/ui';
           [exerciseId]="exercise.id"
           [targetSetIndex]="loggedSets.length"
           [prefillTarget]="nextTarget"
+          [progressionTarget]="progressionTargetStr()"
           (setLogged)="onSetLogged($event)"
         ></fg-set-logger>
       }
@@ -136,6 +149,16 @@ export class ExerciseSessionCardComponent {
   /** Whether the sets list is expanded. Default true for backward compat. */
   readonly expanded = input<boolean>(true);
 
+  /**
+   * Doble-progresión target object (slice 1 + 2).
+   * Null when no previous data or exercise type has no target.
+   * The card formats it into the set-logger string AND evaluates meetsTarget()
+   * per logged set to render the "¡Objetivo cumplido!" badge (slice 2).
+   */
+  readonly progressionTargetData = input<ProgressionTarget | null>(null);
+
+  private readonly progressionCalculator = inject(ProgressionTargetCalculator);
+
   @Output() setLogged = new EventEmitter<LogSetInput>();
 
   // ── Edit / remove past sets (slice 2) ──────────────────────────────────────
@@ -152,6 +175,28 @@ export class ExerciseSessionCardComponent {
 
   isPR(): boolean {
     return this.loggedSets.some((s) => s.isPR);
+  }
+
+  /**
+   * Formats the progression target object into the set-logger string
+   * "82.5kg × 8 (superá 80kg × 8)". Null when no target.
+   * Reads the progressionTargetData signal, so it re-evaluates per CD pass.
+   */
+  progressionTargetStr(): string | null {
+    const target = this.progressionTargetData();
+    if (!target) return null;
+    const goal = this.progressionCalculator.formatTarget(target);
+    const prev = this.progressionCalculator.formatPreviousBest(target.previousBest);
+    return `${goal} (superá ${prev})`;
+  }
+
+  /**
+   * True when a logged set meets/exceeds the progression target (slice 2).
+   * Plain method (NOT computed over @Input) so it re-evaluates on every CD pass
+   * and stays correct as loggedSets changes on a persistent (focused) card.
+   */
+  meetsTarget(set: WorkedSet): boolean {
+    return this.progressionCalculator.meetsTarget(set, this.progressionTargetData());
   }
 
   allDone(): boolean {

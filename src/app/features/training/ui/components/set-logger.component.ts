@@ -126,6 +126,12 @@ import { FgWheelPickerComponent } from '@core/shared/ui';
             <span class="tabular-nums">{{ lastSet() }}</span>
           </div>
         }
+        @if (progressionTarget() && !isEditing()) {
+          <div class="t-body-sm text-accent-400 mb-2.5 flex items-center gap-1.5">
+            <fg-icon name="target" [size]="12"></fg-icon>
+            <span class="tabular-nums">Objetivo: {{ progressionTarget() }}</span>
+          </div>
+        }
 
         @if (isEditing()) {
           <button fg-button
@@ -198,6 +204,12 @@ export class SetLoggerComponent implements OnInit {
   readonly state = input<'idle' | 'logged'>('idle');
   /** Additive prefill via TargetSet (CC-5: legacy prefillWeightKg/prefillReps remain as fallback). */
   readonly prefillTarget = input<TargetSet | null>(null);
+  /**
+   * Doble-progresión target string (slice 1).
+   * Format: "82.5kg × 8 (superá 80kg × 8)" — computed by training-session.page and passed down.
+   * Null → no target available (first time, or time/distance-time exercise).
+   */
+  readonly progressionTarget = input<string | null>(null);
 
   private readonly fb = inject(FormBuilder);
 

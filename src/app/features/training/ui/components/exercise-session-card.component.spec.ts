@@ -391,6 +391,144 @@ describe('ExerciseSessionCardComponent', () => {
     expect(fixture.componentInstance.editingSetId()).toBeNull();
   });
 
+  // ── PROGRESSION TARGET propagation (slice 1, refactored to object in slice 2) ─
+
+  const wrProgressionTarget = {
+    weightKg: 82.5,
+    reps: 8,
+    previousBest: { weightKg: 80, reps: 8 },
+  };
+
+  it('progressionTargetData object → formatted target text visible in set-logger', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', []);
+    fixture.componentRef.setInput('targetSets', [targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('progressionTargetData', wrProgressionTarget);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('82.5kg × 8');
+    expect(text).toContain('superá 80kg × 8');
+  });
+
+  it('progressionTargetData null — does not render objective text', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', []);
+    fixture.componentRef.setInput('targetSets', [targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('progressionTargetData', null);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).not.toContain('Objetivo');
+  });
+
+  // ── SLICE 2: "¡Objetivo cumplido!" badge per logged set ────────────────────
+
+  it('shows "¡Objetivo cumplido!" badge on a logged set that meets the target', () => {
+    // logged set: 100kg × 5 — target requires 82.5kg × 8. weight ok but reps short → NO badge.
+    // Use a set that clearly meets: 90kg × 10 vs target 82.5kg × 8.
+    const meetingSet: WorkedSet = {
+      id: 'ws-meet', sessionId: 's-1', exerciseId: 'ex-1', type: 'weight-reps',
+      reps: { value: 10 } as any, weight: { value: 90 } as any, isPR: false, createdAt: new Date('2026-01-01'),
+    };
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', [meetingSet]);
+    fixture.componentRef.setInput('targetSets', [targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('progressionTargetData', wrProgressionTarget);
+    fixture.componentRef.setInput('expanded', true);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('¡Objetivo cumplido!');
+  });
+
+  it('does NOT show the badge on a logged set that does not meet the target', () => {
+    // 80kg × 8 — target requires 82.5kg → weight short → no badge.
+    const shortSet: WorkedSet = {
+      id: 'ws-short', sessionId: 's-1', exerciseId: 'ex-1', type: 'weight-reps',
+      reps: { value: 8 } as any, weight: { value: 80 } as any, isPR: false, createdAt: new Date('2026-01-01'),
+    };
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', [shortSet]);
+    fixture.componentRef.setInput('targetSets', [targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('progressionTargetData', wrProgressionTarget);
+    fixture.componentRef.setInput('expanded', true);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).not.toContain('¡Objetivo cumplido!');
+  });
+
+  it('does NOT show the badge when progressionTargetData is null', () => {
+    const meetingSet: WorkedSet = {
+      id: 'ws-meet', sessionId: 's-1', exerciseId: 'ex-1', type: 'weight-reps',
+      reps: { value: 10 } as any, weight: { value: 90 } as any, isPR: false, createdAt: new Date('2026-01-01'),
+    };
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', [meetingSet]);
+    fixture.componentRef.setInput('targetSets', [targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('progressionTargetData', null);
+    fixture.componentRef.setInput('expanded', true);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).not.toContain('¡Objetivo cumplido!');
+  });
+
+  it('meetsTarget() plain method returns true for a meeting set and false otherwise', () => {
+    const meetingSet: WorkedSet = {
+      id: 'ws-meet', sessionId: 's-1', exerciseId: 'ex-1', type: 'weight-reps',
+      reps: { value: 10 } as any, weight: { value: 90 } as any, isPR: false, createdAt: new Date('2026-01-01'),
+    };
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', [meetingSet]);
+    fixture.componentRef.setInput('targetSets', [targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('progressionTargetData', wrProgressionTarget);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.meetsTarget(meetingSet)).toBe(true);
+    expect(fixture.componentInstance.meetsTarget(weightRepsSet)).toBe(false); // 100kg × 5 → reps short
+  });
+
+  it('badge reacts on a live card when loggedSets changes (no computed-over-Input staleness)', () => {
+    const shortSet: WorkedSet = {
+      id: 'ws-short', sessionId: 's-1', exerciseId: 'ex-1', type: 'weight-reps',
+      reps: { value: 8 } as any, weight: { value: 80 } as any, isPR: false, createdAt: new Date('2026-01-01'),
+    };
+    const meetingSet: WorkedSet = {
+      id: 'ws-meet', sessionId: 's-1', exerciseId: 'ex-1', type: 'weight-reps',
+      reps: { value: 10 } as any, weight: { value: 90 } as any, isPR: false, createdAt: new Date('2026-01-01'),
+    };
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', [shortSet]);
+    fixture.componentRef.setInput('targetSets', [targetSet, targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('progressionTargetData', wrProgressionTarget);
+    fixture.componentRef.setInput('expanded', true);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent ?? '').not.toContain('¡Objetivo cumplido!');
+
+    // Add a meeting set on the same live instance
+    fixture.componentRef.setInput('loggedSets', [shortSet, meetingSet]);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent ?? '').toContain('¡Objetivo cumplido!');
+  });
+
   it('cancelEdit cierra el editor sin emitir nada', () => {
     fixture = TestBed.createComponent(ExerciseSessionCardComponent);
     fixture.componentRef.setInput('exercise', mockExercise);

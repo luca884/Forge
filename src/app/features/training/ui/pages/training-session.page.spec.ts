@@ -29,6 +29,8 @@ import { CompleteSessionUseCase } from '../../domain/use-cases/complete-session.
 import { CancelSessionUseCase } from '../../domain/use-cases/cancel-session.use-case';
 import { EditWorkedSetUseCase } from '../../domain/use-cases/edit-worked-set.use-case';
 import { RemoveWorkedSetUseCase } from '../../domain/use-cases/remove-worked-set.use-case';
+import { GetProgressionTargetUseCase } from '../../domain/use-cases/get-progression-target.use-case';
+import { ProgressionTargetCalculator } from '../../domain/services/progression-target-calculator';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import type { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
 import type { WorkedSet } from '../../domain/worked-set';
@@ -257,6 +259,8 @@ describe('TrainingSessionPage', () => {
           { provide: CancelSessionUseCase, useValue: { execute: jest.fn() } },
           { provide: EditWorkedSetUseCase, useValue: { execute: jest.fn() } },
           { provide: RemoveWorkedSetUseCase, useValue: { execute: jest.fn() } },
+          { provide: GetProgressionTargetUseCase, useValue: { execute: jest.fn().mockResolvedValue(null) } },
+          ProgressionTargetCalculator,
         ],
       },
     });
@@ -435,6 +439,8 @@ describe('TrainingSessionPage', () => {
               { provide: CancelSessionUseCase, useValue: { execute: jest.fn() } },
               { provide: EditWorkedSetUseCase, useValue: { execute: jest.fn() } },
               { provide: RemoveWorkedSetUseCase, useValue: { execute: jest.fn() } },
+              { provide: GetProgressionTargetUseCase, useValue: { execute: jest.fn().mockResolvedValue(null) } },
+              ProgressionTargetCalculator,
             ],
           },
         })
@@ -549,6 +555,8 @@ describe('TrainingSessionPage', () => {
               { provide: CancelSessionUseCase, useValue: { execute: jest.fn() } },
               { provide: EditWorkedSetUseCase, useValue: { execute: jest.fn() } },
               { provide: RemoveWorkedSetUseCase, useValue: { execute: jest.fn() } },
+              { provide: GetProgressionTargetUseCase, useValue: { execute: jest.fn().mockResolvedValue(null) } },
+              ProgressionTargetCalculator,
             ],
           },
         })
@@ -623,6 +631,8 @@ describe('TrainingSessionPage', () => {
               { provide: CancelSessionUseCase, useValue: mockCancelUseCase },
               { provide: EditWorkedSetUseCase, useValue: { execute: jest.fn() } },
               { provide: RemoveWorkedSetUseCase, useValue: { execute: jest.fn() } },
+              { provide: GetProgressionTargetUseCase, useValue: { execute: jest.fn().mockResolvedValue(null) } },
+              ProgressionTargetCalculator,
             ],
           },
         })
@@ -690,6 +700,90 @@ describe('TrainingSessionPage', () => {
     });
   });
 
+  // ── Doble progresión (slice 1: mostrar objetivo) ──────────────────────────
+
+  describe('progression target wiring', () => {
+    let mockGetProgressionTarget: { execute: jest.Mock };
+
+    beforeEach(async () => {
+      mockGetProgressionTarget = { execute: jest.fn().mockResolvedValue(null) };
+
+      await TestBed.configureTestingModule({
+        imports: [TrainingSessionPage],
+        providers: [
+          { provide: UserPreferencesService, useValue: { unit: signal('kg'), loadOnce: jest.fn().mockResolvedValue(undefined) } },
+          { provide: TrainingSessionStore, useValue: {
+            activeSession: signal(makeSession()),
+            workedSets: signal([]),
+            setsByExercise: signal(new Map()),
+            loadActive: jest.fn().mockResolvedValue(undefined),
+            refreshSets: jest.fn().mockResolvedValue(undefined),
+            elapsedSeconds: signal(0),
+          }},
+          { provide: TrainingDayRepository, useValue: { getById: jest.fn().mockResolvedValue(null) } },
+          { provide: ExerciseRepository, useValue: { getAll: jest.fn().mockResolvedValue([]) } },
+          { provide: LogSetUseCase, useValue: { execute: jest.fn() } },
+          { provide: CompleteSessionUseCase, useValue: { execute: jest.fn() } },
+          { provide: Router, useValue: { navigate: jest.fn() } },
+          { provide: SessionRepository, useValue: { save: jest.fn(), addSetToSession: jest.fn(), getActive: jest.fn(), getById: jest.fn(), getSetsForSession: jest.fn().mockResolvedValue([]), getAllWorkedSetsForExercise: jest.fn().mockResolvedValue([]) } },
+          { provide: PersonalRecordDetector, useValue: { isPR: jest.fn().mockReturnValue(false) } },
+          { provide: EventBus, useValue: { publish: jest.fn(), subscribe: jest.fn(() => () => {}) } },
+          { provide: PersonalRecordRepository, useValue: { save: jest.fn(), getCurrentForExercise: jest.fn().mockResolvedValue(null), listAll: jest.fn().mockResolvedValue([]) } },
+          { provide: RestTimerService, useValue: { remaining: signal(null), start: jest.fn(), skip: jest.fn(), cancel: jest.fn(), setRestPlan: jest.fn() } },
+          { provide: NotificationPermissionService, useValue: { status: signal('default'), requestPermission: jest.fn() } },
+        ],
+      })
+        .overrideComponent(TrainingSessionPage, {
+          set: {
+            providers: [
+              { provide: LogSetUseCase, useValue: { execute: jest.fn() } },
+              { provide: CompleteSessionUseCase, useValue: { execute: jest.fn() } },
+              { provide: CancelSessionUseCase, useValue: { execute: jest.fn() } },
+              { provide: EditWorkedSetUseCase, useValue: { execute: jest.fn() } },
+              { provide: RemoveWorkedSetUseCase, useValue: { execute: jest.fn() } },
+              { provide: GetProgressionTargetUseCase, useValue: mockGetProgressionTarget },
+              ProgressionTargetCalculator,
+            ],
+          },
+        })
+        .compileComponents();
+    });
+
+    it('progressionTargetData signal starts as null', () => {
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      fixture.detectChanges();
+      expect(fixture.componentInstance.progressionTargetData()).toBeNull();
+    });
+
+    it('exposes progressionTargetData signal on the component', () => {
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      fixture.detectChanges();
+      expect(typeof fixture.componentInstance.progressionTargetData).toBe('function');
+    });
+
+    it('effect populates progressionTargetData with the use case result when an exercise is focused', async () => {
+      const exerciseId = 'ex-1';
+      const exercise = makeExercise(exerciseId, 'Sentadilla');
+      const exInDay = {
+        exerciseId,
+        targetSets: [{ type: 'weight-reps', reps: 8, weightKg: 70 }],
+      };
+      const targetObj = { weightKg: 82.5, reps: 8, previousBest: { weightKg: 80, reps: 8 } };
+      mockGetProgressionTarget.execute.mockResolvedValue(targetObj);
+
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      fixture.componentInstance.exercisesWithData.set([
+        { exercise: exercise as any, exerciseInDay: exInDay as any },
+      ]);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await Promise.resolve();
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.progressionTargetData()).toEqual(targetObj);
+    });
+  });
+
   // ── Editar / borrar sets pasados (slice 2) ─────────────────────────────────
 
   describe('editar/borrar sets pasados', () => {
@@ -733,6 +827,8 @@ describe('TrainingSessionPage', () => {
               { provide: CancelSessionUseCase, useValue: { execute: jest.fn() } },
               { provide: EditWorkedSetUseCase, useValue: mockEditUseCase },
               { provide: RemoveWorkedSetUseCase, useValue: mockRemoveUseCase },
+              { provide: GetProgressionTargetUseCase, useValue: { execute: jest.fn().mockResolvedValue(null) } },
+              ProgressionTargetCalculator,
             ],
           },
         })
