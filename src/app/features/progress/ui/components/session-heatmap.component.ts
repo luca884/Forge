@@ -5,7 +5,7 @@
  * Tooltip on hover/tap shows date + count. No navigation (OQ-spec-3).
  * CC-26: No injected repositories or use cases.
  *
- * R15: Uses rgba(var(--accent-rgb), alpha) for count>0 cells (no bg-green-*).
+ * R15: Uses rgb(var(--accent-rgb) / alpha) for count>0 cells (no bg-green-*).
  *      count=0 cells use ring-zero class (bg-forge-850 + inset ring).
  */
 import { Component, computed, input } from '@angular/core';
@@ -123,17 +123,17 @@ export class SessionHeatmapComponent {
   /**
    * Returns the inline background style for a cell.
    * count=0 → undefined (CSS .ring-zero class handles styling).
-   * count>0 → rgba(var(--accent-rgb), alpha) with alpha = 0.18 + (intensity * 0.82).
+   * count>0 → rgb(var(--accent-rgb) / alpha) with alpha = 0.18 + (intensity * 0.82).
    */
   cellBg(count: number): string | undefined {
     if (count === 0) return undefined;
     const intensity = count / this.maxCount();
     const alpha = 0.18 + intensity * 0.82;
-    return `rgba(var(--accent-rgb), ${alpha.toFixed(2)})`;
+    return `rgb(var(--accent-rgb) / ${alpha.toFixed(2)})`;
   }
 
   legendBg(alpha: number): string {
-    return `rgba(var(--accent-rgb), ${alpha})`;
+    return `rgb(var(--accent-rgb) / ${alpha})`;
   }
 
   tooltip(cell: HeatmapCell): string {

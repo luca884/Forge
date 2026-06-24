@@ -19,7 +19,7 @@ const KIND_MAP: Record<ToastKind, ToastKindStyle> = {
   success: {
     icon: 'check-circle',
     iconClass: 'text-accent-300',
-    ring: 'rgba(var(--accent-rgb),.32)',
+    ring: 'rgb(var(--accent-rgb) / .32)',
   },
   error: {
     icon: 'info',

@@ -56,14 +56,14 @@ describe('SessionHeatmapComponent', () => {
     });
   });
 
-  // ── R15: count>0 cells use rgba(var(--accent-rgb), ...) — verified via cellBg() method ──
+  // ── R15: count>0 cells use rgb(var(--accent-rgb) / ...) — verified via cellBg() method ──
   // NOTE: jsdom does not process CSS variables in inline styles — style.background and
   // getAttribute('style') both return empty/null for values containing var(...).
   // We verify the method output directly (unit-level) and check the DOM reflects count data.
-  it('cellBg(count>0) returns rgba(var(--accent-rgb),...) — method verified (R15)', () => {
+  it('cellBg(count>0) returns rgb(var(--accent-rgb) / ...) — method verified (R15)', () => {
     const result = component.cellBg(3);
     // Method returns the string that Angular binds to [style.background]
-    expect(result).toMatch(/rgba\(var\(--accent-rgb\)/);
+    expect(result).toMatch(/rgb\(var\(--accent-rgb\) \//);
   });
 
   it('count>0 cell does NOT have bg-green-* class (R15)', () => {
@@ -102,11 +102,11 @@ describe('SessionHeatmapComponent', () => {
     expect(legendSwatches.length).toBe(4);
   });
 
-  it('legendBg() returns rgba(var(--accent-rgb),...) for each alpha — method verified', () => {
+  it('legendBg() returns rgb(var(--accent-rgb) / ...) for each alpha — method verified', () => {
     // Verify the method output (what gets bound to [style.background])
     const alphas = [0.15, 0.4, 0.65, 1] as const;
     alphas.forEach(a => {
-      expect(component.legendBg(a)).toMatch(/rgba\(var\(--accent-rgb\)/);
+      expect(component.legendBg(a)).toMatch(/rgb\(var\(--accent-rgb\) \//);
     });
   });
 
@@ -147,15 +147,59 @@ describe('SessionHeatmapComponent', () => {
     expect(todayCell!.count).toBe(3);
   });
 
+  // ── Render verification: today's cell shows accent when heatmapData has it ──
+  it('today cell has accent background when heatmapData has count>0 for today', () => {
+    const today = new Date();
+    const todayKey = today.toLocaleDateString('en-CA');
+    const data = new Map([[todayKey, 1]]);
+    fixture.componentRef.setInput('heatmapData', data);
+    fixture.detectChanges();
+
+    // Today is always the last cell (cells are ordered oldest→newest)
+    const el = fixture.nativeElement as HTMLElement;
+    const cells = el.querySelectorAll<HTMLDivElement>('.heatmap__cell');
+    expect(cells.length).toBe(84);
+
+    const todayCellIndex = component.cells.findIndex(c => c.date === todayKey);
+    expect(todayCellIndex).toBeGreaterThanOrEqual(0);
+
+    // Verify via the component method (jsdom can't resolve CSS vars in inline styles)
+    const todayCell = component.cells[todayCellIndex]!;
+    expect(todayCell.count).toBe(1);
+    const bg = component.cellBg(todayCell.count);
+    expect(bg).toBeDefined();
+    expect(bg).toMatch(/rgb\(var\(--accent-rgb\) \//);
+
+    // The DOM cell should NOT have ring-zero class (ring-zero is only for count=0)
+    const domCell = cells[todayCellIndex] as HTMLDivElement;
+    expect(domCell.classList.contains('ring-zero')).toBe(false);
+  });
+
+  it('renders 84 cells total regardless of how many have data', () => {
+    const today = new Date();
+    const todayKey = today.toLocaleDateString('en-CA');
+    const data = new Map([[todayKey, 5]]);
+    fixture.componentRef.setInput('heatmapData', data);
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const cells = el.querySelectorAll<HTMLDivElement>('.heatmap__cell');
+    expect(cells.length).toBe(84);
+
+    // Empty cells (count=0) keep ring-zero — verify the first cell is empty and has ring-zero
+    const firstCell = cells[0] as HTMLDivElement;
+    expect(firstCell.classList.contains('ring-zero')).toBe(true);
+  });
+
   // ── cellBg method: alpha formula ─────────────────────────────────────────
   it('cellBg(0) returns undefined (no inline style for empty cells)', () => {
     expect(component.cellBg(0)).toBeUndefined();
   });
 
-  it('cellBg(count>0) returns rgba string with correct alpha formula', () => {
+  it('cellBg(count>0) returns rgb string with correct alpha formula', () => {
     // With heatmapData empty (maxCount=1), count=1 → intensity=1 → alpha=1.0
     const result = component.cellBg(1);
-    expect(result).toMatch(/rgba\(var\(--accent-rgb\), 1\.00\)/);
+    expect(result).toMatch(/rgb\(var\(--accent-rgb\) \/ 1\.00\)/);
   });
 
   it('cellBg uses relative intensity: low count → lower alpha', () => {
@@ -169,9 +213,9 @@ describe('SessionHeatmapComponent', () => {
 
     const lowCountResult = component.cellBg(1);
     const highCountResult = component.cellBg(3);
-    // Both should contain rgba(var(--accent-rgb),
-    expect(lowCountResult).toMatch(/rgba\(var\(--accent-rgb\)/);
-    expect(highCountResult).toMatch(/rgba\(var\(--accent-rgb\)/);
+    // Both should contain rgb(var(--accent-rgb) /
+    expect(lowCountResult).toMatch(/rgb\(var\(--accent-rgb\) \//);
+    expect(highCountResult).toMatch(/rgb\(var\(--accent-rgb\) \//);
     // High count should have higher alpha (closer to 1) than low count
     const extractAlpha = (s: string) => parseFloat(s.match(/[\d.]+\)$/)?.[0] ?? '0');
     expect(extractAlpha(highCountResult!)).toBeGreaterThan(extractAlpha(lowCountResult!));

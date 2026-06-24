@@ -72,7 +72,7 @@ interface PrRow {
         <!-- Volume hero -->
         <fg-card [padding]="20" class="relative overflow-hidden">
           <div class="absolute inset-0 pointer-events-none"
-               style="background: radial-gradient(80% 60% at 50% 0%, rgba(var(--accent-rgb),0.18), transparent 60%);">
+               style="background: radial-gradient(80% 60% at 50% 0%, rgb(var(--accent-rgb) / 0.18), transparent 60%);">
           </div>
           <div class="relative text-center">
             <div class="t-micro" style="color: var(--accent-text);">VOLUMEN TOTAL</div>
@@ -120,7 +120,7 @@ interface PrRow {
                 <div class="px-3.5 py-3 flex items-center gap-3"
                      [class.border-b]="!last">
                   <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                       style="background: rgba(var(--accent-rgb),0.12); box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb),0.3);">
+                       style="background: rgb(var(--accent-rgb) / 0.12); box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.3);">
                     <fg-icon name="flame" [size]="14" style="color: var(--accent-text);"></fg-icon>
                   </div>
                   <div class="flex-1 min-w-0">

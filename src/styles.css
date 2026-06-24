@@ -144,10 +144,10 @@
   --accent:        rgb(var(--accent-500));
   --accent-hover:  rgb(var(--accent-600));
   --accent-pressed:rgb(var(--accent-700));
-  --accent-soft:   rgba(var(--accent-500), 0.14);
-  --accent-soft-2: rgba(var(--accent-500), 0.22);
+  --accent-soft:   rgb(var(--accent-500) / 0.14);
+  --accent-soft-2: rgb(var(--accent-500) / 0.22);
   --accent-text:   rgb(var(--accent-300));
-  --accent-ring:   rgba(var(--accent-500), 0.55);
+  --accent-ring:   rgb(var(--accent-500) / 0.55);
 
   --elev-1: var(--elev-dark-1);
   --elev-2: var(--elev-dark-2);
@@ -172,10 +172,10 @@
   --accent:        rgb(var(--accent-600));
   --accent-hover:  rgb(var(--accent-700));
   --accent-pressed:rgb(var(--accent-700));
-  --accent-soft:   rgba(var(--accent-500), 0.12);
-  --accent-soft-2: rgba(var(--accent-500), 0.20);
+  --accent-soft:   rgb(var(--accent-500) / 0.12);
+  --accent-soft-2: rgb(var(--accent-500) / 0.20);
   --accent-text:   rgb(var(--accent-700));
-  --accent-ring:   rgba(var(--accent-600), 0.55);
+  --accent-ring:   rgb(var(--accent-600) / 0.55);
 
   --elev-1: var(--elev-light-1);
   --elev-2: var(--elev-light-2);

@@ -15,14 +15,14 @@ import { FgIconComponent } from '@core/shared/ui';
   template: `
     @if (visible && set) {
       <div class="bg-forge-850 rounded-[14px] p-4 relative overflow-hidden flex gap-3.5 items-center"
-           style="box-shadow: inset 0 0 0 1px rgba(var(--pr-warm-rgb), 0.4), 0 16px 40px rgba(var(--pr-warm-rgb), 0.15);">
+           style="box-shadow: inset 0 0 0 1px rgb(var(--pr-warm-rgb) / 0.4), 0 16px 40px rgb(var(--pr-warm-rgb) / 0.15);">
         <!-- Radial gradient overlay -->
         <div class="absolute inset-0 pointer-events-none"
-             style="background: radial-gradient(120% 80% at 0% 50%, rgba(var(--pr-warm-rgb), 0.2), transparent 65%);"></div>
+             style="background: radial-gradient(120% 80% at 0% 50%, rgb(var(--pr-warm-rgb) / 0.2), transparent 65%);"></div>
 
         <!-- Flame icon circle -->
         <div class="w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center relative"
-             style="background: var(--pr-warm); box-shadow: 0 0 24px rgba(var(--pr-warm-rgb), 0.45), inset 0 0 0 1px rgba(255,255,255,0.2);">
+             style="background: var(--pr-warm); box-shadow: 0 0 24px rgb(var(--pr-warm-rgb) / 0.45), inset 0 0 0 1px rgba(255,255,255,0.2);">
           <fg-icon name="flame" [size]="26" class="text-white"></fg-icon>
         </div>
 

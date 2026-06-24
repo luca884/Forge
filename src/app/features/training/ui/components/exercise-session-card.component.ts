@@ -95,7 +95,7 @@ import { FgIconComponent } from '@core/shared/ui';
                 </div>
                 @if (meetsTarget(set)) {
                   <span class="inline-flex items-center gap-1 px-2 h-6 rounded-full text-[11px] font-semibold tracking-[0.02em] flex-shrink-0
-                               bg-[rgba(var(--accent-rgb),0.16)] text-accent-300 shadow-[inset_0_0_0_1px_rgba(var(--accent-rgb),0.3)]">
+                               bg-[rgb(var(--accent-rgb)_/_0.16)] text-accent-300 shadow-[inset_0_0_0_1px_rgb(var(--accent-rgb)_/_0.3)]">
                     <fg-icon name="target" [size]="11"></fg-icon>
                     ¡Objetivo cumplido!
                   </span>

@@ -39,7 +39,7 @@ export class FgChipComponent {
       'inline-flex items-center gap-1.5 px-2.5 rounded-full font-semibold tracking-[0.02em] select-none',
       CHIP_SIZE_CLASSES[this.size()],
       this.active()
-        ? 'bg-[rgba(var(--accent-rgb),0.16)] text-[var(--accent-text)] shadow-[inset_0_0_0_1px_rgba(var(--accent-rgb),0.3)]'
+        ? 'bg-[rgb(var(--accent-rgb)_/_0.16)] text-[var(--accent-text)] shadow-[inset_0_0_0_1px_rgb(var(--accent-rgb)_/_0.3)]'
         : 'bg-forge-850 text-forge-300 shadow-[inset_0_0_0_1px_rgba(255,255,255,.05)]',
       'cursor-pointer',
     ].join(' '),
