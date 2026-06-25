@@ -11,17 +11,19 @@ test.describe('J12 — Crear ejercicio custom', () => {
     // List page title (raw <h1>)
     await expect(page.getByRole('heading', { name: 'Ejercicios' })).toBeVisible();
 
-    // Click "+ Nuevo ejercicio" link
-    await page.getByRole('link', { name: '+ Nuevo ejercicio' }).click();
+    // Open the new-exercise form via the page-header action button
+    // (rendered as <button aria-label="Nuevo ejercicio"> by fg-page-header).
+    await page.getByRole('button', { name: 'Nuevo ejercicio' }).click();
     await expect(page).toHaveURL(/\/exercises\/new$/);
 
     // Form title (raw <h1>)
     await expect(page.getByRole('heading', { name: 'Nuevo ejercicio' })).toBeVisible();
 
-    // Fill form fields
+    // Fill form fields. The <option> labels are translated to Spanish, but the
+    // [value] attributes keep the raw enum values, so select by value (positional string).
     await page.getByLabel('Nombre').fill('Mi ejercicio custom');
-    await page.getByLabel('Grupo muscular').selectOption({ label: 'legs' });
-    await page.getByLabel('Tipo de seguimiento').selectOption({ label: 'weight-reps' });
+    await page.getByLabel('Grupo muscular').selectOption('legs');
+    await page.getByLabel('Tipo de seguimiento').selectOption('weight-reps');
 
     // Submit form
     await page.getByRole('button', { name: 'Crear ejercicio' }).click();
