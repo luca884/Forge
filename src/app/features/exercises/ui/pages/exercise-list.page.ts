@@ -106,21 +106,18 @@ const MUSCLE_GROUPS: MuscleGroup[] = [
         </fg-empty-state>
       } @else {
         @for (exercise of exercises(); track exercise.id) {
-          <fg-card [padding]="14">
-            <div class="flex items-center gap-3.5 text-left">
-              <fg-exercise-thumbnail [name]="exercise.name" />
-              <div class="flex-1 min-w-0">
-                <div class="t-body text-forge-100 font-medium truncate">{{ exercise.name }}</div>
-                <div class="t-body-sm text-forge-500 mt-0.5">{{ muscleGroupLabel(exercise.muscleGroup) }}</div>
+          <a [routerLink]="['/exercises', exercise.id, 'edit']" class="block">
+            <fg-card [padding]="14">
+              <div class="flex items-center gap-3.5 text-left">
+                <fg-exercise-thumbnail [name]="exercise.name" />
+                <div class="flex-1 min-w-0">
+                  <div class="t-body text-forge-100 font-medium truncate">{{ exercise.name }}</div>
+                  <div class="t-body-sm text-forge-500 mt-0.5">{{ muscleGroupLabel(exercise.muscleGroup) }}</div>
+                </div>
+                <span class="t-body-sm text-accent-300 shrink-0">Editar</span>
               </div>
-              @if (exercise.isCustom) {
-                <a
-                  [routerLink]="['/exercises', exercise.id, 'edit']"
-                  class="t-body-sm text-accent-300 shrink-0"
-                >Editar</a>
-              }
-            </div>
-          </fg-card>
+            </fg-card>
+          </a>
         }
       }
     </div>

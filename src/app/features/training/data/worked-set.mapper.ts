@@ -44,7 +44,7 @@ export function workedSetFromRowParts(row: WorkedSetRowParts): WorkedSet {
     targetSetIndex: row.targetSetIndex,
     note: row.note,
     isPR: row.isPR,
-    createdAt: row.createdAt,
+    createdAt: new Date(row.createdAt),
   };
 
   const type = row.type as WorkedSet['type'];

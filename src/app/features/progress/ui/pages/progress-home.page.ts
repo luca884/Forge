@@ -10,10 +10,19 @@ import { Router } from '@angular/router';
 import { PersonalRecord } from '../../domain/entities/personal-record.entity';
 import { GetAllPersonalRecordsUseCase } from '../../domain/use-cases/get-all-personal-records.use-case';
 import { GetSessionHeatmapUseCase } from '../../domain/use-cases/get-session-heatmap.use-case';
+import { GetDashboardOverviewUseCase } from '../../domain/use-cases/get-dashboard-overview.use-case';
+import { GetWeeklyTrendUseCase } from '../../domain/use-cases/get-weekly-trend.use-case';
+import { GetExerciseProgressListUseCase } from '../../domain/use-cases/get-exercise-progress-list.use-case';
+import type { DashboardOverview } from '../../domain/models/dashboard-overview.model';
+import type { WeeklyTrendPoint } from '../../domain/models/weekly-trend-point.model';
+import type { ExerciseProgressEntry } from '../../domain/models/exercise-progress-entry.model';
 import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
 import { Exercise } from '@features/exercises/domain/exercise.entity';
 import { formatTrackingValue } from '../helpers/format-tracking-value';
 import { SessionHeatmapComponent } from '../components/session-heatmap.component';
+import { DashboardOverviewComponent } from '../components/dashboard-overview/dashboard-overview.component';
+import { WeeklyTrendChartComponent } from '../components/weekly-trend-chart/weekly-trend-chart.component';
+import { ExerciseProgressListComponent } from '../components/exercise-progress-list/exercise-progress-list.component';
 import {
   FgPageHeaderComponent,
   FgCardComponent,
@@ -29,6 +38,9 @@ import {
   standalone: true,
   imports: [
     SessionHeatmapComponent,
+    DashboardOverviewComponent,
+    WeeklyTrendChartComponent,
+    ExerciseProgressListComponent,
     FgPageHeaderComponent,
     FgCardComponent,
     FgSkeletonComponent,
@@ -38,6 +50,9 @@ import {
   providers: [
     GetAllPersonalRecordsUseCase,
     GetSessionHeatmapUseCase,
+    GetDashboardOverviewUseCase,
+    GetWeeklyTrendUseCase,
+    GetExerciseProgressListUseCase,
   ],
   template: `
     <fg-page-header
@@ -47,11 +62,17 @@ import {
     ></fg-page-header>
 
     <div class="px-4 pt-3 pb-6 flex flex-col gap-4">
+      <fg-dashboard-overview [overview]="overview()" [loading]="loading()"></fg-dashboard-overview>
+
       <!-- Heatmap card -->
       <fg-card>
         <div class="t-micro text-forge-500 mb-3">ÚLTIMAS 12 SEMANAS</div>
         <fg-session-heatmap [heatmapData]="heatmapData()"></fg-session-heatmap>
       </fg-card>
+
+      <fg-weekly-trend-chart [points]="weeklyTrend()"></fg-weekly-trend-chart>
+
+      <fg-exercise-progress-list [entries]="progressEntries()"></fg-exercise-progress-list>
 
       <!-- Stat cards (2-up grid) -->
       <div class="grid grid-cols-2 gap-3">
@@ -107,6 +128,9 @@ import {
 export class ProgressHomePage implements OnInit {
   private readonly getAllPRs = inject(GetAllPersonalRecordsUseCase);
   private readonly getSessionHeatmap = inject(GetSessionHeatmapUseCase);
+  private readonly getDashboardOverview = inject(GetDashboardOverviewUseCase);
+  private readonly getWeeklyTrend = inject(GetWeeklyTrendUseCase);
+  private readonly getExerciseProgressList = inject(GetExerciseProgressListUseCase);
   private readonly exerciseRepo = inject(ExerciseRepository);
   private readonly router = inject(Router);
   private readonly toast = inject(ToastService);
@@ -114,6 +138,9 @@ export class ProgressHomePage implements OnInit {
   readonly loading = signal(true);
   readonly allPRs = signal<PersonalRecord[]>([]);
   readonly heatmapData = signal<Map<string, number>>(new Map());
+  readonly overview = signal<DashboardOverview | null>(null);
+  readonly weeklyTrend = signal<WeeklyTrendPoint[]>([]);
+  readonly progressEntries = signal<ExerciseProgressEntry[]>([]);
   private readonly exerciseMap = signal<Map<string, Exercise>>(new Map());
 
   readonly recentPRs = computed(() => this.allPRs().slice(0, 5));
@@ -149,13 +176,19 @@ export class ProgressHomePage implements OnInit {
 
   private async init(): Promise<void> {
     try {
-      const [prs, heatmap, exercises] = await Promise.all([
+      const [prs, heatmap, exercises, overview, weeklyTrend, progressEntries] = await Promise.all([
         this.getAllPRs.execute(),
         this.getSessionHeatmap.execute(),
         this.exerciseRepo.getAll(),
+        this.getDashboardOverview.execute(),
+        this.getWeeklyTrend.execute(),
+        this.getExerciseProgressList.execute(),
       ]);
       this.allPRs.set(prs);
       this.heatmapData.set(heatmap);
+      this.overview.set(overview);
+      this.weeklyTrend.set(weeklyTrend);
+      this.progressEntries.set(progressEntries);
       const map = new Map<string, Exercise>(exercises.map((e) => [e.id, e]));
       this.exerciseMap.set(map);
     } catch {

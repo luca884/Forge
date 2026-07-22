@@ -328,6 +328,25 @@ describe('ExerciseListPage — empty state rendering (P3-4)', () => {
   });
 });
 
+describe('ExerciseListPage — editing', () => {
+  it('renders an edit link for a seeded exercise', async () => {
+    const mocks = buildModuleWithMocks({
+      getExecute: jest.fn().mockResolvedValue([
+        makeExercise({ id: 'seed-1', name: 'Sentadilla', isCustom: false }),
+      ]),
+    });
+    await setupTestBed(mocks);
+
+    const fixture = TestBed.createComponent(ExerciseListPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const editLink = fixture.nativeElement.querySelector('a[href="/exercises/seed-1/edit"]');
+    expect(editLink).not.toBeNull();
+  });
+});
+
 describe('ExerciseListPage — muscle-group chips rendered (P3-4)', () => {
   let fixture: ComponentFixture<ExerciseListPage>;
   let component: ExerciseListPage;

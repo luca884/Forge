@@ -39,6 +39,7 @@ const SIZE_TEXT: Record<InputSize, string> = {
           <span class="t-body-sm text-forge-400">{{ prefix() }}</span>
         }
         <input
+          [attr.id]="id()"
           [type]="type()"
           [placeholder]="placeholder() ?? ''"
           [attr.inputmode]="inputmode() ?? null"
@@ -72,6 +73,7 @@ export class FgInputComponent implements ControlValueAccessor {
   readonly tabularNums = input<boolean>(false);
   readonly placeholder = input<string | undefined>(undefined);
   readonly inputmode = input<InputMode | undefined>(undefined);
+  readonly id = input<string | undefined>(undefined);
 
   readonly value = signal<string>('');
   readonly isDisabled = signal<boolean>(false);

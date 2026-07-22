@@ -27,6 +27,13 @@ export abstract class SessionRepository {
   /** Returns all sessions, optionally filtered by startedAt >= fromDate. */
   abstract getAllSessions(fromDate?: Date): Promise<Session[]>;
 
+  /**
+   * Returns all worked sets with createdAt >= fromDate, ordered by createdAt ascending.
+   * Used by the progress dashboard's bulk date-windowed reads (12-week ceiling).
+   * Additive — does not affect existing contract.
+   */
+  abstract getWorkedSetsSince(fromDate: Date): Promise<WorkedSet[]>;
+
   /** Returns true if any worked set references the given exerciseId. P3-2. */
   abstract existsWorkedSetForExercise(exerciseId: string): Promise<boolean>;
 

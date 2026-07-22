@@ -375,6 +375,8 @@ export class TrainingSessionPage implements OnInit {
 
       const set = await this.logSetUseCase.execute(input);
 
+      this.focusNextIncompleteAfterLogging(input.exerciseId);
+
       if (set.isPR) {
         this.latestPrSet.set(set);
 
@@ -477,6 +479,24 @@ export class TrainingSessionPage implements OnInit {
   private firstIncompleteId(items: ExerciseWithData[]): string | null {
     const incomplete = items.find((i) => !this.isComplete(i));
     return (incomplete ?? items[0])?.exercise.id ?? null;
+  }
+
+  /** Advances only after focused exercise reaches its planned set count. */
+  private focusNextIncompleteAfterLogging(exerciseId: string): void {
+    if (this.focusedId() !== exerciseId) return;
+
+    const items = this.exercisesWithData();
+    const currentIndex = items.findIndex((item) => item.exercise.id === exerciseId);
+    const current = items[currentIndex];
+    if (!current) return;
+
+    const targetCount = current.exerciseInDay.targetSets.length;
+    const completedWithNewSet =
+      targetCount > 0 && this.loggedCountFor(current) + 1 >= targetCount;
+    if (!completedWithNewSet) return;
+
+    const next = items.slice(currentIndex + 1).find((item) => !this.isComplete(item));
+    if (next) this.focus(next.exercise.id);
   }
 
   /** Format the PR delta as a human-readable string. Returns null for first-ever PR. */

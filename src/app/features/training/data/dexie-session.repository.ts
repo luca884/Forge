@@ -79,6 +79,15 @@ export class DexieSessionRepository extends SessionRepository {
     return rows.map(toSession);
   }
 
+  async getWorkedSetsSince(fromDate: Date): Promise<WorkedSet[]> {
+    const fromTime = fromDate.getTime();
+    const rows = await this.db.workedSets.toArray();
+    return rows
+      .filter(r => new Date(r.createdAt).getTime() >= fromTime)
+      .map(toWorkedSet)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  }
+
   async existsWorkedSetForExercise(exerciseId: string): Promise<boolean> {
     return (await this.db.workedSets.where('exerciseId').equals(exerciseId).count()) > 0;
   }

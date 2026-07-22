@@ -376,6 +376,28 @@ describe('TrainingSessionPage', () => {
     expect(fixture.componentInstance.focusedItem()?.exercise.id).toBe(completedId);
   });
 
+  it('moves focus to the next incomplete exercise after logging its final target set', async () => {
+    const firstId = 'ex-first';
+    const nextId = 'ex-next';
+    const firstExercise = makeExercise(firstId, 'Press de banca');
+    const nextExercise = makeExercise(nextId, 'Remo con barra');
+    const firstInDay = makeExerciseInDay(firstId, 1);
+    const nextInDay = makeExerciseInDay(nextId, 1);
+
+    fixture = TestBed.createComponent(TrainingSessionPage);
+    fixture.componentInstance.exercisesWithData.set([
+      { exercise: firstExercise as any, exerciseInDay: firstInDay as any },
+      { exercise: nextExercise as any, exerciseInDay: nextInDay as any },
+    ]);
+    fixture.componentInstance.focus(firstId);
+    const page = fixture.componentInstance as unknown as {
+      focusNextIncompleteAfterLogging(exerciseId: string): void;
+    };
+    page.focusNextIncompleteAfterLogging(firstId);
+
+    expect(fixture.componentInstance.focusedItem()?.exercise.id).toBe(nextId);
+  });
+
   // --- D-1: CTA button text ---
 
   it('CTA button shows "Terminar sesión"', () => {

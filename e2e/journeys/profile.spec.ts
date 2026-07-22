@@ -32,12 +32,12 @@ test.describe('J13 — Editar perfil', () => {
     // Note: use locator('#name') instead of getByLabel('Nombre') to avoid ambiguity
     // — both @if branches have <label for="name">Nombre</label> and Playwright
     //   may match the wrong input during Angular's @if transition.
-    await expect(page.locator('#name')).toHaveValue('Luca');
+    await expect(page.locator('input#name')).toHaveValue('Luca');
 
     // Edit the name — triple-click to select all, then type
-    await page.locator('#name').click({ clickCount: 3 });
-    await page.locator('#name').pressSequentially('Luca M', { delay: 20 });
-    await expect(page.locator('#name')).toHaveValue('Luca M');
+    await page.locator('input#name').click({ clickCount: 3 });
+    await page.locator('input#name').pressSequentially('Luca M', { delay: 20 });
+    await expect(page.locator('input#name')).toHaveValue('Luca M');
 
     // Submit edit
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
@@ -48,6 +48,6 @@ test.describe('J13 — Editar perfil', () => {
     await page.waitForLoadState('networkidle');
 
     // Assert persisted value — use #name locator to avoid @if branch ambiguity
-    await expect(page.locator('#name')).toHaveValue('Luca M');
+    await expect(page.locator('input#name')).toHaveValue('Luca M');
   });
 });

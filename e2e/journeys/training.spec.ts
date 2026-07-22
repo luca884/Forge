@@ -97,7 +97,7 @@ test.describe('J7 — Start session + log one set', () => {
     // STEP 5: Click the day button — text is "Día 1 · A" (training-home.page.ts:177).
     const dayButton = page
       .locator('[data-days-list]')
-      .getByRole('button', { name: /Día 1.*A/ });
+      .getByRole('button', { name: 'Empezar sesión de Día 1' });
     await expect(dayButton).toBeVisible();
     await dayButton.click();
 
@@ -109,13 +109,7 @@ test.describe('J7 — Start session + log one set', () => {
     // Assert session counter starts at "0 de 1 sets" (training-session.page.ts:64).
     await expect(page.getByText(/0 de 1 sets/)).toBeVisible();
 
-    // STEP 8: Increment weight by 2.5 kg (domain Weight requires value > 0).
-    // Weight.tryFrom(0) fails, so we must set a positive value before submitting.
-    // Reps defaults to 0 which is valid per Reps.tryFrom (requires non-negative integer).
-    const incrementWeight = page.getByRole('button', { name: 'Aumentar peso' });
-    await expect(incrementWeight).toBeVisible();
-    await incrementWeight.click(); // sets weightKg = 2.5
-
+    // STEP 8: The logger pre-fills the routine target (60 kg × 5 reps).
     // Click "Loguear set".
     const logBtn = page.getByRole('button', { name: 'Loguear set' });
     await expect(logBtn).toBeVisible();
@@ -184,7 +178,7 @@ test.describe('J8 — Finalizar sesión y summary', () => {
     // STEP 3: Click the day button
     const dayButton = page
       .locator('[data-days-list]')
-      .getByRole('button', { name: /Día 1.*A/ });
+      .getByRole('button', { name: 'Empezar sesión de Día 1' });
     await expect(dayButton).toBeVisible();
     await dayButton.click();
 
@@ -192,12 +186,8 @@ test.describe('J8 — Finalizar sesión y summary', () => {
     await expect(page).toHaveURL(/\/training\/session$/);
     await page.waitForLoadState('networkidle');
 
-    // STEP 5: Increment weight so it is > 0 (Weight.tryFrom invariant)
-    const incrementWeight = page.getByRole('button', { name: 'Aumentar peso' });
-    await expect(incrementWeight).toBeVisible();
-    await incrementWeight.click();
-
-    // STEP 6: Log the set
+    // STEP 5: The logger pre-fills the routine target (60 kg × 5 reps).
+    // Log the set.
     const logBtn = page.getByRole('button', { name: 'Loguear set' });
     await expect(logBtn).toBeVisible();
     await logBtn.click();

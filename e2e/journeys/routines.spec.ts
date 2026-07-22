@@ -141,9 +141,9 @@ test.describe('J4 — Pick exercise (full UI)', () => {
     await page.getByRole('button', { name: /Agregar ejercicio/ }).click();
 
     await expect(page).toHaveURL(/\/routines\/r-1\/days\/d-1\/pick-exercise$/);
-    await expect(page.getByRole('button', { name: 'Elegir Sentadilla' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Elegir Press de banca' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Elegir Peso Muerto' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Seleccionar Sentadilla' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Seleccionar Press de banca' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Seleccionar Peso Muerto' })).toBeVisible();
   });
 
   test('J4.3 — elegir ejercicio → vuelve al editor → muestra nombre (no UUID)', async ({ page }) => {
@@ -166,7 +166,8 @@ test.describe('J4 — Pick exercise (full UI)', () => {
     await page.getByRole('button', { name: /Agregar ejercicio/ }).click();
     await expect(page).toHaveURL(/\/pick-exercise$/);
 
-    await page.getByRole('button', { name: 'Elegir Sentadilla' }).click();
+    await page.getByRole('button', { name: 'Seleccionar Sentadilla' }).click();
+    await page.getByRole('button', { name: 'Agregar 1 ejercicio' }).click();
 
     await expect(page).toHaveURL(/\/routines\/r-1\/days\/d-1$/);
     // Validates ADR-40: exerciseName from GetTrainingDayWithExercisesUseCase view-model, NOT UUID

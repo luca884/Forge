@@ -43,7 +43,7 @@ import {
             <h2 class="t-h3 text-forge-100">Configurá tu perfil</h2>
 
             <div class="flex flex-col gap-1.5">
-              <fg-input label="Nombre" placeholder="Tu nombre" formControlName="name"></fg-input>
+              <fg-input id="name" label="Nombre" placeholder="Tu nombre" formControlName="name"></fg-input>
               @if (profileForm.get('name')?.invalid && profileForm.get('name')?.touched) {
                 <span class="t-caption text-destructive">El nombre es requerido</span>
               }
@@ -77,7 +77,7 @@ import {
         <fg-card>
           <form [formGroup]="profileForm" (ngSubmit)="onSave()" class="flex flex-col gap-4">
             <div class="flex flex-col gap-1.5">
-              <fg-input label="Nombre" formControlName="name"></fg-input>
+              <fg-input id="name" label="Nombre" formControlName="name"></fg-input>
               @if (profileForm.get('name')?.invalid && profileForm.get('name')?.touched) {
                 <span class="t-caption text-destructive">El nombre es requerido</span>
               }

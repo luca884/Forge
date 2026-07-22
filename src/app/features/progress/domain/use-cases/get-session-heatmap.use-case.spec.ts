@@ -35,6 +35,7 @@ class StubSessionRepository extends SessionRepository {
     }
     return this.sessions;
   }
+  override async getWorkedSetsSince(_fromDate: Date): Promise<WorkedSet[]> { return []; }
   override async existsWorkedSetForExercise(_eId: string): Promise<boolean> { return false; }
   override async deleteSession(_sessionId: string): Promise<void> {}
   override async deleteSetsBySessionId(_sessionId: string): Promise<string[]> { return []; }

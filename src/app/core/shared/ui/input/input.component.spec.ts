@@ -8,11 +8,12 @@ import { FgInputComponent } from './input.component';
 @Component({
   standalone: true,
   imports: [ReactiveFormsModule, FgInputComponent],
-  template: `<fg-input [formControl]="ctrl" [label]="label" [helper]="helper" [error]="error"
+  template: `<fg-input [formControl]="ctrl" [id]="id" [label]="label" [helper]="helper" [error]="error"
     [prefix]="prefix" [suffix]="suffix" [tabularNums]="tabularNums" [size]="size" />`,
 })
 class HostComponent {
   ctrl = new FormControl('');
+  id: string | undefined = undefined;
   label: string | undefined = undefined;
   helper: string | undefined = undefined;
   error: string | undefined = undefined;
@@ -180,5 +181,10 @@ describe('FgInputComponent', () => {
       setup({ label: 'Peso corporal' });
       expect((hostFixture.nativeElement as HTMLElement).textContent).toContain('Peso corporal');
     });
+  });
+
+  it('passes id through to the native input', () => {
+    setup({ id: 'profile-name' });
+    expect(getInput().id).toBe('profile-name');
   });
 });

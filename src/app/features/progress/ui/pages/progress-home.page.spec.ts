@@ -54,6 +54,7 @@ const mockSessionRepo = {
   getAllWorkedSetsForExercise: jest.fn().mockResolvedValue([]),
   getLastWorkedSetForExercise: jest.fn().mockResolvedValue(null),
   getAllSessions: jest.fn().mockResolvedValue([]),
+  getWorkedSetsSince: jest.fn().mockResolvedValue([]),
 };
 
 describe('ProgressHomePage', () => {
@@ -142,6 +143,18 @@ describe('ProgressHomePage', () => {
     // heatmap should be inside a fg-card
     const card = heatmap?.closest('fg-card');
     expect(card).toBeTruthy();
+  });
+
+  it('renders dashboard overview, weekly trend and exercise progress sections', async () => {
+    await init();
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('fg-dashboard-overview')).toBeTruthy();
+    expect(el.querySelector('fg-weekly-trend-chart')).toBeTruthy();
+    expect(el.querySelector('fg-exercise-progress-list')).toBeTruthy();
+    expect(el.textContent).toContain('ÚLTIMOS 30 DÍAS');
+    expect(el.textContent).toContain('VOLUMEN SEMANAL');
+    expect(el.textContent).toContain('PROGRESO POR EJERCICIO');
   });
 
   // V-D2-Spec-5: renders 2 stat fg-card tiles with totalPRs() and prsThisWeek() values

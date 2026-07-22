@@ -4,7 +4,6 @@ import { ExerciseRepository } from '../exercise.repository';
 import { Exercise } from '../exercise.entity';
 import { ExerciseFilter } from '../exercise-filter';
 import { ExerciseNotFoundError } from '../errors/exercise-not-found.error';
-import { CannotEditBuiltInExerciseError } from '../errors/cannot-edit-built-in-exercise.error';
 import { DuplicateExerciseNameError } from '../errors/duplicate-exercise-name.error';
 
 class InMemoryExerciseRepository extends ExerciseRepository {
@@ -78,14 +77,13 @@ describe('EditCustomExerciseUseCase', () => {
     expect(repo.savedExercises[0]!.id).toBe('ex-1');
   });
 
-  it('should throw CannotEditBuiltInExerciseError for seed exercise (isCustom: false) (D-20/S2)', async () => {
+  it('should update exercise name for a seed exercise (isCustom: false)', async () => {
     repo.setExercises([makeExercise({ id: 'seed-1', name: 'Squat', isCustom: false })]);
 
-    await expect(
-      useCase.execute({ id: 'seed-1', name: 'Updated' }),
-    ).rejects.toThrow(CannotEditBuiltInExerciseError);
+    await useCase.execute({ id: 'seed-1', name: 'Sentadilla libre' });
 
-    expect(repo.savedExercises).toHaveLength(0);
+    expect(repo.savedExercises[0]!.name).toBe('Sentadilla libre');
+    expect(repo.savedExercises[0]!.isCustom).toBe(false);
   });
 
   it('should throw ExerciseNotFoundError when exercise not found (D-20/S3)', async () => {

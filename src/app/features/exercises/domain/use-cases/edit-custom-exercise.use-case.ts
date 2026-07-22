@@ -5,7 +5,6 @@ import { WeightUnit } from '@core/shared/domain/weight-unit';
 import { DuplicateExerciseNameError } from '../errors/duplicate-exercise-name.error';
 import { ExerciseNameRequiredError } from '../errors/exercise-name-required.error';
 import { ExerciseNotFoundError } from '../errors/exercise-not-found.error';
-import { CannotEditBuiltInExerciseError } from '../errors/cannot-edit-built-in-exercise.error';
 
 export interface EditCustomExerciseInput {
   id: string;
@@ -25,10 +24,6 @@ export class EditCustomExerciseUseCase {
 
     if (!existing) {
       throw new ExerciseNotFoundError(input.id);
-    }
-
-    if (!existing.isCustom) {
-      throw new CannotEditBuiltInExerciseError(input.id);
     }
 
     if (input.name !== undefined) {

@@ -3,7 +3,7 @@ import { DexieSessionRepository } from './dexie-session.repository';
 import { SessionRepository } from '../domain/session.repository';
 import { ForgeDatabaseService } from '@core/db/forge-database.service';
 import { Session } from '../domain/session.entity';
-import { WeightRepsSet, BodyweightRepsSet } from '../domain/worked-set';
+import { WeightRepsSet, BodyweightRepsSet, WorkedSet } from '../domain/worked-set';
 import { Reps } from '@core/shared/domain/value-objects/reps';
 import { Weight } from '@core/shared/domain/value-objects/weight';
 
@@ -254,5 +254,64 @@ describe('DexieSessionRepository', () => {
     await repo.save(makeSession());
     const ids = await repo.deleteSetsBySessionId('session-1');
     expect(ids).toHaveLength(0);
+  });
+
+  // Progress Dashboard — getWorkedSetsSince
+  it('getWorkedSetsSince() returns only sets at or after the cutoff, ordered by createdAt ASC', async () => {
+    await repo.save(makeSession({ id: 'session-old' }));
+    await repo.save(makeSession({ id: 'session-new' }));
+
+    const before = makeWeightRepsSet({ id: 'set-before', sessionId: 'session-old', createdAt: new Date('2024-06-14T23:59:59') });
+    const onCutoff = makeWeightRepsSet({ id: 'set-on', sessionId: 'session-old', createdAt: new Date('2024-06-15T00:00:00') });
+    const after = makeWeightRepsSet({ id: 'set-after', sessionId: 'session-new', createdAt: new Date('2024-06-16T10:00:00') });
+
+    await repo.addSetToSession('session-old', before);
+    await repo.addSetToSession('session-old', onCutoff);
+    await repo.addSetToSession('session-new', after);
+
+    const result = await repo.getWorkedSetsSince(new Date('2024-06-15T00:00:00'));
+
+    expect(result).toHaveLength(2);
+    expect(result.map(s => s.id)).toEqual(['set-on', 'set-after']);
+  });
+
+  it('getWorkedSetsSince() returns an empty array when no sets match the cutoff', async () => {
+    await repo.save(makeSession());
+    await repo.addSetToSession('session-1', makeWeightRepsSet({ id: 'set-1', createdAt: new Date('2024-01-15') }));
+
+    const result = await repo.getWorkedSetsSince(new Date('2025-01-01'));
+    expect(result).toHaveLength(0);
+  });
+
+  it('getWorkedSetsSince() returns all tracking types without filtering by type', async () => {
+    await repo.save(makeSession());
+
+    const weightSet = makeWeightRepsSet({ id: 'set-w', createdAt: new Date('2024-06-15') });
+    const bwSet: BodyweightRepsSet = {
+      id: 'set-bw', sessionId: 'session-1', exerciseId: 'ex-2',
+      isPR: false, createdAt: new Date('2024-06-15'),
+      type: 'bodyweight-reps', reps: new Reps(10), extraWeight: new Weight(20),
+    };
+    const timeSet: WorkedSet = {
+      id: 'set-time', sessionId: 'session-1', exerciseId: 'ex-3',
+      isPR: false, createdAt: new Date('2024-06-15'),
+      type: 'time', durationSec: 60,
+    };
+    const distanceSet: WorkedSet = {
+      id: 'set-dist', sessionId: 'session-1', exerciseId: 'ex-4',
+      isPR: false, createdAt: new Date('2024-06-15'),
+      type: 'distance-time', distanceKm: 5, durationSec: 1500,
+    };
+
+    await repo.addSetToSession('session-1', weightSet);
+    await repo.addSetToSession('session-1', bwSet);
+    await repo.addSetToSession('session-1', timeSet);
+    await repo.addSetToSession('session-1', distanceSet);
+
+    const result = await repo.getWorkedSetsSince(new Date('2024-06-15'));
+
+    expect(result).toHaveLength(4);
+    const types = result.map(s => s.type).sort();
+    expect(types).toEqual(['bodyweight-reps', 'distance-time', 'time', 'weight-reps']);
   });
 });

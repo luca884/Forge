@@ -78,6 +78,17 @@ test.describe('J9 — Progress home', () => {
         createdAt: daysAgo(7),
         updatedAt: daysAgo(7),
       },
+      {
+        id: 's-3',
+        routineId: 'rt-1',
+        dayId: 'day-1',
+        date: new Date(Date.now() - 35 * 86_400_000).toISOString().slice(0, 10),
+        startedAt: daysAgo(35),
+        endedAt: daysAgo(35),
+        status: 'completed',
+        createdAt: daysAgo(35),
+        updatedAt: daysAgo(35),
+      },
     ];
 
     const workedSets: SeedWorkedSet[] = [
@@ -100,6 +111,16 @@ test.describe('J9 — Progress home', () => {
         reps: 5,
         weightKg: 60,
         createdAt: daysAgo(7),
+      },
+      {
+        id: 'ws-3',
+        sessionId: 's-3',
+        exerciseId: 'ex-1',
+        type: 'weight-reps',
+        isPR: false,
+        reps: 5,
+        weightKg: 50,
+        createdAt: daysAgo(35),
       },
     ];
 
@@ -134,6 +155,12 @@ test.describe('J9 — Progress home', () => {
     // Heatmap section
     await expect(page.getByText('ÚLTIMAS 12 SEMANAS')).toBeVisible();
 
+    // Dashboard sections
+    await expect(page.getByText('ÚLTIMOS 30 DÍAS')).toBeVisible();
+    await expect(page.getByText('VOLUMEN SEMANAL')).toBeVisible();
+    await expect(page.getByText('PROGRESO POR EJERCICIO')).toBeVisible();
+    await expect(page.getByText('Mejora')).toBeVisible();
+
     // Stat cards
     await expect(page.getByText('PRs totales')).toBeVisible();
     await expect(page.getByText('PRs esta semana')).toBeVisible();
@@ -159,6 +186,12 @@ test.describe('J9 — Progress home', () => {
 
     // Stat cards still visible with 0 (don't disappear)
     await expect(page.getByText('PRs totales')).toBeVisible();
+
+    // Dashboard remains informative with no history.
+    await expect(page.getByText('ÚLTIMOS 30 DÍAS')).toBeVisible();
+    await expect(page.getByText('VOLUMEN SEMANAL')).toBeVisible();
+    await expect(page.getByText('PROGRESO POR EJERCICIO')).toBeVisible();
+    await expect(page.getByText('Todavía no hay progreso comparable')).toBeVisible();
   });
 });
 
