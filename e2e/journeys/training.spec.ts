@@ -1,8 +1,11 @@
 import { test, expect } from '../fixtures/db-reset';
 import {
+  daysAgo,
   seedExercises,
   seedRoutines,
+  seedSessions,
   seedTrainingDays,
+  seedWorkedSets,
   type SeedExercise,
   type SeedRoutine,
   type SeedTrainingDay,
@@ -212,5 +215,138 @@ test.describe('J8 — Finalizar sesión y summary', () => {
     // Bug #585 fix: exercise name must appear, not raw UUID
     await expect(page.getByText('Sentadilla').first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Guardar y cerrar' })).toBeVisible();
+  });
+});
+
+// ─── J13 — Prefill con lo hecho la última vez ─────────────────────────────────
+
+test.describe('J14 — Prefill con lo de la última vez', () => {
+  test('los inputs arrancan con los valores del mismo slot de la sesión anterior', async ({
+    page,
+  }) => {
+    // STEP 1: Boot Angular + Dexie
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    const now = new Date();
+    const lastWeek = daysAgo(7);
+
+    const exercise: SeedExercise = {
+      id: 'ex-1',
+      name: 'Press banca',
+      muscleGroup: 'chest',
+      trackingType: 'weight-reps',
+      isCustom: false,
+      createdAt: lastWeek,
+      updatedAt: lastWeek,
+    };
+
+    const routine: SeedRoutine = {
+      id: 'rt-1',
+      name: 'Rutina test',
+      isActive: true,
+      schedule: null,
+      createdAt: lastWeek,
+      updatedAt: lastWeek,
+    };
+
+    // Dos sets planificados: el plan dice 60 kg × 5, pero la semana pasada se
+    // hicieron 20 kg × 8 y 20 kg × 7 — esos son los valores que deben aparecer.
+    const day: SeedTrainingDay = {
+      id: 'day-1',
+      routineId: 'rt-1',
+      name: 'Día 1',
+      label: 'A',
+      exercises: [
+        {
+          exerciseId: 'ex-1',
+          order: 0,
+          targetSets: [
+            { type: 'weight-reps', reps: 5, weightKg: 60 },
+            { type: 'weight-reps', reps: 5, weightKg: 60 },
+          ],
+        },
+      ],
+      createdAt: lastWeek,
+      updatedAt: lastWeek,
+    };
+
+    await seedExercises(page, [exercise]);
+    await seedRoutines(page, [routine]);
+    await seedTrainingDays(page, [day]);
+
+    // STEP 2: Sesión de la semana pasada, ya completada, con sus dos sets.
+    await seedSessions(page, [
+      {
+        id: 'sess-prev',
+        routineId: 'rt-1',
+        dayId: 'day-1',
+        date: lastWeek.toLocaleDateString('en-CA'),
+        startedAt: lastWeek,
+        endedAt: lastWeek,
+        status: 'completed',
+        createdAt: lastWeek,
+        updatedAt: lastWeek,
+      },
+    ]);
+
+    await seedWorkedSets(page, [
+      {
+        id: 'ws-prev-0',
+        sessionId: 'sess-prev',
+        exerciseId: 'ex-1',
+        type: 'weight-reps',
+        targetSetIndex: 0,
+        reps: 8,
+        weightKg: 20,
+        isPR: false,
+        createdAt: lastWeek,
+      },
+      {
+        id: 'ws-prev-1',
+        sessionId: 'sess-prev',
+        exerciseId: 'ex-1',
+        type: 'weight-reps',
+        targetSetIndex: 1,
+        reps: 7,
+        weightKg: 20,
+        isPR: false,
+        createdAt: new Date(lastWeek.getTime() + 300_000),
+      },
+    ]);
+
+    // STEP 3: Empezar la sesión de hoy.
+    await page.goto('/training');
+    await page.waitForLoadState('networkidle');
+
+    const dayButton = page
+      .locator('[data-days-list]')
+      .getByRole('button', { name: 'Empezar sesión de Día 1' });
+    await expect(dayButton).toBeVisible();
+    await dayButton.click();
+
+    await expect(page).toHaveURL(/\/training\/session$/);
+    await page.waitForLoadState('networkidle');
+
+    // STEP 4: El objetivo de doble progresión ya no se muestra.
+    await expect(page.getByText(/superá/)).toHaveCount(0);
+
+    // STEP 5: Set 1 arranca con lo de la última vez (20 kg × 8), no con el plan (60 × 5).
+    const weightInput = page.getByLabel('Peso en kg');
+    await expect(weightInput).toHaveValue('20');
+    await expect(page.getByRole('option', { name: '8', exact: true })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+
+    // STEP 6: Al loguear, el slot 2 arranca con lo de la última vez en ese slot (20 kg × 7).
+    await page.getByRole('button', { name: 'Loguear set' }).click();
+    await expect(page.getByText(/1 de 2 sets/)).toBeVisible();
+
+    await expect(weightInput).toHaveValue('20');
+    await expect(page.getByRole('option', { name: '7', exact: true })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
   });
 });
