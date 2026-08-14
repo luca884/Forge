@@ -435,50 +435,146 @@ describe('SetLoggerComponent', () => {
     expect(fixture.componentInstance.form.controls.reps.value).toBe(5);
   });
 
-  // ── PROGRESSION TARGET (slice 1: objetivo de doble progresión) ───────────
+  // ── PREFILL CON LO DE LA ÚLTIMA VEZ (reemplaza el objetivo de doble progresión) ──
 
-  describe('progressionTarget input', () => {
-    it('does not render progression target section when input is null', () => {
+  describe('previousSet input', () => {
+    function makePrevWR(reps: number, weightKg: number): WorkedSet {
+      return {
+        id: `ws-prev-${weightKg}x${reps}`,
+        sessionId: 's-prev',
+        exerciseId: 'ex-1',
+        type: 'weight-reps',
+        reps: { value: reps } as never,
+        weight: { value: weightKg } as never,
+        isPR: false,
+        createdAt: new Date('2026-02-08'),
+      };
+    }
+
+    it('nunca renderiza el objetivo de doble progresión', () => {
       fixture.componentRef.setInput('sessionId', 's-1');
       fixture.componentRef.setInput('exerciseId', 'ex-1');
-      fixture.componentRef.setInput('progressionTarget', null);
+      fixture.componentRef.setInput('trackingType', 'weight-reps');
+      fixture.componentRef.setInput('previousSet', makePrevWR(8, 20));
       fixture.detectChanges();
 
       const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
       expect(text).not.toContain('Objetivo');
+      expect(text).not.toContain('superá');
     });
 
-    it('renders "Objetivo hoy:" with formatted goal when progressionTarget is provided', () => {
+    it('prellena peso y reps con lo hecho la última vez', () => {
       fixture.componentRef.setInput('sessionId', 's-1');
       fixture.componentRef.setInput('exerciseId', 'ex-1');
-      fixture.componentRef.setInput('progressionTarget', '82.5kg × 8 (superá 80kg × 8)');
+      fixture.componentRef.setInput('trackingType', 'weight-reps');
+      fixture.componentRef.setInput('previousSet', makePrevWR(8, 20));
       fixture.detectChanges();
 
-      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-      expect(text).toContain('Objetivo');
-      expect(text).toContain('82.5kg × 8');
+      expect(fixture.componentInstance.form.controls.weightKg.value).toBe(20);
+      expect(fixture.componentInstance.form.controls.reps.value).toBe(8);
     });
 
-    it('does not render progression target when in edit mode', () => {
+    it('previousSet tiene prioridad sobre el objetivo del plan (prefillTarget)', () => {
+      const target: TargetSet = { type: 'weight-reps', reps: 5, weightKg: 100 };
+      fixture.componentRef.setInput('sessionId', 's-1');
+      fixture.componentRef.setInput('exerciseId', 'ex-1');
+      fixture.componentRef.setInput('trackingType', 'weight-reps');
+      fixture.componentRef.setInput('prefillTarget', target);
+      fixture.componentRef.setInput('previousSet', makePrevWR(8, 20));
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.form.controls.weightKg.value).toBe(20);
+      expect(fixture.componentInstance.form.controls.reps.value).toBe(8);
+    });
+
+    it('sin previousSet mantiene el prefill del plan', () => {
+      const target: TargetSet = { type: 'weight-reps', reps: 5, weightKg: 100 };
+      fixture.componentRef.setInput('sessionId', 's-1');
+      fixture.componentRef.setInput('exerciseId', 'ex-1');
+      fixture.componentRef.setInput('trackingType', 'weight-reps');
+      fixture.componentRef.setInput('prefillTarget', target);
+      fixture.componentRef.setInput('previousSet', null);
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.form.controls.weightKg.value).toBe(100);
+      expect(fixture.componentInstance.form.controls.reps.value).toBe(5);
+    });
+
+    it('bodyweight-reps prellena reps y lastre desde previousSet', () => {
+      const prev: WorkedSet = {
+        id: 'ws-prev-bw',
+        sessionId: 's-prev',
+        exerciseId: 'ex-1',
+        type: 'bodyweight-reps',
+        reps: { value: 11 } as never,
+        extraWeight: { value: 5 } as never,
+        isPR: false,
+        createdAt: new Date('2026-02-08'),
+      };
+      fixture.componentRef.setInput('sessionId', 's-1');
+      fixture.componentRef.setInput('exerciseId', 'ex-1');
+      fixture.componentRef.setInput('trackingType', 'bodyweight-reps');
+      fixture.componentRef.setInput('previousSet', prev);
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.form.controls.reps.value).toBe(11);
+      expect(fixture.componentInstance.form.controls.extraWeightKg.value).toBe(5);
+    });
+
+    it('tras loguear, el form vuelve a los valores de la última vez', () => {
+      fixture.componentRef.setInput('sessionId', 's-1');
+      fixture.componentRef.setInput('exerciseId', 'ex-1');
+      fixture.componentRef.setInput('trackingType', 'weight-reps');
+      fixture.componentRef.setInput('previousSet', makePrevWR(8, 20));
+      fixture.detectChanges();
+
+      fixture.componentInstance.form.patchValue({ weightKg: 22.5, reps: 6 });
+      fixture.componentInstance.onSubmit();
+
+      expect(fixture.componentInstance.form.controls.weightKg.value).toBe(20);
+      expect(fixture.componentInstance.form.controls.reps.value).toBe(8);
+    });
+
+    it('al cambiar de slot/ejercicio reemplaza los valores tipeados por los de la última vez', () => {
+      fixture.componentRef.setInput('sessionId', 's-1');
+      fixture.componentRef.setInput('exerciseId', 'ex-1');
+      fixture.componentRef.setInput('trackingType', 'weight-reps');
+      fixture.componentRef.setInput('previousSet', makePrevWR(8, 20));
+      fixture.detectChanges();
+
+      // el usuario tipea algo y no lo loguea
+      fixture.componentInstance.form.patchValue({ weightKg: 35, reps: 3 });
+      fixture.componentInstance.form.markAsDirty();
+      fixture.detectChanges();
+
+      // cambia el slot (o el ejercicio enfocado)
+      fixture.componentRef.setInput('previousSet', makePrevWR(6, 17.5));
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.form.controls.weightKg.value).toBe(17.5);
+      expect(fixture.componentInstance.form.controls.reps.value).toBe(6);
+    });
+
+    it('en modo edición ignora previousSet y usa el set editado', () => {
       const editingSet: WorkedSet = {
         id: 'ws-edit',
         sessionId: 's-1',
         exerciseId: 'ex-1',
         type: 'weight-reps',
-        reps: { value: 8 } as never,
-        weight: { value: 80 } as never,
+        reps: { value: 12 } as never,
+        weight: { value: 45 } as never,
         isPR: false,
-        createdAt: new Date('2026-01-01'),
+        createdAt: new Date('2026-02-15'),
       };
       fixture.componentRef.setInput('sessionId', 's-1');
       fixture.componentRef.setInput('exerciseId', 'ex-1');
       fixture.componentRef.setInput('trackingType', 'weight-reps');
+      fixture.componentRef.setInput('previousSet', makePrevWR(8, 20));
       fixture.componentRef.setInput('editSet', editingSet);
-      fixture.componentRef.setInput('progressionTarget', '82.5kg × 8 (superá 80kg × 8)');
       fixture.detectChanges();
 
-      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-      expect(text).not.toContain('Objetivo');
+      expect(fixture.componentInstance.form.controls.weightKg.value).toBe(45);
+      expect(fixture.componentInstance.form.controls.reps.value).toBe(12);
     });
   });
 

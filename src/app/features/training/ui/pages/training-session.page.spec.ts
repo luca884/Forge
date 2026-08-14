@@ -30,6 +30,7 @@ import { CancelSessionUseCase } from '../../domain/use-cases/cancel-session.use-
 import { EditWorkedSetUseCase } from '../../domain/use-cases/edit-worked-set.use-case';
 import { RemoveWorkedSetUseCase } from '../../domain/use-cases/remove-worked-set.use-case';
 import { GetProgressionTargetUseCase } from '../../domain/use-cases/get-progression-target.use-case';
+import { GetPreviousSessionSetsUseCase } from '../../domain/use-cases/get-previous-session-sets.use-case';
 import { ProgressionTargetCalculator } from '../../domain/services/progression-target-calculator';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import type { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
@@ -260,6 +261,7 @@ describe('TrainingSessionPage', () => {
           { provide: EditWorkedSetUseCase, useValue: { execute: jest.fn() } },
           { provide: RemoveWorkedSetUseCase, useValue: { execute: jest.fn() } },
           { provide: GetProgressionTargetUseCase, useValue: { execute: jest.fn().mockResolvedValue(null) } },
+          { provide: GetPreviousSessionSetsUseCase, useValue: { execute: jest.fn().mockResolvedValue([]) } },
           ProgressionTargetCalculator,
         ],
       },
@@ -462,6 +464,7 @@ describe('TrainingSessionPage', () => {
               { provide: EditWorkedSetUseCase, useValue: { execute: jest.fn() } },
               { provide: RemoveWorkedSetUseCase, useValue: { execute: jest.fn() } },
               { provide: GetProgressionTargetUseCase, useValue: { execute: jest.fn().mockResolvedValue(null) } },
+              { provide: GetPreviousSessionSetsUseCase, useValue: { execute: jest.fn().mockResolvedValue([]) } },
               ProgressionTargetCalculator,
             ],
           },
@@ -578,6 +581,7 @@ describe('TrainingSessionPage', () => {
               { provide: EditWorkedSetUseCase, useValue: { execute: jest.fn() } },
               { provide: RemoveWorkedSetUseCase, useValue: { execute: jest.fn() } },
               { provide: GetProgressionTargetUseCase, useValue: { execute: jest.fn().mockResolvedValue(null) } },
+              { provide: GetPreviousSessionSetsUseCase, useValue: { execute: jest.fn().mockResolvedValue([]) } },
               ProgressionTargetCalculator,
             ],
           },
@@ -654,6 +658,7 @@ describe('TrainingSessionPage', () => {
               { provide: EditWorkedSetUseCase, useValue: { execute: jest.fn() } },
               { provide: RemoveWorkedSetUseCase, useValue: { execute: jest.fn() } },
               { provide: GetProgressionTargetUseCase, useValue: { execute: jest.fn().mockResolvedValue(null) } },
+              { provide: GetPreviousSessionSetsUseCase, useValue: { execute: jest.fn().mockResolvedValue([]) } },
               ProgressionTargetCalculator,
             ],
           },
@@ -764,6 +769,7 @@ describe('TrainingSessionPage', () => {
               { provide: EditWorkedSetUseCase, useValue: { execute: jest.fn() } },
               { provide: RemoveWorkedSetUseCase, useValue: { execute: jest.fn() } },
               { provide: GetProgressionTargetUseCase, useValue: mockGetProgressionTarget },
+              { provide: GetPreviousSessionSetsUseCase, useValue: { execute: jest.fn().mockResolvedValue([]) } },
               ProgressionTargetCalculator,
             ],
           },
@@ -803,6 +809,92 @@ describe('TrainingSessionPage', () => {
       fixture.detectChanges();
 
       expect(fixture.componentInstance.progressionTargetData()).toEqual(targetObj);
+    });
+  });
+
+  // ── Prefill con lo hecho la última vez ─────────────────────────────────────
+
+  describe('previous session sets wiring', () => {
+    let mockGetPreviousSets: { execute: jest.Mock };
+
+    beforeEach(async () => {
+      mockGetPreviousSets = { execute: jest.fn().mockResolvedValue([]) };
+
+      await TestBed.configureTestingModule({
+        imports: [TrainingSessionPage],
+        providers: [
+          { provide: UserPreferencesService, useValue: { unit: signal('kg'), loadOnce: jest.fn().mockResolvedValue(undefined) } },
+          { provide: TrainingSessionStore, useValue: {
+            activeSession: signal(makeSession()),
+            workedSets: signal([]),
+            setsByExercise: signal(new Map()),
+            loadActive: jest.fn().mockResolvedValue(undefined),
+            refreshSets: jest.fn().mockResolvedValue(undefined),
+            elapsedSeconds: signal(0),
+          }},
+          { provide: TrainingDayRepository, useValue: { getById: jest.fn().mockResolvedValue(null) } },
+          { provide: ExerciseRepository, useValue: { getAll: jest.fn().mockResolvedValue([]) } },
+          { provide: LogSetUseCase, useValue: { execute: jest.fn() } },
+          { provide: CompleteSessionUseCase, useValue: { execute: jest.fn() } },
+          { provide: Router, useValue: { navigate: jest.fn() } },
+          { provide: SessionRepository, useValue: { save: jest.fn(), addSetToSession: jest.fn(), getActive: jest.fn(), getById: jest.fn(), getSetsForSession: jest.fn().mockResolvedValue([]), getAllWorkedSetsForExercise: jest.fn().mockResolvedValue([]) } },
+          { provide: PersonalRecordDetector, useValue: { isPR: jest.fn().mockReturnValue(false) } },
+          { provide: EventBus, useValue: { publish: jest.fn(), subscribe: jest.fn(() => () => {}) } },
+          { provide: PersonalRecordRepository, useValue: { save: jest.fn(), getCurrentForExercise: jest.fn().mockResolvedValue(null), listAll: jest.fn().mockResolvedValue([]) } },
+          { provide: RestTimerService, useValue: { remaining: signal(null), start: jest.fn(), skip: jest.fn(), cancel: jest.fn(), setRestPlan: jest.fn() } },
+          { provide: NotificationPermissionService, useValue: { status: signal('default'), requestPermission: jest.fn() } },
+        ],
+      })
+        .overrideComponent(TrainingSessionPage, {
+          set: {
+            providers: [
+              { provide: LogSetUseCase, useValue: { execute: jest.fn() } },
+              { provide: CompleteSessionUseCase, useValue: { execute: jest.fn() } },
+              { provide: CancelSessionUseCase, useValue: { execute: jest.fn() } },
+              { provide: EditWorkedSetUseCase, useValue: { execute: jest.fn() } },
+              { provide: RemoveWorkedSetUseCase, useValue: { execute: jest.fn() } },
+              { provide: GetProgressionTargetUseCase, useValue: { execute: jest.fn().mockResolvedValue(null) } },
+              { provide: GetPreviousSessionSetsUseCase, useValue: mockGetPreviousSets },
+              ProgressionTargetCalculator,
+            ],
+          },
+        })
+        .compileComponents();
+    });
+
+    it('previousSessionSets signal starts empty', () => {
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      fixture.detectChanges();
+      expect(fixture.componentInstance.previousSessionSets()).toEqual([]);
+    });
+
+    it('effect populates previousSessionSets with the use case result when an exercise is focused', async () => {
+      const exerciseId = 'ex-1';
+      const exercise = makeExercise(exerciseId, 'Sentadilla');
+      const exInDay = {
+        exerciseId,
+        targetSets: [{ type: 'weight-reps', reps: 8, weightKg: 70 }],
+      };
+      const previousSets = [
+        {
+          id: 'p-0', sessionId: 's-prev', exerciseId, targetSetIndex: 0,
+          type: 'weight-reps', reps: { value: 8 }, weight: { value: 20 },
+          isPR: false, createdAt: new Date('2026-02-08'),
+        },
+      ];
+      mockGetPreviousSets.execute.mockResolvedValue(previousSets);
+
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      fixture.componentInstance.exercisesWithData.set([
+        { exercise: exercise as any, exerciseInDay: exInDay as any },
+      ]);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await Promise.resolve();
+      fixture.detectChanges();
+
+      expect(mockGetPreviousSets.execute).toHaveBeenCalledWith(exerciseId, 'session-1');
+      expect(fixture.componentInstance.previousSessionSets()).toEqual(previousSets);
     });
   });
 
@@ -850,6 +942,7 @@ describe('TrainingSessionPage', () => {
               { provide: EditWorkedSetUseCase, useValue: mockEditUseCase },
               { provide: RemoveWorkedSetUseCase, useValue: mockRemoveUseCase },
               { provide: GetProgressionTargetUseCase, useValue: { execute: jest.fn().mockResolvedValue(null) } },
+              { provide: GetPreviousSessionSetsUseCase, useValue: { execute: jest.fn().mockResolvedValue([]) } },
               ProgressionTargetCalculator,
             ],
           },

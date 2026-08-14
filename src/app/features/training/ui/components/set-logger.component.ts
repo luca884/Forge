@@ -54,7 +54,7 @@ import { FgWheelPickerComponent } from '@core/shared/ui';
           @if (isEditing()) {
             <span class="t-micro text-accent-300">EDITAR SET</span>
           } @else {
-            <span class="t-micro text-forge-400">SET {{ setNumber() !== null ? setNumber() : '' }} · OBJETIVO</span>
+            <span class="t-micro text-forge-400">SET {{ setNumber() !== null ? setNumber() : '' }}</span>
             <span class="t-caption text-forge-300 tabular-nums">{{ targetLabel() }}</span>
           }
         </header>
@@ -135,13 +135,6 @@ import { FgWheelPickerComponent } from '@core/shared/ui';
             <span class="tabular-nums">{{ lastSet() }}</span>
           </div>
         }
-        @if (progressionTarget() && !isEditing()) {
-          <div class="t-body-sm text-accent-400 mb-2.5 flex items-center gap-1.5">
-            <fg-icon name="target" [size]="12"></fg-icon>
-            <span class="tabular-nums">Objetivo: {{ progressionTarget() }}</span>
-          </div>
-        }
-
         @if (isEditing()) {
           <button fg-button
                   type="submit"
@@ -214,11 +207,12 @@ export class SetLoggerComponent implements OnInit {
   /** Additive prefill via TargetSet (CC-5: legacy prefillWeightKg/prefillReps remain as fallback). */
   readonly prefillTarget = input<TargetSet | null>(null);
   /**
-   * Doble-progresión target string (slice 1).
-   * Format: "82.5kg × 8 (superá 80kg × 8)" — computed by training-session.page and passed down.
-   * Null → no target available (first time, or time/distance-time exercise).
+   * Set logged in this same slot the last time the exercise was trained.
+   * Takes precedence over prefillTarget: the inputs show what was actually done
+   * last time, so the user only edits the numbers they want to change.
+   * Null → no history for this slot, fall back to the routine plan target.
    */
-  readonly progressionTarget = input<string | null>(null);
+  readonly previousSet = input<WorkedSet | null>(null);
 
   /**
    * Unit of measurement for weight-reps exercises (Slice A — plates feature).
@@ -230,6 +224,9 @@ export class SetLoggerComponent implements OnInit {
 
   private readonly fb = inject(FormBuilder);
 
+  /** Id of the previousSet whose values are currently in the form — detects slot changes. */
+  private appliedPreviousSetId: string | null = null;
+
   readonly form = this.fb.group({
     reps: [0, [Validators.min(0)]],
     weightKg: [0, [Validators.min(0.1)]],
@@ -240,12 +237,27 @@ export class SetLoggerComponent implements OnInit {
   });
 
   constructor() {
-    // Prefill from a target (logging mode) — skipped while editing an existing set.
+    // Prefill (logging mode): last time's set when available, else the plan
+    // target. Skipped while editing an existing set.
+    //
+    // A NEW previousSet means the user moved to another set slot or another
+    // exercise, so whatever was typed for the previous slot must not leak into
+    // this one — the form is reset outright. A plain prefillTarget change keeps
+    // the historical guard: a dirty form is never overwritten.
     effect(() => {
-      const target = this.prefillTarget();
+      const previousSetId = this.previousSet()?.id ?? null;
+      const patch = this.prefillPatch();
       if (this.editSet()) return;
+
+      const slotChanged = previousSetId !== this.appliedPreviousSetId;
+      this.appliedPreviousSetId = previousSetId;
+
+      if (slotChanged && previousSetId !== null) {
+        this.form.reset({ ...this.defaultFormValue(), ...patch });
+        return;
+      }
       if (this.form.pristine) {
-        this.form.patchValue(this.targetFormPatch(target));
+        this.form.patchValue(patch);
       }
     });
 
@@ -253,7 +265,7 @@ export class SetLoggerComponent implements OnInit {
     effect(() => {
       const set = this.editSet();
       if (set && this.form.pristine) {
-        this.form.patchValue(this.editFormPatch(set));
+        this.form.patchValue(this.setFormPatch(set));
       }
     });
   }
@@ -272,8 +284,8 @@ export class SetLoggerComponent implements OnInit {
     }
 
     // Legacy fallback: prefillWeightKg / prefillReps (CC-5 contract).
-    // Only applied when no prefillTarget is set (target takes precedence).
-    if (this.prefillTarget() === null) {
+    // Only applied when neither previousSet nor prefillTarget is set.
+    if (this.prefillTarget() === null && this.previousSet() === null) {
       if (this.prefillWeightKg !== undefined) {
         this.form.patchValue({ weightKg: this.prefillWeightKg });
       }
@@ -342,8 +354,8 @@ export class SetLoggerComponent implements OnInit {
     this.editCancelled.emit();
   }
 
-  /** Maps an existing WorkedSet to the form values for edit-mode prefill. */
-  private editFormPatch(set: WorkedSet): Partial<{
+  /** Maps a WorkedSet to form values — used for edit mode and last-time prefill. */
+  private setFormPatch(set: WorkedSet): Partial<{
     reps: number;
     weightKg: number;
     extraWeightKg: number | null;
@@ -362,7 +374,23 @@ export class SetLoggerComponent implements OnInit {
     }
   }
 
-  /** Returns form reset values derived from prefillTarget (or legacy scalars, or 0). */
+  /**
+   * Values the inputs start with: what was done in this slot last time when
+   * there is history, otherwise the routine plan target.
+   */
+  private prefillPatch(): Partial<{
+    reps: number;
+    weightKg: number;
+    extraWeightKg: number | null;
+    durationSec: number;
+    distanceKm: number;
+  }> {
+    const previous = this.previousSet();
+    if (previous) return this.setFormPatch(previous);
+    return this.targetFormPatch(this.prefillTarget());
+  }
+
+  /** Returns form reset values derived from the prefill source (or legacy scalars, or 0). */
   private defaultFormValue(): {
     reps: number;
     weightKg: number;
@@ -371,13 +399,13 @@ export class SetLoggerComponent implements OnInit {
     distanceKm: number;
     note: string;
   } {
-    const patch = this.targetFormPatch(this.prefillTarget());
+    const patch = this.prefillPatch();
     return {
       reps: patch.reps ?? this.prefillReps ?? 0,
       weightKg: patch.weightKg ?? this.prefillWeightKg ?? 0,
       extraWeightKg: patch.extraWeightKg ?? null,
-      durationSec: 0,
-      distanceKm: 0,
+      durationSec: patch.durationSec ?? 0,
+      distanceKm: patch.distanceKm ?? 0,
       note: '',
     };
   }

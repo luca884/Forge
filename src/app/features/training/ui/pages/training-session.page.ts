@@ -11,6 +11,7 @@ import { CancelSessionUseCase } from '../../domain/use-cases/cancel-session.use-
 import { EditWorkedSetUseCase } from '../../domain/use-cases/edit-worked-set.use-case';
 import { RemoveWorkedSetUseCase } from '../../domain/use-cases/remove-worked-set.use-case';
 import { GetProgressionTargetUseCase } from '../../domain/use-cases/get-progression-target.use-case';
+import { GetPreviousSessionSetsUseCase } from '../../domain/use-cases/get-previous-session-sets.use-case';
 import {
   ProgressionTargetCalculator,
   ProgressionTarget,
@@ -67,6 +68,7 @@ function formatHMS(totalSeconds: number): string {
     EditWorkedSetUseCase,
     RemoveWorkedSetUseCase,
     GetProgressionTargetUseCase,
+    GetPreviousSessionSetsUseCase,
     ProgressionTargetCalculator,
   ],
   template: `
@@ -167,6 +169,7 @@ function formatHMS(totalSeconds: number): string {
                 [unit]="unit()"
                 [expanded]="true"
                 [progressionTargetData]="progressionTargetData()"
+                [previousSessionSets]="previousSessionSets()"
                 (setLogged)="onSetLogged($event)"
                 (setEdited)="onWorkedSetEdited($event)"
                 (setRemoved)="onWorkedSetRemoved($event)">
@@ -224,6 +227,7 @@ export class TrainingSessionPage implements OnInit {
   private readonly editWorkedSetUseCase = inject(EditWorkedSetUseCase);
   private readonly removeWorkedSetUseCase = inject(RemoveWorkedSetUseCase);
   private readonly getProgressionTargetUseCase = inject(GetProgressionTargetUseCase);
+  private readonly getPreviousSessionSetsUseCase = inject(GetPreviousSessionSetsUseCase);
   private readonly router = inject(Router);
   private readonly userPrefs = inject(UserPreferencesService);
   private readonly prRepo = inject(PersonalRecordRepository);
@@ -266,6 +270,12 @@ export class TrainingSessionPage implements OnInit {
    */
   readonly progressionTargetData = signal<ProgressionTarget | null>(null);
 
+  /**
+   * Sets logged for the focused exercise in its previous session, ordered by slot.
+   * The card uses them to prefill each set input with what was done last time.
+   */
+  readonly previousSessionSets = signal<readonly WorkedSet[]>([]);
+
   /** Total logged sets across all exercises in this session. */
   readonly totalLoggedCount = computed(() => this.store.workedSets().length);
 
@@ -294,8 +304,17 @@ export class TrainingSessionPage implements OnInit {
       const session = this.store.activeSession();
       if (!item || !session) {
         this.progressionTargetData.set(null);
+        this.previousSessionSets.set([]);
         return;
       }
+
+      // Last time's sets for this exercise — prefill source for the logger inputs.
+      void this.getPreviousSessionSetsUseCase
+        .execute(item.exercise.id, session.id)
+        .then((sets) => {
+          this.previousSessionSets.set(sets);
+        });
+
       const trackingType = item.exercise.trackingType;
       const firstTarget = item.exerciseInDay.targetSets[0];
       const targetReps =

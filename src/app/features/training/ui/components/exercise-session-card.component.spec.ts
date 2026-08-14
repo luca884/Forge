@@ -400,7 +400,7 @@ describe('ExerciseSessionCardComponent', () => {
     previousBest: { weightKg: 80, reps: 8 },
   };
 
-  it('progressionTargetData object → formatted target text visible in set-logger', () => {
+  it('no renderiza el objetivo de doble progresión aunque haya progressionTargetData', () => {
     fixture = TestBed.createComponent(ExerciseSessionCardComponent);
     fixture.componentRef.setInput('exercise', mockExercise);
     fixture.componentRef.setInput('loggedSets', []);
@@ -410,48 +410,104 @@ describe('ExerciseSessionCardComponent', () => {
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('82.5kg × 8');
-    expect(text).toContain('superá 80kg × 8');
+    expect(text).not.toContain('superá');
+    expect(text).not.toContain('Objetivo:');
   });
 
-  it('progressionTargetData null — does not render objective text', () => {
+  // ── PREFILL CON LO DE LA ÚLTIMA VEZ ────────────────────────────────────────
+
+  function prevWRSet(id: string, reps: number, weightKg: number, slot: number): WorkedSet {
+    return {
+      id,
+      sessionId: 's-prev',
+      exerciseId: 'ex-1',
+      targetSetIndex: slot,
+      type: 'weight-reps',
+      reps: { value: reps } as any,
+      weight: { value: weightKg } as any,
+      isPR: false,
+      createdAt: new Date('2026-02-08'),
+    };
+  }
+
+  it('pasa al set-logger el set del mismo slot de la sesión anterior', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', [weightRepsSet]); // próximo slot = índice 1
+    fixture.componentRef.setInput('targetSets', [targetSet, targetSet, targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('previousSessionSets', [
+      prevWRSet('p-0', 8, 20, 0),
+      prevWRSet('p-1', 7, 20, 1),
+      prevWRSet('p-2', 6, 17.5, 2),
+    ]);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.previousSetForNextSlot()?.id).toBe('p-1');
+  });
+
+  it('usa el último set previo disponible cuando la sesión anterior tuvo menos sets', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', [weightRepsSet, prSet]); // próximo slot = índice 2
+    fixture.componentRef.setInput('targetSets', [targetSet, targetSet, targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('previousSessionSets', [
+      prevWRSet('p-0', 8, 20, 0),
+      prevWRSet('p-1', 7, 20, 1),
+    ]);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.previousSetForNextSlot()?.id).toBe('p-1');
+  });
+
+  it('sin historial previo no pasa ningún set al logger', () => {
     fixture = TestBed.createComponent(ExerciseSessionCardComponent);
     fixture.componentRef.setInput('exercise', mockExercise);
     fixture.componentRef.setInput('loggedSets', []);
     fixture.componentRef.setInput('targetSets', [targetSet]);
     fixture.componentRef.setInput('sessionId', 's-1');
-    fixture.componentRef.setInput('progressionTargetData', null);
+    fixture.componentRef.setInput('previousSessionSets', []);
     fixture.detectChanges();
 
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).not.toContain('Objetivo');
+    expect(fixture.componentInstance.previousSetForNextSlot()).toBeNull();
+  });
+
+  it('los inputs del logger arrancan con los valores de la última vez', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', []);
+    fixture.componentRef.setInput('targetSets', [targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('previousSessionSets', [prevWRSet('p-0', 8, 20, 0)]);
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const weightInput = el.querySelector<HTMLInputElement>('input[aria-label="Peso en kg"]')!;
+    expect(weightInput.value).toBe('20');
   });
 
   // ── SLICE B: progresión en placas — formato "placa N × R" ──────────────────
 
-  it('placas: objetivo formateado como "placa N × R (superá placa M × R)" (sin kg)', () => {
+  it('placas: el input de placas arranca con las placas de la última vez', () => {
     const platesExercise: Exercise = { ...mockExercise, weightUnit: 'plates' };
-    // weightKg porta el número de placa: objetivo placa 6 × 12, superá placa 5 × 12
-    const platesTarget = {
-      weightKg: 6,
-      reps: 12,
-      previousBest: { weightKg: 5, reps: 12 },
+    // weight.value porta el número de placa: la última vez fueron 5 placas × 12
+    const prevPlateSet: WorkedSet = {
+      id: 'p-plate', sessionId: 's-prev', exerciseId: 'ex-1', targetSetIndex: 0,
+      type: 'weight-reps', reps: { value: 12 } as any, weight: { value: 5 } as any,
+      isPR: false, createdAt: new Date('2026-02-08'),
     };
     fixture = TestBed.createComponent(ExerciseSessionCardComponent);
     fixture.componentRef.setInput('exercise', platesExercise);
     fixture.componentRef.setInput('loggedSets', []);
     fixture.componentRef.setInput('targetSets', [targetSet]);
     fixture.componentRef.setInput('sessionId', 's-1');
-    fixture.componentRef.setInput('progressionTargetData', platesTarget);
+    fixture.componentRef.setInput('previousSessionSets', [prevPlateSet]);
     fixture.detectChanges();
 
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('placa 6 × 12');
-    expect(text).toContain('superá placa 5 × 12');
-    // El objetivo de progresión NO debe decir "kg" (placa 6, no 6kg).
-    // Aislamos la línea del objetivo — el header del card sí puede tener el label de rutina "@70kg".
-    const objetivoLine = text.slice(text.indexOf('Objetivo:'));
-    expect(objetivoLine).not.toContain('kg');
+    const el = fixture.nativeElement as HTMLElement;
+    const platesInput = el.querySelector<HTMLInputElement>('input[aria-label="Placas"]')!;
+    expect(platesInput.value).toBe('5');
   });
 
   it('placas: badge "¡Objetivo cumplido!" cuando el set logueado alcanza placa+reps', () => {

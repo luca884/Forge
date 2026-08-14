@@ -135,7 +135,7 @@ import { FgIconComponent } from '@core/shared/ui';
           [exerciseId]="exercise.id"
           [targetSetIndex]="loggedSets.length"
           [prefillTarget]="nextTarget"
-          [progressionTarget]="progressionTargetStr()"
+          [previousSet]="previousSetForNextSlot()"
           [weightUnit]="exerciseWeightUnit()"
           (setLogged)="onSetLogged($event)"
         ></fg-set-logger>
@@ -156,12 +156,19 @@ export class ExerciseSessionCardComponent {
   readonly expanded = input<boolean>(true);
 
   /**
-   * Doble-progresión target object (slice 1 + 2).
+   * Doble-progresión target object.
    * Null when no previous data or exercise type has no target.
-   * The card formats it into the set-logger string AND evaluates meetsTarget()
-   * per logged set to render the "¡Objetivo cumplido!" badge (slice 2).
+   * Only used to evaluate meetsTarget() per logged set and render the
+   * "¡Objetivo cumplido!" badge — it is no longer shown as text in the logger.
    */
   readonly progressionTargetData = input<ProgressionTarget | null>(null);
+
+  /**
+   * Sets logged for this exercise in the previous session, ordered by slot.
+   * Feeds the logger's prefill so each set input starts with what was actually
+   * done last time in that same slot.
+   */
+  readonly previousSessionSets = input<readonly WorkedSet[]>([]);
 
   private readonly progressionCalculator = inject(ProgressionTargetCalculator);
 
@@ -193,19 +200,16 @@ export class ExerciseSessionCardComponent {
   }
 
   /**
-   * Formats the progression target object into the set-logger string
-   * "82.5kg × 8 (superá 80kg × 8)". Null when no target.
-   * Reads the progressionTargetData signal, so it re-evaluates per CD pass.
+   * Set logged in the same slot during the previous session — the source of the
+   * logger's prefill. Falls back to the last previous set when that session had
+   * fewer sets than the current one. Null when there is no history.
+   * Plain method (NOT computed over @Input) so it re-evaluates on every CD pass
+   * as loggedSets grows (see note on the computed/@Input bug).
    */
-  progressionTargetStr(): string | null {
-    const target = this.progressionTargetData();
-    if (!target) return null;
-    // Slice B: pass the exercise weightUnit so plates exercises format as
-    // "placa N × R (superá placa M × R)"; kg exercises are unaffected.
-    const unit = this.exerciseWeightUnit();
-    const goal = this.progressionCalculator.formatTarget(target, unit);
-    const prev = this.progressionCalculator.formatPreviousBest(target.previousBest, unit);
-    return `${goal} (superá ${prev})`;
+  previousSetForNextSlot(): WorkedSet | null {
+    const previous = this.previousSessionSets();
+    if (previous.length === 0) return null;
+    return previous[this.loggedSets.length] ?? previous.at(-1) ?? null;
   }
 
   /**
