@@ -221,49 +221,72 @@ describe('classifyProgressStatus', () => {
 });
 
 // ── Weekly trend ──────────────────────────────────────────────────────────
+/** Monday (00:00 local) of the week that started N weeks before the current one. */
+function mondayWeeksAgo(weeks: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7) - weeks * 7);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function addDays(date: Date, days: number): Date {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+/** Same day at 10:00 local — keeps sets clear of week boundaries. */
+function atTenAm(date: Date): Date {
+  const d = new Date(date);
+  d.setHours(10, 0, 0, 0);
+  return d;
+}
+
 describe('weeklyTrendPoints', () => {
   it('returns empty array when weeksBack is 0', () => {
     expect(weeklyTrendPoints([], 0)).toEqual([]);
   });
 
   it('groups sets by ISO Monday-start week', () => {
-    // 2026-07-13 is Monday of week 29
-    const mon = new Date('2026-07-13T10:00:00');
-    const sun = new Date('2026-07-19T10:00:00');
-    const nextMon = new Date('2026-07-20T10:00:00');
+    // The window is anchored on today's week, so the dates must be relative:
+    // fixed dates fall out of the window as time passes.
+    const thisMon = mondayWeeksAgo(0);
+    const prevMon = mondayWeeksAgo(1);
+    const prevSun = addDays(prevMon, 6);
 
     const sets: WorkedSet[] = [
-      wr('s1', 'ex-wr', 100, 5, mon),
-      wr('s2', 'ex-wr', 100, 5, sun),
-      wr('s3', 'ex-wr', 100, 5, nextMon),
+      wr('s1', 'ex-wr', 100, 5, atTenAm(prevMon)),
+      wr('s2', 'ex-wr', 100, 5, atTenAm(prevSun)),
+      wr('s3', 'ex-wr', 100, 5, atTenAm(thisMon)),
     ];
 
     const result = weeklyTrendPoints(sets, 2);
     expect(result).toHaveLength(2);
-    expect(result[0]!.weekStart).toBe('2026-07-13');
+    expect(result[0]!.weekStart).toBe(prevMon.toLocaleDateString('en-CA'));
     expect(result[0]!.volumeKg).toBe(100 * 5 * 2);
     expect(result[0]!.sessions).toBe(2);
-    expect(result[1]!.weekStart).toBe('2026-07-20');
+    expect(result[1]!.weekStart).toBe(thisMon.toLocaleDateString('en-CA'));
     expect(result[1]!.volumeKg).toBe(100 * 5);
     expect(result[1]!.sessions).toBe(1);
   });
 
   it('zero-fills gaps', () => {
-    const w1 = new Date('2026-07-06T10:00:00');
-    const w3 = new Date('2026-07-20T10:00:00');
+    const twoWeeksAgo = mondayWeeksAgo(2);
+    const oneWeekAgo = mondayWeeksAgo(1);
+    const thisMon = mondayWeeksAgo(0);
 
     const sets: WorkedSet[] = [
-      wr('s1', 'ex-wr', 100, 5, w1),
-      wr('s2', 'ex-wr', 100, 5, w3),
+      wr('s1', 'ex-wr', 100, 5, atTenAm(twoWeeksAgo)),
+      wr('s2', 'ex-wr', 100, 5, atTenAm(thisMon)),
     ];
 
     const result = weeklyTrendPoints(sets, 3);
-    expect(result[0]!.weekStart).toBe('2026-07-06');
+    expect(result[0]!.weekStart).toBe(twoWeeksAgo.toLocaleDateString('en-CA'));
     expect(result[0]!.sessions).toBe(1);
-    expect(result[1]!.weekStart).toBe('2026-07-13');
+    expect(result[1]!.weekStart).toBe(oneWeekAgo.toLocaleDateString('en-CA'));
     expect(result[1]!.volumeKg).toBe(0);
     expect(result[1]!.sessions).toBe(0);
-    expect(result[2]!.weekStart).toBe('2026-07-20');
+    expect(result[2]!.weekStart).toBe(thisMon.toLocaleDateString('en-CA'));
     expect(result[2]!.sessions).toBe(1);
   });
 

@@ -17,6 +17,14 @@ function makeSession(id: string, startedAt: Date): Session {
   };
 }
 
+/** N days ago at the given local hour — keeps sessions inside the 84-day window. */
+function daysAgoAt(days: number, hour: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  d.setHours(hour, 0, 0, 0);
+  return d;
+}
+
 class StubSessionRepository extends SessionRepository {
   sessions: Session[] = [];
 
@@ -63,19 +71,22 @@ describe('GetSessionHeatmapUseCase', () => {
   });
 
   it('counts sessions grouped by local date (en-CA YYYY-MM-DD)', async () => {
-    const day = new Date('2026-05-10T09:00:00');
+    // The use case reads a rolling 84-day window, so the dates must be relative:
+    // fixed dates drop out of the window as time passes.
+    const dayA = daysAgoAt(4, 9);
+    const dayB = daysAgoAt(3, 8);
     repo.sessions = [
-      makeSession('s1', new Date('2026-05-10T09:00:00')),
-      makeSession('s2', new Date('2026-05-10T18:00:00')),
-      makeSession('s3', new Date('2026-05-11T08:00:00')),
+      makeSession('s1', dayA),
+      makeSession('s2', daysAgoAt(4, 18)),
+      makeSession('s3', dayB),
     ];
     const result = await useCase.execute();
-    expect(result.get(day.toLocaleDateString('en-CA'))).toBe(2);
-    expect(result.get(new Date('2026-05-11T08:00:00').toLocaleDateString('en-CA'))).toBe(1);
+    expect(result.get(dayA.toLocaleDateString('en-CA'))).toBe(2);
+    expect(result.get(dayB.toLocaleDateString('en-CA'))).toBe(1);
   });
 
   it('does not include keys for days with 0 sessions (sparse map)', async () => {
-    repo.sessions = [makeSession('s1', new Date('2026-05-01T10:00:00'))];
+    repo.sessions = [makeSession('s1', daysAgoAt(10, 10))];
     const result = await useCase.execute();
     // Only 1 key, no zeros for other days
     expect(result.size).toBe(1);
