@@ -48,3 +48,6 @@ test-results/
 # Local tooling config
 .claude/
 .atl/
+
+# Crash dumps de Git Bash en Windows
+*.stackdump
