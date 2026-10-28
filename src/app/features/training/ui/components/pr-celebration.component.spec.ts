@@ -1,7 +1,9 @@
 /**
  * PrCelebrationComponent spec (D-3).
  * TDD strict — RED before implementation.
- * Tests unit input propagation through DisplayWeightPipe + PR-warm invariant (ADR-33, R14).
+ * Tests unit input propagation through DisplayWeightPipe + the Cuaderno invariant:
+ * the PR banner follows the accent color (accent-ink text, accent border), never
+ * the old orange --pr-warm (supersedes ADR-33, rediseno-cuaderno T5).
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { PrCelebrationComponent } from './pr-celebration.component';
@@ -72,13 +74,25 @@ describe('PrCelebrationComponent', () => {
 
   // ── VISUAL REDESIGN TESTS (D-3) ────────────────────────────────────────────
 
-  it('banner wrapper has bg-forge-850 and rounded-[14px] classes', () => {
+  it('banner wrapper is a surface card with an accent border', () => {
     fixture = TestBed.createComponent(PrCelebrationComponent);
     fixture.componentInstance.visible = true;
     fixture.componentInstance.set = weightRepsSet;
     fixture.detectChanges();
-    const wrapper = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.bg-forge-850');
+    const wrapper = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.bg-surface.border-accent');
     expect(wrapper).toBeTruthy();
+  });
+
+  it('shows the exercise name and the numbers in mono', () => {
+    fixture = TestBed.createComponent(PrCelebrationComponent);
+    fixture.componentRef.setInput('exerciseName', 'Sentadilla');
+    fixture.componentInstance.visible = true;
+    fixture.componentInstance.set = weightRepsSet;
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.textContent).toContain('Sentadilla');
+    const mono = el.querySelector<HTMLElement>('.font-mono');
+    expect(mono?.textContent).toContain('100 kg');
   });
 
   it('flame icon is present inside icon container', () => {
@@ -114,66 +128,52 @@ describe('PrCelebrationComponent', () => {
     expect(text).toContain('NUEVO PR');
   });
 
-  // ── R14 INVARIANT TESTS (ADR-33, CRITICAL) ────────────────────────────────
+  // ── CUADERNO INVARIANT: acento, no naranja brasa ──────────────────────────
 
-  it('R14 SOURCE: template must NOT contain --accent- references', () => {
+  it('SOURCE: template has no --pr-warm, forge-* nor legacy --accent-* references', () => {
     // After TestBed.configureTestingModule (in beforeEach), ɵcmp is compiled and available.
     // Access the JIT-compiled template function source as a proxy for template content.
     const meta = (PrCelebrationComponent as unknown as { ɵcmp?: CompiledComponentMeta }).ɵcmp;
-    // ɵcmp.template is the compiled render function — its source encodes all bindings
     const templateFnStr = meta?.template?.toString() ?? '';
-    expect(templateFnStr).not.toMatch(/--accent-/);
-    expect(templateFnStr).not.toMatch(/\baccent-\d/);
-    expect(templateFnStr).not.toMatch(/bg-accent/);
-    expect(templateFnStr).not.toMatch(/text-accent/);
-    expect(templateFnStr).not.toMatch(/ring-accent/);
     // Must NOT be empty (guard that the template was actually compiled)
     expect(templateFnStr.length).toBeGreaterThan(0);
+    expect(templateFnStr).not.toMatch(/pr-warm/);
+    expect(templateFnStr).not.toMatch(/\bforge-\d/);
+    expect(templateFnStr).not.toMatch(/--accent-/);
   });
 
-  it('R14 SOURCE: component styles must NOT contain accent token references', () => {
+  it('SOURCE: component styles do not reference --pr-warm', () => {
     const meta = (PrCelebrationComponent as unknown as { ɵcmp?: CompiledComponentMeta }).ɵcmp;
-    if (meta?.styles) {
-      const styles = meta.styles.join('\n');
-      expect(styles).not.toMatch(/--accent-/);
-      expect(styles).not.toMatch(/\baccent-\d/);
-    }
-    // Always passes if no styles set — the source guard above covers this
-    expect(true).toBe(true);
+    const styles = (meta?.styles ?? []).join('\n');
+    expect(styles).not.toMatch(/pr-warm/);
   });
 
-  it('R14 DOM: rendered output must NOT include var(--accent-*) in any style attribute', () => {
+  it('DOM: no element carries a --pr-warm inline style, a forge-* class or a raw hex', () => {
     fixture = TestBed.createComponent(PrCelebrationComponent);
     fixture.componentInstance.visible = true;
     fixture.componentInstance.set = weightRepsSet;
     fixture.detectChanges();
     const allEls = (fixture.nativeElement as HTMLElement).querySelectorAll('*');
-    let foundAccent = false;
+    let offending = false;
     for (const el of Array.from(allEls)) {
       const style = (el as HTMLElement).getAttribute('style') ?? '';
-      const cls = (el as HTMLElement).className ?? '';
-      if (/var\(--accent/.test(style)) foundAccent = true;
-      if (/\baccent-\d/.test(String(cls))) foundAccent = true;
+      const cls = String((el as HTMLElement).getAttribute('class') ?? '');
+      if (/pr-warm/.test(style) || /#[0-9a-fA-F]{6}\b/.test(style)) offending = true;
+      if (/\bforge-\d/.test(cls)) offending = true;
     }
-    expect(foundAccent).toBe(false);
+    expect(offending).toBe(false);
   });
 
-  it('R14 DOM: at least one element has var(--pr-warm-rgb) or var(--pr-warm) in inline style', () => {
+  it('DOM: the title is accent-ink and the flame sits on a solid accent square', () => {
     fixture = TestBed.createComponent(PrCelebrationComponent);
     fixture.componentInstance.visible = true;
     fixture.componentInstance.set = weightRepsSet;
     fixture.detectChanges();
-    const allEls = (fixture.nativeElement as HTMLElement).querySelectorAll('*');
-    let foundWarm = false;
-    for (const el of Array.from(allEls)) {
-      const style = (el as HTMLElement).getAttribute('style') ?? '';
-      if (/var\(--pr-warm/.test(style)) {
-        foundWarm = true;
-        break;
-      }
-    }
-    // jsdom DOES preserve inline style attributes with CSS custom props (unlike computed styles).
-    // The component sets inline styles with var(--pr-warm-rgb) and var(--pr-warm) on the wrapper and icon.
-    expect(foundWarm).toBe(true);
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.text-accent-ink')?.textContent).toContain('NUEVO PR');
+    const flame = Array.from(el.querySelectorAll('fg-icon')).find(
+      (ic) => (ic as HTMLElement).getAttribute('name') === 'flame',
+    );
+    expect(flame?.closest('.bg-accent')).toBeTruthy();
   });
 });

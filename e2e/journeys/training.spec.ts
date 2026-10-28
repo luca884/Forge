@@ -204,17 +204,17 @@ test.describe('J8 — Finalizar sesión y summary', () => {
     // STEP 9: URL navigates to summary
     await expect(page).toHaveURL(/\/training\/session\/summary$/, { timeout: 5000 });
 
-    // STEP 10: Summary sections visible
-    await expect(page.getByText('Sesión completada')).toBeVisible();
-    await expect(page.getByText('VOLUMEN TOTAL')).toBeVisible();
-    await expect(page.getByText('Sets', { exact: true })).toBeVisible();
-    await expect(page.getByText('Reps totales')).toBeVisible();
-    await expect(page.getByText('Duración', { exact: true })).toBeVisible();
-    await expect(page.getByText('Descanso prom.')).toBeVisible();
-    await expect(page.getByText('EJERCICIOS', { exact: true })).toBeVisible();
+    // STEP 10: Summary sections visible (canvas C · Resumen)
+    await expect(page.getByText('Sesión terminada')).toBeVisible();
+    const totals = page.getByRole('region', { name: 'Totales' });
+    await expect(totals.getByText('Duración', { exact: true })).toBeVisible();
+    await expect(totals.getByText('Volumen', { exact: true })).toBeVisible();
+    await expect(totals.getByText('Series', { exact: true })).toBeVisible();
+    await expect(totals.getByText('Reps', { exact: true })).toBeVisible();
+    await expect(page.getByText('Ejercicio por ejercicio')).toBeVisible();
     // Bug #585 fix: exercise name must appear, not raw UUID
     await expect(page.getByText('Sentadilla').first()).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Guardar y cerrar' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Guardar sesión' })).toBeVisible();
   });
 });
 
