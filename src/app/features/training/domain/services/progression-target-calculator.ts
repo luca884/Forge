@@ -148,7 +148,7 @@ export class ProgressionTargetCalculator {
       case 'weight-reps': {
         if (!targetIsWeightReps) return false; // set/target type mismatch
         return (
-          loggedSet.weight.value >= target.weightKg! &&
+          loggedSet.weight.value >= target.weightKg &&
           loggedSet.reps.value >= target.reps
         );
       }

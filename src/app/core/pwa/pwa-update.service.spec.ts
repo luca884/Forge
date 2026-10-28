@@ -73,7 +73,9 @@ describe('PwaUpdateService', () => {
 
     service.start();
     versionUpdates.next(versionReady());
-    await toast.toasts()[0].action!.handler();
+    toast.toasts()[0].action!.handler();
+    // the handler is fire-and-forget: let activateUpdate() settle before asserting
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(activateUpdate).toHaveBeenCalledTimes(1);
     expect(reloadSpy).toHaveBeenCalledTimes(1);
