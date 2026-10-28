@@ -15,130 +15,152 @@ import { ExerciseFilter } from '@features/exercises/domain/exercise-filter';
 import { GetExercisesUseCase } from '@features/exercises/domain/use-cases/get-exercises.use-case';
 import { SeedExercisesUseCase } from '@features/exercises/domain/use-cases/seed-exercises.use-case';
 import {
-  FgPageHeaderComponent,
-  FgInputComponent,
-  FgCardComponent,
-  FgChipComponent,
   FgEmptyStateComponent,
-  FgButtonComponent,
   FgIconComponent,
 } from '@core/shared/ui';
 import { muscleGroupLabel } from '@features/progress/ui/helpers/muscle-group-label';
-import { ExerciseThumbnailComponent } from '@features/exercises/ui/components/exercise-thumbnail.component';
+import { exerciseMeta } from '@features/exercises/ui/helpers/exercise-labels';
+import { MuscleGroupFilterComponent } from '@features/exercises/ui/components/muscle-group-filter.component';
 import { AddExercisesToDayUseCase } from '../../domain/use-cases/add-exercises-to-day.use-case';
+import { GetTrainingDayWithExercisesUseCase } from '../../domain/use-cases/get-training-day-with-exercises.use-case';
+import { RoutineRepository } from '../../domain/routine.repository';
 
-const MUSCLE_GROUPS: MuscleGroup[] = [
-  'chest',
-  'back',
-  'shoulders',
-  'biceps',
-  'triceps',
-  'legs',
-  'glutes',
-  'core',
-  'full-body',
-];
-
+/**
+ * Biblioteca del Cuaderno (C-Library): elegir ejercicios para un día.
+ * Búsqueda, filtro por grupo, selección múltiple con contador en el botón de
+ * confirmación y la etiqueta "En el día" en lo que el día ya tiene. Los que ya
+ * están en el día no se eligen: AddExercisesToDayUseCase ya los descartaba.
+ */
 @Component({
   selector: 'fg-exercise-picker-page',
   standalone: true,
   imports: [
     ReactiveFormsModule,
-    FgPageHeaderComponent,
-    FgInputComponent,
-    FgCardComponent,
-    FgChipComponent,
     FgEmptyStateComponent,
-    FgButtonComponent,
     FgIconComponent,
-    ExerciseThumbnailComponent,
+    MuscleGroupFilterComponent,
   ],
-  providers: [GetExercisesUseCase, SeedExercisesUseCase, AddExercisesToDayUseCase],
+  providers: [
+    GetExercisesUseCase,
+    SeedExercisesUseCase,
+    AddExercisesToDayUseCase,
+    GetTrainingDayWithExercisesUseCase,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <fg-page-header
-      title="Elegir ejercicio"
-      leadingIcon="chevron-left"
-      (leadingClick)="back()"
-    ></fg-page-header>
+    <div class="bg-page text-ink flex flex-col min-h-full">
+      <header class="flex items-center justify-between gap-2 h-14 px-2 bg-surface border-b border-line">
+        <button
+          type="button"
+          class="h-11 px-2 text-[15px] font-medium text-ink"
+          (click)="back()"
+        >Cancelar</button>
+        <div class="flex flex-col items-center min-w-0">
+          <h1 class="text-[15px] leading-5 font-semibold text-ink truncate max-w-full">{{ title() }}</h1>
+          @if (routineName(); as name) {
+            <span data-picker-routine class="font-mono text-[11px] text-ink-2 truncate max-w-full">{{ name }}</span>
+          }
+        </div>
+        <button
+          type="button"
+          aria-label="Crear ejercicio propio"
+          class="h-11 w-11 flex items-center justify-center text-accent-ink"
+          (click)="createExercise()"
+        >
+          <fg-icon name="plus" [size]="22"></fg-icon>
+        </button>
+      </header>
 
-    <div class="px-4 pt-3 pb-6 flex flex-col gap-4">
-      <fg-input
-        label="Buscar"
-        placeholder="Buscar ejercicio..."
-        [formControl]="searchControl"
-      ></fg-input>
+      <div class="flex flex-col gap-2.5 px-4 pt-3 pb-2">
+        <label
+          class="flex items-center gap-2 h-11 px-3 rounded-[10px] border border-line bg-surface text-ink-2 focus-within:border-accent"
+        >
+          <fg-icon name="search" [size]="18"></fg-icon>
+          <span class="sr-only">Buscar ejercicio</span>
+          <input
+            type="search"
+            [formControl]="searchControl"
+            [placeholder]="searchPlaceholder()"
+            class="flex-1 min-w-0 bg-transparent border-0 outline-none text-[15px] text-ink placeholder:text-ink-2"
+          />
+        </label>
 
-      <div class="flex gap-2 overflow-x-auto py-1">
-        <fg-chip
-          [active]="muscleGroupFilter() === undefined"
-          (tap)="muscleGroupFilter.set(undefined)"
-        >Todos</fg-chip>
-
-        @for (group of muscleGroups; track group) {
-          <fg-chip
-            [active]="muscleGroupFilter() === group"
-            (tap)="toggleMuscleGroup(group)"
-          >{{ muscleGroupLabel(group) }}</fg-chip>
-        }
+        <fg-muscle-group-filter
+          [selected]="muscleGroupFilter()"
+          (pick)="onPickGroup($event)"
+        ></fg-muscle-group-filter>
       </div>
 
-      <button
-        fg-button
-        variant="secondary"
-        size="md"
-        class="w-full"
-        type="button"
-        (click)="createExercise()"
-      >
-        <fg-icon name="plus" [size]="18"></fg-icon>
-        Crear ejercicio nuevo
-      </button>
+      <section class="flex flex-col gap-1.5 px-4 pb-28" aria-labelledby="picker-group-title">
+        <h2
+          id="picker-group-title"
+          data-group-title
+          class="mt-1 text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase text-ink-2"
+        >{{ groupTitle() }}</h2>
 
-      @if (exercises().length === 0) {
-        <fg-empty-state
-          icon="dumbbell"
-          title="Sin resultados"
-          body="No se encontraron ejercicios."
-        ></fg-empty-state>
-      } @else {
-        <ul class="flex flex-col gap-2" role="list">
-          @for (exercise of exercises(); track exercise.id) {
-            <li>
-              <fg-card [class]="isSelected(exercise.id) ? 'ring-1 ring-inset ring-accent-500' : ''">
+        @if (exercises().length === 0) {
+          <fg-empty-state
+            icon="dumbbell"
+            title="Sin resultados"
+            body="No se encontraron ejercicios."
+          ></fg-empty-state>
+        } @else {
+          <ul class="list-none m-0 p-0 bg-surface border border-line rounded-xl overflow-hidden" role="list">
+            @for (exercise of exercises(); track exercise.id) {
+              <li class="border-b border-line-soft last:border-b-0">
                 <button
                   type="button"
+                  data-exercise-row
+                  class="w-full text-left flex items-center gap-3 min-h-[52px] px-3.5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent disabled:cursor-default"
+                  [disabled]="isInDay(exercise.id)"
+                  [attr.aria-pressed]="isChecked(exercise.id)"
+                  [attr.aria-label]="rowLabel(exercise)"
                   (click)="toggleSelect(exercise.id)"
-                  class="w-full text-left flex items-center gap-3.5 outline-none focus-visible:ring-2 focus-visible:ring-accent-500 rounded-md"
-                  [attr.aria-pressed]="isSelected(exercise.id)"
-                  [attr.aria-label]="(isSelected(exercise.id) ? 'Quitar ' : 'Seleccionar ') + exercise.name"
                 >
-                  <fg-exercise-thumbnail [name]="exercise.name" />
-                  <span class="flex flex-col gap-0.5 min-w-0 flex-1">
-                    <span class="t-body text-forge-100">{{ exercise.name }}</span>
-                    <span class="t-body-sm text-forge-400">{{ muscleGroupLabel(exercise.muscleGroup) }}</span>
+                  <span
+                    class="shrink-0 h-5 w-5 rounded-[5px] border flex items-center justify-center"
+                    [class]="isChecked(exercise.id)
+                      ? (isInDay(exercise.id) ? 'bg-empty border-line text-ink-2' : 'bg-accent border-accent text-accent-on')
+                      : 'bg-surface border-dash'"
+                    aria-hidden="true"
+                  >
+                    @if (isChecked(exercise.id)) {
+                      <fg-icon name="check" [size]="14" [strokeWidth]="2.5"></fg-icon>
+                    }
                   </span>
-                  @if (isSelected(exercise.id)) {
-                    <fg-icon name="check-circle" [size]="20" class="text-accent-400 shrink-0"></fg-icon>
+                  <span class="flex flex-col min-w-0 flex-1">
+                    <span
+                      class="text-[15px] leading-5 font-medium truncate"
+                      [class]="isInDay(exercise.id) ? 'text-ink-2' : 'text-ink'"
+                    >{{ exercise.name }}</span>
+                    <span class="font-mono text-[11px] leading-4 text-ink-2 truncate">{{ meta(exercise) }}</span>
+                  </span>
+                  @if (isInDay(exercise.id)) {
+                    <span class="shrink-0 text-[11px] font-semibold text-ink-2 border border-line rounded px-1.5 py-0.5">En el día</span>
+                  }
+                  @if (exercise.isCustom) {
+                    <span class="shrink-0 text-[11px] font-semibold text-accent-ink border border-accent rounded px-1.5 py-0.5">Propio</span>
                   }
                 </button>
-              </fg-card>
-            </li>
-          }
-        </ul>
-      }
+              </li>
+            }
+          </ul>
+        }
+      </section>
 
-      @if (selectedCount() > 0) {
+      <div
+        class="sticky bottom-0 mt-auto px-4 pt-3 pb-6 bg-surface border-t border-line"
+        style="box-shadow: 0 -10px 30px var(--color-shadow)"
+      >
         <button
-          fg-button
-          variant="primary"
-          size="lg"
-          class="w-full sticky bottom-3"
+          type="button"
+          data-picker-cta
+          class="w-full h-12 rounded-[10px] text-[15px] font-semibold"
+          [class]="selectedCount() === 0 ? 'bg-line-soft text-ink-2' : 'bg-accent text-accent-on'"
+          [disabled]="selectedCount() === 0"
           (click)="addSelected()"
-        >
-          Agregar {{ selectedCount() }} {{ selectedCount() === 1 ? 'ejercicio' : 'ejercicios' }}
-        </button>
-      }
+        >{{ ctaLabel() }}</button>
+      </div>
     </div>
   `,
 })
@@ -148,6 +170,8 @@ export class ExercisePickerPage implements OnInit {
   private readonly getExercises = inject(GetExercisesUseCase);
   private readonly seedExercises = inject(SeedExercisesUseCase);
   private readonly addExercises = inject(AddExercisesToDayUseCase);
+  private readonly getDay = inject(GetTrainingDayWithExercisesUseCase);
+  private readonly routineRepo = inject(RoutineRepository);
 
   readonly exercises = signal<Exercise[]>([]);
   readonly searchQuery = signal('');
@@ -156,9 +180,31 @@ export class ExercisePickerPage implements OnInit {
   readonly selectedCount = computed(() => this.selectedIds().size);
   readonly routineId = signal('');
   readonly dayId = signal('');
+  readonly dayName = signal<string | null>(null);
+  readonly routineName = signal<string | null>(null);
+  /** Ejercicios que el día ya tiene: se muestran "En el día" y no se eligen. */
+  readonly inDayIds = signal<ReadonlySet<string>>(new Set());
+  /** Tamaño de toda la biblioteca (última carga sin filtros), para el placeholder. */
+  readonly totalCount = signal(0);
 
-  readonly muscleGroups = MUSCLE_GROUPS;
-  readonly muscleGroupLabel = muscleGroupLabel;
+  readonly title = computed(() => {
+    const name = this.dayName();
+    return name ? `Agregar a ${name}` : 'Agregar ejercicios';
+  });
+  readonly searchPlaceholder = computed(() =>
+    this.totalCount() > 0 ? `Buscar en ${this.totalCount()} ejercicios` : 'Buscar ejercicio',
+  );
+  readonly groupTitle = computed(() => {
+    const group = this.muscleGroupFilter();
+    return `${group ? muscleGroupLabel(group) : 'Todos'} · ${this.exercises().length}`;
+  });
+  readonly ctaLabel = computed(() => {
+    const count = this.selectedCount();
+    if (count === 0) return 'Elegí ejercicios';
+    return `Agregar ${count} ${count === 1 ? 'ejercicio' : 'ejercicios'}`;
+  });
+
+  readonly meta = exerciseMeta;
 
   readonly searchControl = new FormControl('', { nonNullable: true });
 
@@ -174,9 +220,14 @@ export class ExercisePickerPage implements OnInit {
       .subscribe(value => this.searchQuery.set(value));
   }
 
-  async ngOnInit(): Promise<void> {
+  ngOnInit(): void {
+    void this.init();
+  }
+
+  private async init(): Promise<void> {
     this.routineId.set(this.route.snapshot.paramMap.get('routineId') ?? '');
     this.dayId.set(this.route.snapshot.paramMap.get('dayId') ?? '');
+    await this.loadDayContext();
     // Ensure the built-in catalog exists even if the user never opened the
     // Exercises tab, then reload so the picker isn't empty on a fresh DB. F-1.
     await this.seedExercises.execute();
@@ -187,9 +238,28 @@ export class ExercisePickerPage implements OnInit {
     if (selectedExerciseId) {
       // Reload so any newly created exercise appears in the list.
       await this.loadExercises();
-      const next = new Set(this.selectedIds());
-      next.add(selectedExerciseId);
-      this.selectedIds.set(next);
+      this.toggleSelect(selectedExerciseId);
+    }
+  }
+
+  /** Nombre del día, nombre de la rutina y ejercicios que el día ya tiene. */
+  private async loadDayContext(): Promise<void> {
+    try {
+      const day = await this.getDay.execute({ trainingDayId: this.dayId() });
+      this.dayName.set(day?.name ?? null);
+      this.inDayIds.set(new Set((day?.exercises ?? []).map(e => e.exerciseId)));
+      const routine = await this.routineRepo.getById(this.routineId());
+      this.routineName.set(routine?.name ?? null);
+    } catch {
+      // Sin contexto el picker sigue sirviendo: solo pierde título, subtítulo y "En el día".
+    }
+  }
+
+  onPickGroup(group: MuscleGroup | undefined): void {
+    if (group === undefined) {
+      this.muscleGroupFilter.set(undefined);
+    } else {
+      this.toggleMuscleGroup(group);
     }
   }
 
@@ -202,14 +272,31 @@ export class ExercisePickerPage implements OnInit {
     const muscleGroup = this.muscleGroupFilter();
     const filter: ExerciseFilter | undefined =
       search || muscleGroup ? { search: search || undefined, muscleGroup } : undefined;
-    this.exercises.set(await this.getExercises.execute(filter));
+    const result = await this.getExercises.execute(filter);
+    this.exercises.set(result);
+    if (!filter) this.totalCount.set(result.length);
+  }
+
+  isInDay(exerciseId: string): boolean {
+    return this.inDayIds().has(exerciseId);
   }
 
   isSelected(exerciseId: string): boolean {
     return this.selectedIds().has(exerciseId);
   }
 
+  /** Tildado en pantalla: elegido ahora o ya en el día. */
+  isChecked(exerciseId: string): boolean {
+    return this.isSelected(exerciseId) || this.isInDay(exerciseId);
+  }
+
+  rowLabel(exercise: Exercise): string {
+    if (this.isInDay(exercise.id)) return `${exercise.name}, en el día`;
+    return (this.isSelected(exercise.id) ? 'Quitar ' : 'Seleccionar ') + exercise.name;
+  }
+
   toggleSelect(exerciseId: string): void {
+    if (this.isInDay(exerciseId)) return;
     const next = new Set(this.selectedIds());
     if (next.has(exerciseId)) {
       next.delete(exerciseId);

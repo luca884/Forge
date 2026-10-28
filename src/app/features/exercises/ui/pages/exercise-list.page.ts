@@ -2,12 +2,12 @@ import {
   ChangeDetectionStrategy,
   Component,
   OnInit,
+  computed,
   effect,
   inject,
   signal,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { FormsModule } from '@angular/forms';
 import { Exercise, MuscleGroup } from '../../domain/exercise.entity';
 import { ExerciseFilter } from '../../domain/exercise-filter';
 import { GetExercisesUseCase } from '../../domain/use-cases/get-exercises.use-case';
@@ -16,9 +16,8 @@ import { DeleteCustomExerciseUseCase } from '../../domain/use-cases/delete-custo
 import { ExerciseInUseError } from '../../domain/errors/exercise-in-use.error';
 import { ToastService } from '@core/shared/ui/toast/toast.service';
 import {
-  FgInputComponent,
-  FgChipComponent,
   FgEmptyStateComponent,
+  FgIconComponent,
   FgButtonComponent,
   FgPageHeaderComponent,
   FgCardComponent,
@@ -27,18 +26,8 @@ import {
 } from '@core/shared/ui';
 import { muscleGroupLabel } from '@features/progress/ui/helpers/muscle-group-label';
 import { ExerciseThumbnailComponent } from '../components/exercise-thumbnail.component';
-
-const MUSCLE_GROUPS: MuscleGroup[] = [
-  'chest',
-  'back',
-  'shoulders',
-  'biceps',
-  'triceps',
-  'legs',
-  'glutes',
-  'core',
-  'full-body',
-];
+import { MuscleGroupFilterComponent } from '../components/muscle-group-filter.component';
+import { exerciseMeta } from '../helpers/exercise-labels';
 
 @Component({
   selector: 'fg-exercise-list-page',
@@ -46,15 +35,14 @@ const MUSCLE_GROUPS: MuscleGroup[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     RouterLink,
-    FormsModule,
-    FgInputComponent,
-    FgChipComponent,
     FgEmptyStateComponent,
     FgButtonComponent,
+    FgIconComponent,
     FgPageHeaderComponent,
     FgCardComponent,
     FgSkeletonComponent,
     ExerciseThumbnailComponent,
+    MuscleGroupFilterComponent,
   ],
   providers: [
     GetExercisesUseCase,
@@ -68,25 +56,24 @@ const MUSCLE_GROUPS: MuscleGroup[] = [
     ></fg-page-header>
 
     <div class="px-4 pt-3 pb-6 flex flex-col gap-3">
-      <fg-input
-        placeholder="Buscar ejercicios..."
-        [ngModel]="searchQuery()"
-        (ngModelChange)="searchQuery.set($event)"
-      />
+      <label
+        class="flex items-center gap-2 h-11 px-3 rounded-[10px] border border-line bg-surface text-ink-2 focus-within:border-accent"
+      >
+        <fg-icon name="search" [size]="18"></fg-icon>
+        <span class="sr-only">Buscar ejercicio</span>
+        <input
+          type="search"
+          placeholder="Buscar ejercicios..."
+          [value]="searchQuery()"
+          (input)="onSearch($event)"
+          class="flex-1 min-w-0 bg-transparent border-0 outline-none text-[15px] text-ink placeholder:text-ink-2"
+        />
+      </label>
 
-      <div class="flex gap-2 overflow-x-auto py-1">
-        <fg-chip
-          [active]="muscleGroupFilter() === undefined"
-          (tap)="muscleGroupFilter.set(undefined)"
-        >Todos</fg-chip>
-
-        @for (group of muscleGroups; track group) {
-          <fg-chip
-            [active]="muscleGroupFilter() === group"
-            (tap)="toggleMuscleGroup(group)"
-          >{{ muscleGroupLabel(group) }}</fg-chip>
-        }
-      </div>
+      <fg-muscle-group-filter
+        [selected]="muscleGroupFilter()"
+        (pick)="onPickGroup($event)"
+      ></fg-muscle-group-filter>
 
       @if (loading()) {
         <fg-card>
@@ -105,20 +92,31 @@ const MUSCLE_GROUPS: MuscleGroup[] = [
           </button>
         </fg-empty-state>
       } @else {
-        @for (exercise of exercises(); track exercise.id) {
-          <a [routerLink]="['/exercises', exercise.id, 'edit']" class="block">
-            <fg-card [padding]="14">
-              <div class="flex items-center gap-3.5 text-left">
+        <h2
+          data-group-title
+          class="mt-1 text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase text-ink-2"
+        >{{ groupTitle() }}</h2>
+        <ul class="list-none m-0 p-0 bg-surface border border-line rounded-xl overflow-hidden" role="list">
+          @for (exercise of exercises(); track exercise.id) {
+            <li class="border-b border-line-soft last:border-b-0">
+              <a
+                data-exercise-row
+                [routerLink]="['/exercises', exercise.id, 'edit']"
+                class="flex items-center gap-3.5 min-h-[60px] px-3.5 py-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+              >
                 <fg-exercise-thumbnail [name]="exercise.name" />
-                <div class="flex-1 min-w-0">
-                  <div class="t-body text-forge-100 font-medium truncate">{{ exercise.name }}</div>
-                  <div class="t-body-sm text-forge-500 mt-0.5">{{ muscleGroupLabel(exercise.muscleGroup) }}</div>
-                </div>
-                <span class="t-body-sm text-accent-300 shrink-0">Editar</span>
-              </div>
-            </fg-card>
-          </a>
-        }
+                <span class="flex flex-col min-w-0 flex-1">
+                  <span class="text-[15px] leading-5 font-medium text-ink truncate">{{ exercise.name }}</span>
+                  <span class="font-mono text-[11px] leading-4 text-ink-2 truncate">{{ meta(exercise) }}</span>
+                </span>
+                @if (exercise.isCustom) {
+                  <span class="shrink-0 text-[11px] font-semibold text-accent-ink border border-accent rounded px-1.5 py-0.5">Propio</span>
+                }
+                <span class="shrink-0 text-[13px] font-medium text-accent-ink">Editar</span>
+              </a>
+            </li>
+          }
+        </ul>
       }
     </div>
   `,
@@ -131,11 +129,15 @@ export class ExerciseListPage implements OnInit {
   private readonly router = inject(Router);
 
   readonly muscleGroupLabel = muscleGroupLabel;
-  readonly muscleGroups = MUSCLE_GROUPS;
+  readonly meta = exerciseMeta;
   readonly loading = signal(true);
   readonly searchQuery = signal<string>('');
   readonly muscleGroupFilter = signal<MuscleGroup | undefined>(undefined);
   readonly exercises = signal<Exercise[]>([]);
+  readonly groupTitle = computed(() => {
+    const group = this.muscleGroupFilter();
+    return `${group ? muscleGroupLabel(group) : 'Todos'} · ${this.exercises().length}`;
+  });
 
   readonly trailingActions: readonly PageHeaderAction[] = [
     {
@@ -153,7 +155,11 @@ export class ExerciseListPage implements OnInit {
     });
   }
 
-  async ngOnInit(): Promise<void> {
+  ngOnInit(): void {
+    void this.init();
+  }
+
+  private async init(): Promise<void> {
     // Seed the built-in catalog BEFORE reloading. The constructor effect runs its
     // first load against a possibly-empty DB; awaiting the seed here and reloading
     // guarantees the catalog appears on the first visit (no manual reload). F-2.
@@ -162,6 +168,18 @@ export class ExerciseListPage implements OnInit {
       search: this.searchQuery() || undefined,
       muscleGroup: this.muscleGroupFilter(),
     });
+  }
+
+  onSearch(event: Event): void {
+    this.searchQuery.set((event.target as HTMLInputElement).value);
+  }
+
+  onPickGroup(group: MuscleGroup | undefined): void {
+    if (group === undefined) {
+      this.muscleGroupFilter.set(undefined);
+    } else {
+      this.toggleMuscleGroup(group);
+    }
   }
 
   toggleMuscleGroup(group: MuscleGroup): void {

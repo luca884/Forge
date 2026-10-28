@@ -83,6 +83,9 @@ const SCREENS: readonly Screen[] = [
       await page.goto('/routines/rt-torso-pierna/days/day-torso-b/pick-exercise');
       await expect(page.getByRole('button', { name: 'Seleccionar Sentadilla' })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Seleccionar Curl femoral' })).toBeVisible();
+      // El contexto del día (título y "En el día") se carga aparte: esperarlo evita capturar a medias.
+      await expect(page.getByRole('heading', { name: 'Agregar a Torso B' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Dominadas, en el día' })).toBeVisible();
     },
   },
   {
