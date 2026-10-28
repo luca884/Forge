@@ -25,6 +25,7 @@ import { SessionAlreadyInProgressError } from '../../domain/errors/session-alrea
 import { FgCardComponent, FgButtonComponent, FgIconComponent, ToastService } from '@core/shared/ui';
 import { DAYS_OF_WEEK, DayOfWeek } from '../../../routines/domain/value-objects/weekly-schedule';
 import { formatPlates } from '../format-plates';
+import { FgFirstUseComponent } from '@features/onboarding/ui/components/first-use.component';
 
 // ─── File-local types ─────────────────────────────────────────────────────────
 
@@ -176,7 +177,7 @@ function formatTarget(sets: readonly TargetSet[]): string {
 @Component({
   selector: 'fg-training-home-page',
   standalone: true,
-  imports: [FgCardComponent, FgButtonComponent, FgIconComponent, RouterLink],
+  imports: [FgCardComponent, FgButtonComponent, FgIconComponent, FgFirstUseComponent, RouterLink],
   providers: [
     StartSessionUseCase,
     GetActiveSessionUseCase,
@@ -418,17 +419,22 @@ function formatTarget(sets: readonly TargetSet[]): string {
           </fg-card>
         </section>
 
-      } @else {
-        <!-- EMPTY STATE -->
-        <section data-empty-state>
-          <fg-card [padding]="20">
-            <div class="flex flex-col gap-3">
-              <h2 class="text-[22px] leading-7 font-semibold tracking-[-0.02em] text-ink">Sin rutina activa</h2>
-              <p class="text-[15px] leading-5 text-ink-2">Creá o activá una rutina para empezar.</p>
-              <a routerLink="/routines" fg-button variant="primary" size="lg" class="w-full">Configurar rutinas</a>
-            </div>
-          </fg-card>
-        </section>
+      } @else if (loaded()) {
+        @if (noRoutines()) {
+          <!-- PRIMER USO: no routine at all (S8). Applying a template reloads Hoy with it active. -->
+          <fg-first-use (applied)="onTemplateApplied()" />
+        } @else {
+          <!-- EMPTY STATE: routines exist but none is active -->
+          <section data-empty-state>
+            <fg-card [padding]="20">
+              <div class="flex flex-col gap-3">
+                <h2 class="text-[22px] leading-7 font-semibold tracking-[-0.02em] text-ink">Sin rutina activa</h2>
+                <p class="text-[15px] leading-5 text-ink-2">Creá o activá una rutina para empezar.</p>
+                <a routerLink="/routines" fg-button variant="primary" size="lg" class="w-full">Configurar rutinas</a>
+              </div>
+            </fg-card>
+          </section>
+        }
       }
 
       @if (errorMessage()) {
@@ -454,6 +460,13 @@ export class TrainingHomePage implements OnInit {
   private readonly weightPipe = new DisplayWeightPipe();
 
   readonly activeRoutine = signal<Routine | null>(null);
+  /**
+   * True once the first load finished. Until then neither empty state shows, so a user who does have
+   * routines never sees "Sin rutina activa" nor Primer uso flash by.
+   */
+  readonly loaded = signal(false);
+  /** True when there is not a single routine, active or not (S8). Only meaningful without an active one. */
+  readonly noRoutines = signal(false);
   readonly trainingDays = signal<TrainingDay[]>([]);
   readonly loading = signal(false);
   readonly errorMessage = signal<string | null>(null);
@@ -563,7 +576,31 @@ export class TrainingHomePage implements OnInit {
     void this.init();
   }
 
+  /** Loads Hoy. Called once on open, and again after a template is applied from Primer uso. */
   private async init(): Promise<void> {
+    try {
+      await this.loadHome();
+    } finally {
+      this.loaded.set(true);
+    }
+  }
+
+  /** Primer uso created a routine (left active, as there was none): show it. */
+  async onTemplateApplied(): Promise<void> {
+    await this.init();
+  }
+
+  /** S8: Primer uso replaces "Sin rutina activa" only when no routine exists at all. */
+  private async hasNoRoutines(): Promise<boolean> {
+    try {
+      return (await this.routineRepo.getAll()).length === 0;
+    } catch {
+      // Unknown: keep the plain "Sin rutina activa" state.
+      return false;
+    }
+  }
+
+  private async loadHome(): Promise<void> {
     const activeSession = await this.getActiveSessionUseCase.execute();
     if (activeSession) {
       await this.store.loadActive();
@@ -575,6 +612,7 @@ export class TrainingHomePage implements OnInit {
 
     const routine = await this.routineRepo.getActive();
     this.activeRoutine.set(routine);
+    this.noRoutines.set(routine ? false : await this.hasNoRoutines());
 
     if (routine) {
       const [days, suggested] = await Promise.all([
