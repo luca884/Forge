@@ -209,6 +209,87 @@ test.describe('J4 — Pick exercise (full UI)', () => {
     await expect(page.getByRole('button', { name: 'Press de banca, en el día' })).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Seleccionar Peso Muerto' })).toBeEnabled();
   });
+
+  test('J4.5 — los rangos de tiempo y distancia entran en Objetivo en una línea y alineados', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    const now = new Date();
+    await seedExercises(page, [
+      { id: 'ex-1', name: 'Sentadilla', muscleGroup: 'legs', trackingType: 'weight-reps', isCustom: false, createdAt: now, updatedAt: now },
+      { id: 'ex-2', name: 'Plancha', muscleGroup: 'core', trackingType: 'time', isCustom: false, createdAt: now, updatedAt: now },
+      { id: 'ex-3', name: 'Remo ergómetro', muscleGroup: 'cardio', trackingType: 'distance-time', isCustom: false, createdAt: now, updatedAt: now },
+    ]);
+    await seedRoutines(page, [
+      { id: 'r-1', name: 'Rutina test', isActive: true, schedule: null, createdAt: now, updatedAt: now },
+    ]);
+    await seedTrainingDays(page, [
+      {
+        id: 'd-1',
+        routineId: 'r-1',
+        name: 'Día A',
+        exercises: [
+          { exerciseId: 'ex-1', order: 0, targetSets: [{ type: 'weight-reps', reps: 8 }, { type: 'weight-reps', reps: 8 }] },
+          {
+            exerciseId: 'ex-2',
+            order: 1,
+            targetSets: [
+              { type: 'time', durationSec: 120 },
+              { type: 'time', durationSec: 150 },
+              { type: 'time', durationSec: 180 },
+            ],
+          },
+          {
+            exerciseId: 'ex-3',
+            order: 2,
+            targetSets: [
+              { type: 'distance-time', distanceKm: 5, durationSec: 1500 },
+              { type: 'distance-time', distanceKm: 10, durationSec: 3000 },
+            ],
+          },
+        ],
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+
+    await page.goto('/routines/r-1/days/d-1');
+    await expect(page.getByRole('heading', { name: 'Editar día' })).toBeVisible();
+    const rows = page.locator('[data-exercise-row]');
+    await expect(rows).toHaveCount(3);
+    await expect(rows.nth(1)).toContainText('3 × 120–180 s');
+    await expect(rows.nth(2)).toContainText('2 × 5–10 km');
+
+    const layout = await page.evaluate(() => {
+      const header = Array.from(document.querySelectorAll('span')).find((s) => s.textContent === 'Objetivo')!;
+      const cells = Array.from(document.querySelectorAll('[data-exercise-row] button > [data-cell]:nth-child(3)'));
+      // Right edge of the row number's text and left edge of the exercise name, per row.
+      const numberGaps = Array.from(document.querySelectorAll('[data-exercise-row] button')).map((button) => {
+        const [number, name] = Array.from(button.querySelectorAll(':scope > [data-cell]'));
+        const range = document.createRange();
+        range.selectNodeContents(number!);
+        return Math.round(name!.getBoundingClientRect().left - range.getBoundingClientRect().right);
+      });
+      return {
+        numberGaps,
+        headerLeft: Math.round(header.getBoundingClientRect().left),
+        cells: cells.map((cell) => {
+          const range = document.createRange();
+          range.selectNodeContents(cell);
+          return {
+            text: cell.textContent?.trim(),
+            lines: range.getClientRects().length,
+            left: Math.round(cell.getBoundingClientRect().left),
+          };
+        }),
+      };
+    });
+    for (const cell of layout.cells) {
+      expect(cell, `"${cell.text}" en una línea`).toMatchObject({ lines: 1 });
+      expect(cell.left, `"${cell.text}" alineado con Objetivo`).toBe(layout.headerLeft);
+    }
+    // El número de fila no pisa el nombre: queda al menos el espacio entre columnas.
+    for (const gap of layout.numberGaps) expect(gap).toBeGreaterThanOrEqual(6);
+  });
 });
 
 // ─── J5 — Weekly schedule ─────────────────────────────────────────────────────
