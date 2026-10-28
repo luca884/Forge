@@ -103,7 +103,7 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
     - Pull: Dominadas 3×8 · Remo con barra 4×8 · Face pull 3×15 · Curl de bíceps 3×10
     - Piernas: Sentadilla 4×6 · Peso muerto rumano 3×8 · Extensión de cuádriceps 3×12 · Elevación de gemelos 3×15
   - Supuesto: si un ejercicio de la plantilla ya no está en la biblioteca con ese nombre (porque se renombró o se borró), se saltea y la rutina se crea igual.
-- D2 (T12), resuelta en L20: columnas `fecha, rutina, dia, ejercicio, serie, tipo, peso, unidad, reps, tiempo_s, distancia_km, pr`. Una fila por serie, solo de sesiones terminadas. `peso` va en la unidad preferida y `unidad` dice cuál es. Las celdas que no aplican al tipo de serie quedan vacías. La distancia va en km porque así se guarda (`DistanceTimeSet.distanceKm`).
+- D2 (T12), resuelta en L20: columnas `fecha, rutina, dia, ejercicio, serie, tipo, peso, unidad, reps, tiempo_s, distancia_km, pr`. Una fila por serie, solo de sesiones terminadas. `peso` va en la unidad preferida y `unidad` dice cuál es. Las celdas que no aplican al tipo de serie quedan vacías. La distancia va en km porque así se guarda (`DistanceTimeSet.distanceKm`). `fecha` es el día local de `startedAt`, como lo muestra la app, no `Session.date`, que es el día en UTC (L33).
 - D4 (T17), resuelta en L25: el número guardado es la cantidad de placas que se le ponen a la máquina; nunca son kg ni se convierten a lb. Antes, cada parte lo trataba distinto:
   - el editor del día lo pide como "Peso … kg";
   - Sesión lo muestra como "N placas";
@@ -155,7 +155,7 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
   - T18b · ruta: delegada (Writer trigger: T18b y T18c son disjuntas y de más de 100 líneas cada una, en paralelo, Sonnet) · `src/app/features/training/ui` (Hoy, Resumen, celebración de PR) y `src/app/features/routines/ui/components/target-set-editor.component.ts` · Hecha · Evidencia: `3fbe130`. RED por regla, lo reportó el writer y no lo observó el parent (L27). GREEN: `npx jest src/app/features/training src/app/features/routines` 798/798, que el parent volvió a correr con el mismo resultado; tsc y eslint limpios.
   - T18c · ruta: delegada (ídem) · `src/app/features/progress` (agregación de volumen, récords, 1RM, historial, gráfico, lista de PR, lista de progreso) · Hecha · Evidencia: `aecda84`. RED por regla, lo reportó el writer y no lo observó el parent (L27). GREEN: `npx jest src/app/features/progress` 335/335; tsc y eslint limpios.
   - T18d · ruta: inline · Integración, e2e de S11, capturas y revisión · Hecha · Evidencia: `ef2672b` (J15). `npm test` 1741/1741. e2e 31/31, corrido en el puerto 4300 con una config temporal (L27). `npm run e2e:visual:update` 18/18 sin capturas cambiadas. tsc limpio. `npm run lint` da 5 errores, todos previos.
-- [ ] T15 · S1–S11 · ruta: delegada (Verification trigger: items 4, 5 y 6 en T1, T4–T9, T11, T14) · Cierre: `npm test`, `npm run lint`, `npm run build`, `npm run e2e`, `npm run e2e:pwa` (fuentes offline), y un `odd-verifier` (opus) sobre toda la feature desde `081e4d3` · Aceptación: todo verde o un único **Needs your decision** · Evidencia: — · Risk: —
+- [x] T15 · S1–S11 · ruta: delegada (Verification trigger: items 4, 5 y 6 en T1, T4–T9, T11, T14) · Cierre: `npm test`, `npm run lint`, `npm run build`, `npm run e2e`, `npm run e2e:pwa` (fuentes offline), y un `odd-verifier` (opus) sobre toda la feature desde `081e4d3` · Aceptación: todo verde o un único **Needs your decision** · Evidencia: `accf608` (lint), `421811c` (blocker del verificador), L33. En `accf608`: `npm test` 1770/1770, `npm run lint` limpio, `npm run build` verde, e2e 34/34 en el puerto 4300, `npm run e2e:pwa` 4/4. El verificador (opus) dio un blocker en S5 y aprobó todo lo demás. Corrección con test-first: RED observado ("2026-10-27" en lugar de "2026-10-26"). Recheck limitado al blocker: `npm test` 1771/1771, el spec del CSV verde en las zonas horarias por defecto, Buenos Aires y Tokio, J13 (profile.spec) 4/4, lint limpio y build verde · Risk: items 1, 3, 4, 5 y 6, verificados por `odd-verifier` (L33)
 
 ## Log
 
@@ -484,3 +484,21 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
   - Se reescribieron dos specs que nombraban clases viejas (`bg-forge-800` y un comentario con `bg-accent-500`), para que el `rg` de S1 dé vacío.
   - Ninguna captura cambió: la limpieza no movió un píxel.
   - Próximo paso: T15. Antes, hay que corregir los 5 errores previos de lint.
+- L33 (2026-10-28) T15 cerrada.
+  - Lint: se corrigieron los 5 errores previos (`accf608`). El handler del toast de actualización descarta la promesa con `void`, y su spec espera a que se resuelva. Lo demás son tipos y un argumento sin usar.
+  - Verificador independiente (opus) sobre `081e4d3..accf608`, con un chequeo diferencial en el mismo origen: la build base escribe y la build HEAD lee.
+    - Datos (item 1): solo cambiaron `database.ts` (+2) y `exercise.mapper.ts` (+4). La versión de IndexedDB es 30 en las dos builds. Las filas viejas se leen sin cambios, editar el nombre no agrega `plateWeightKg`, y pasar a kg lo borra.
+    - Contratos (item 3): cada llamador de la agregación pasa los ejercicios. El CSV escribe las series en placas como `6,placas` e incluye una sesión de hace 400 días.
+    - Plantillas (S3/S8): con un ejercicio propio y una sesión huérfana, sin rutinas, "Usar" deja intactos ejercicios, sesiones, series, PRs y perfil.
+    - Entrega (item 5) y visual (item 6): `ngsw.json` con las fuentes nuevas, sin Geist; manifest solo con colores; capturas 20/20 sin diferencias.
+    - Veredicto: un blocker en S5. La columna `fecha` del CSV usaba `Session.date`, que `StartSessionUseCase` guarda como el día en UTC. Una sesión empezada a las 22:30 en Buenos Aires salía con fecha del día siguiente, mientras el Diario la muestra en su día. J13.4 no lo veía porque siembra `date` con el día local.
+  - Corrección (`421811c`): `fecha` sale de `startedAt.toLocaleDateString('en-CA')`, la misma forma que usa el heatmap de Progreso. El test nuevo falló antes del fix. D2 suma esta aclaración.
+  - Avisos del verificador, sin corregir:
+    - Wake Lock: si el usuario sale de Sesión mientras `loadActive()` no terminó, `hold()` corre después de `ngOnDestroy` y el lock queda tomado fuera de Sesión (`training-session.page.ts:360-371`). Solo pasa con la opción activada, y la ventana dura milisegundos.
+    - Los días de Full body se guardan en orden de UUID, así que pueden listarse como A, C, B. Es comportamiento de la base (L13).
+    - Si la biblioteca tiene solo ejercicios propios, nunca se siembra el catálogo, y la plantilla crea días vacíos.
+    - El resumen de "Push / Pull / Piernas" dice "6 días" (viene del canvas), y la plantilla crea 3 días para hacer dos veces.
+    - Rollback: la build base, al editar un ejercicio, borra `plateWeightKg`. Está fuera de dominio.
+  - Avisos previos que siguen: hay dos formateadores de placas, la progresión dice "placa 6 × 12", la seed visual no tiene placas, siguen sin aplicar las correcciones menores de L23, y `tsc -p tsconfig.spec.json` falla en 18 archivos en la base y en 20 en HEAD (no es un chequeo del proyecto).
+  - Las ramas `worktree-wf_4b271193-2d2-{1,2,3}` y sus worktrees siguen existiendo; su contenido ya está integrado.
+  - Feature completa. Próximo paso: lo decide el usuario (avisos, limpieza de worktrees, PR).
