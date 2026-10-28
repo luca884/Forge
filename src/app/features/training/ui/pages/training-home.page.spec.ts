@@ -9,9 +9,11 @@
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal, type WritableSignal } from '@angular/core';
+import { By } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 import { TrainingHomePage } from './training-home.page';
+import { FgFirstUseComponent } from '@features/onboarding/ui/components/first-use.component';
 import { RoutineRepository } from '../../../routines/domain/routine.repository';
 import { TrainingDayRepository } from '../../../routines/domain/training-day.repository';
 import { StartSessionUseCase } from '../../domain/use-cases/start-session.use-case';
@@ -36,6 +38,15 @@ const mockRoutine: Routine = {
   name: 'Fuerza total',
   description: 'Rutina de fuerza',
   isActive: true,
+  createdAt: new Date('2026-01-01'),
+  updatedAt: new Date('2026-01-01'),
+};
+
+/** A routine that exists but is not the active one. */
+const inactiveRoutine: Routine = {
+  id: 'r-2',
+  name: 'Rutina guardada',
+  isActive: false,
   createdAt: new Date('2026-01-01'),
   updatedAt: new Date('2026-01-01'),
 };
@@ -140,7 +151,7 @@ async function flushMicrotasks(): Promise<void> {
 describe('TrainingHomePage', () => {
   let fixture: ComponentFixture<TrainingHomePage>;
   let navigateSpy: jest.SpyInstance;
-  let routineRepoMock: { getActive: jest.Mock };
+  let routineRepoMock: { getActive: jest.Mock; getAll: jest.Mock };
   let trainingDayRepoMock: { getByRoutineId: jest.Mock; getById: jest.Mock };
   let startUCMock: { execute: jest.Mock };
   let activeSessionUCMock: { execute: jest.Mock };
@@ -154,6 +165,10 @@ describe('TrainingHomePage', () => {
 
   async function setup(overrides: {
     routine?: Routine | null;
+    /** Every routine stored, active or not. Only read when there is no active one. */
+    routines?: Routine[];
+    /** The routines never finish loading. */
+    neverLoads?: boolean;
     days?: TrainingDay[];
     suggestedDay?: { day: TrainingDay | null; reason: string } | null;
     activeSession?: object | null;
@@ -165,6 +180,8 @@ describe('TrainingHomePage', () => {
   } = {}): Promise<void> {
     const {
       routine = mockRoutine,
+      routines = routine ? [routine] : [],
+      neverLoads = false,
       days = [mockDay],
       suggestedDay = { day: mockDay, reason: 'scheduled' },
       activeSession = null,
@@ -174,7 +191,10 @@ describe('TrainingHomePage', () => {
       lastSets,
     } = overrides;
 
-    routineRepoMock = { getActive: jest.fn().mockResolvedValue(routine) };
+    routineRepoMock = {
+      getActive: neverLoads ? jest.fn().mockReturnValue(new Promise(() => undefined)) : jest.fn().mockResolvedValue(routine),
+      getAll: jest.fn().mockResolvedValue(routines),
+    };
     trainingDayRepoMock = {
       getByRoutineId: jest.fn().mockResolvedValue(days),
       getById: jest.fn().mockImplementation(async (id: string) =>
@@ -311,7 +331,7 @@ describe('TrainingHomePage', () => {
 
   // ── V-D1-Spec-8 ────────────────────────────────────────────────────────────
   it('renders empty-state when activeRoutine is null', async () => {
-    await setup({ routine: null, days: [], suggestedDay: null });
+    await setup({ routine: null, routines: [inactiveRoutine], days: [], suggestedDay: null });
     const emptyState = (fixture.nativeElement as HTMLElement).querySelector('[data-empty-state]');
     expect(emptyState).not.toBeNull();
     const heroCta = (fixture.nativeElement as HTMLElement).querySelector('button[fg-button]');
@@ -552,7 +572,7 @@ describe('TrainingHomePage', () => {
     });
 
     it('does not render the empty state nor "Diario" when there is no active routine', async () => {
-      await setup({ routine: null, days: [], suggestedDay: null });
+      await setup({ routine: null, routines: [inactiveRoutine], days: [], suggestedDay: null });
       expect(root().querySelector('[data-empty-state]')).not.toBeNull();
       expect(root().querySelector('[data-journal]')).toBeNull();
     });
@@ -693,6 +713,54 @@ describe('TrainingHomePage', () => {
         await setup({ routine: withoutDescription });
         expect(root().querySelector('[data-routine-description]')).toBeNull();
       });
+    });
+  });
+
+  // ── S8: Primer uso replaces the empty state only when there are no routines at all ──
+  describe('Primer uso (S8)', () => {
+    function firstUse(): HTMLElement | null {
+      return root().querySelector('fg-first-use');
+    }
+
+    it('shows Primer uso instead of "Sin rutina activa" when there are no routines at all', async () => {
+      await setup({ routine: null, routines: [], days: [], suggestedDay: null });
+      expect(firstUse()).not.toBeNull();
+      expect(root().querySelector('[data-empty-state]')).toBeNull();
+      expect(root().textContent).not.toContain('Sin rutina activa');
+    });
+
+    it('keeps "Sin rutina activa" when routines exist but none is active', async () => {
+      await setup({ routine: null, routines: [inactiveRoutine], days: [], suggestedDay: null });
+      expect(firstUse()).toBeNull();
+      expect(root().querySelector('[data-empty-state]')?.textContent).toContain('Sin rutina activa');
+      expect(root().querySelector('[data-empty-state] a')?.getAttribute('href')).toBe('/routines');
+    });
+
+    it('does not show Primer uso when there is an active routine', async () => {
+      await setup();
+      expect(firstUse()).toBeNull();
+    });
+
+    it('shows neither Primer uso nor "Sin rutina activa" while the routines are loading', async () => {
+      await setup({ neverLoads: true });
+      expect(firstUse()).toBeNull();
+      expect(root().querySelector('[data-empty-state]')).toBeNull();
+    });
+
+    it('shows the new routine as active, without a reload, once a template is applied', async () => {
+      await setup({ routine: null, routines: [], days: [], suggestedDay: null });
+      expect(firstUse()).not.toBeNull();
+
+      // What "Usar" leaves behind: a routine that is now the active one, with no week assigned yet.
+      routineRepoMock.getActive.mockResolvedValue(mockRoutine);
+      suggestedUCMock.execute.mockResolvedValue({ day: null, reason: 'no-schedule-configured' });
+      fixture.debugElement.query(By.directive(FgFirstUseComponent)).componentInstance.applied.emit();
+      await fixture.whenStable();
+      for (let i = 0; i < 10; i++) await flushMicrotasks();
+      fixture.detectChanges();
+
+      expect(firstUse()).toBeNull();
+      expect(root().querySelector('[data-routine-card]')?.textContent).toContain('Fuerza total');
     });
   });
 });
