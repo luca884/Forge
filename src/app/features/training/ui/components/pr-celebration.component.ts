@@ -1,6 +1,7 @@
 /**
  * PrCelebrationComponent (D-3).
- * ADR-33 INVARIANT: ZERO accent tokens allowed. Only --pr-warm, --pr-warm-rgb, --pr-warm-text.
+ * Lenguaje Cuaderno: el récord usa el color de acento elegido (texto `accent-ink`,
+ * borde `accent`, ícono sobre `accent` sólido). Ya no usa el naranja propio de los récords.
  */
 import { Component, Input, Output, EventEmitter, input } from '@angular/core';
 import { WorkedSet } from '../../domain/worked-set';
@@ -14,25 +15,22 @@ import { FgIconComponent } from '@core/shared/ui';
   imports: [DisplayWeightPipe, FgIconComponent],
   template: `
     @if (visible && set) {
-      <div class="bg-forge-850 rounded-[14px] p-4 relative overflow-hidden flex gap-3.5 items-center"
-           style="box-shadow: inset 0 0 0 1px rgb(var(--pr-warm-rgb) / 0.4), 0 16px 40px rgb(var(--pr-warm-rgb) / 0.15);">
-        <!-- Radial gradient overlay -->
-        <div class="absolute inset-0 pointer-events-none"
-             style="background: radial-gradient(120% 80% at 0% 50%, rgb(var(--pr-warm-rgb) / 0.2), transparent 65%);"></div>
+      <div class="bg-surface border border-accent rounded-xl p-3.5 relative overflow-hidden flex gap-3 items-center">
+        <!-- Accent wash -->
+        <div class="absolute inset-0 pointer-events-none bg-accent-soft"></div>
 
-        <!-- Flame icon circle -->
-        <div class="w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center relative"
-             style="background: var(--pr-warm); box-shadow: 0 0 24px rgb(var(--pr-warm-rgb) / 0.45), inset 0 0 0 1px rgba(255,255,255,0.2);">
-          <fg-icon name="flame" [size]="26" class="text-white"></fg-icon>
+        <!-- Flame icon square -->
+        <div class="w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center relative bg-accent text-accent-on">
+          <fg-icon name="flame" [size]="20"></fg-icon>
         </div>
 
         <!-- Body -->
         <div class="flex-1 min-w-0 relative">
-          <div class="t-micro" style="color: var(--pr-warm-text); letter-spacing: 0.08em;">
+          <div class="text-[13px] leading-[18px] font-semibold text-accent-ink">
             NUEVO PR{{ delta() ? ' · ' + delta() : '' }}
           </div>
-          <div class="t-h3 text-forge-50 mt-0.5">{{ exerciseName() }}</div>
-          <div class="t-body-sm text-forge-200 mt-0.5 tabular-nums">
+          <div class="text-[15px] leading-5 font-medium text-ink mt-0.5">{{ exerciseName() }}</div>
+          <div class="font-mono tabular-nums text-[13px] leading-[18px] text-ink-2 mt-0.5">
             @switch (set.type) {
               @case ('weight-reps') {
                 {{ set.weight.value | displayWeight: unit() }} · {{ set.reps.value }} reps
@@ -53,7 +51,7 @@ import { FgIconComponent } from '@core/shared/ui';
         <!-- Dismiss button -->
         <button type="button"
                 (click)="onDismiss()"
-                class="text-forge-500 hover:text-forge-300 relative flex-shrink-0"
+                class="text-ink-2 relative flex-shrink-0"
                 aria-label="Cerrar">
           <fg-icon name="x" [size]="16"></fg-icon>
         </button>
