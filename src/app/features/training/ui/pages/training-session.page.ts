@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, signal, computed, effect } from '@angular/core';
 import { NgClass } from '@angular/common';
 import { Router } from '@angular/router';
 import { Exercise } from '../../../exercises/domain/exercise.entity';
@@ -19,6 +19,7 @@ import {
 import { TrainingSessionStore } from '../services/training-session.store';
 import { RestTimerService } from '../services/rest-timer.service';
 import { RestPreferencesService } from '@core/rest-preferences/rest-preferences.service';
+import { ScreenWakeLockService } from '@core/wake-lock/screen-wake-lock.service';
 import { ExerciseSessionCardComponent } from '../components/exercise-session-card.component';
 import { RestTimerComponent } from '../components/rest-timer.component';
 import { PrCelebrationComponent } from '../components/pr-celebration.component';
@@ -220,8 +221,9 @@ function formatHMS(totalSeconds: number): string {
     </div>
   `,
 })
-export class TrainingSessionPage implements OnInit {
+export class TrainingSessionPage implements OnInit, OnDestroy {
   readonly store = inject(TrainingSessionStore);
+  private readonly wakeLock = inject(ScreenWakeLockService);
   private readonly trainingDayRepo = inject(TrainingDayRepository);
   private readonly exerciseRepo = inject(ExerciseRepository);
   private readonly logSetUseCase = inject(LogSetUseCase);
@@ -343,6 +345,11 @@ export class TrainingSessionPage implements OnInit {
     void this.init();
   }
 
+  /** Finish, cancel and minimize all leave this page, which ends the hold. */
+  ngOnDestroy(): void {
+    this.wakeLock.release();
+  }
+
   private async init(): Promise<void> {
     try {
       if (!this.store.activeSession()) {
@@ -354,6 +361,9 @@ export class TrainingSessionPage implements OnInit {
         void this.router.navigate(['/training']);
         return;
       }
+
+      // "Pantalla siempre encendida": only while this page shows an open session.
+      this.wakeLock.hold();
 
       await this.store.refreshSets();
 

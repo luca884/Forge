@@ -13,6 +13,7 @@ import { NotificationPermissionService } from '@core/notifications/notification-
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import { AppearanceService } from '@core/appearance/appearance.service';
 import { RestPreferencesService } from '@core/rest-preferences/rest-preferences.service';
+import { ScreenWakeLockService } from '@core/wake-lock/screen-wake-lock.service';
 import { WritableSignal, signal } from '@angular/core';
 
 interface ToastMock {
@@ -31,6 +32,11 @@ interface Setup {
   unit: WritableSignal<'kg' | 'lb'>;
 }
 
+function fakeWakeLockService(supported: boolean): Pick<ScreenWakeLockService, 'supported' | 'enabled' | 'setEnabled'> {
+  const enabled = signal(false);
+  return { supported, enabled, setEnabled: (value: boolean) => enabled.set(value) };
+}
+
 async function flush(fixture: ComponentFixture<ProfilePage>): Promise<void> {
   fixture.detectChanges();
   await fixture.whenStable();
@@ -45,6 +51,7 @@ function makeFixture(opts: {
   toastMock?: ToastMock;
   canInstall?: boolean;
   notifications?: { supported: boolean; permission: 'granted' | 'denied' | 'default' };
+  wakeLockSupported?: boolean;
 } = {}): Setup {
   const clearSpy = opts.clearSpy ?? jest.fn().mockResolvedValue(undefined);
   const setUnitSpy = opts.setUnitSpy ?? jest.fn().mockResolvedValue(undefined);
@@ -72,6 +79,7 @@ function makeFixture(opts: {
       },
       { provide: UserPreferencesService, useValue: { unit, loadOnce: jest.fn().mockResolvedValue(undefined) } },
       { provide: SetPreferredUnitUseCase, useValue: { execute: setUnitSpy } },
+      { provide: ScreenWakeLockService, useValue: fakeWakeLockService(opts.wakeLockSupported ?? true) },
     ],
   })
     .overrideComponent(ProfilePage, {
@@ -268,6 +276,41 @@ describe('ProfilePage', () => {
 
       expect(TestBed.inject(RestPreferencesService).defaultSeconds()).toBe(0);
       expect(minus.disabled).toBe(true);
+    });
+  });
+
+  describe('Entrenamiento — Pantalla siempre encendida (S4, S9)', () => {
+    it('muestra la fila "Durante la sesión" apagada por defecto', async () => {
+      const { fixture } = makeFixture();
+      await flush(fixture);
+
+      const toggle = switchNamed(fixture, 'Pantalla siempre encendida');
+      expect(toggle.getAttribute('aria-checked')).toBe('false');
+      expect(toggle.disabled).toBe(false);
+      expect(root(fixture).textContent).toContain('Durante la sesión');
+    });
+
+    it('al tocarla se activa', async () => {
+      const { fixture } = makeFixture();
+      await flush(fixture);
+
+      switchNamed(fixture, 'Pantalla siempre encendida').click();
+      fixture.detectChanges();
+
+      expect(TestBed.inject(ScreenWakeLockService).enabled()).toBe(true);
+      expect(switchNamed(fixture, 'Pantalla siempre encendida').getAttribute('aria-checked')).toBe('true');
+    });
+
+    it('sin soporte del navegador, se ve deshabilitada con una explicación', async () => {
+      const { fixture } = makeFixture({ wakeLockSupported: false });
+      await flush(fixture);
+
+      const toggle = switchNamed(fixture, 'Pantalla siempre encendida');
+      expect(toggle.disabled).toBe(true);
+      expect(root(fixture).textContent).toContain('Tu navegador no permite mantener la pantalla encendida.');
+
+      toggle.click();
+      expect(TestBed.inject(ScreenWakeLockService).enabled()).toBe(false);
     });
   });
 
