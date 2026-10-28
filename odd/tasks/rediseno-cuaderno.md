@@ -65,7 +65,7 @@ Requisitos:
 - S5: "entran en el plan" (exportar CSV) — Aceptación: "Exportar historial (CSV)" en Perfil descarga un `.csv` en UTF-8 con BOM, una fila por serie registrada, columnas según D2 — Checks: Jest del caso de uso que arma el CSV (comillas, comas y saltos de línea escapados), e2e que verifica la descarga.
 - S6: "entran en el plan" (elegir color de acento) — Aceptación: radiogroup "Color de acento" en Perfil con las 4 opciones; cambia el acento al instante sin recargar y persiste — Checks: Jest del servicio de apariencia, e2e de Perfil.
 - S7: el tema por defecto es "Sistema" y el acento por defecto es `#2B59FF` (confirmado en L7: "dale,").
-- S8 (supuesto): Primer uso reemplaza el estado vacío "Sin rutina activa" de Hoy cuando no hay ninguna rutina. Con rutinas pero sin una activa, Hoy sigue como hoy. Confirmar o descartar en T13.
+- S8: Primer uso reemplaza el estado vacío "Sin rutina activa" de Hoy cuando no hay ninguna rutina. Con rutinas pero sin una activa, Hoy sigue como hoy. Era un supuesto; confirmado en L31 ("confirmo").
 - S9: "Pantalla siempre encendida" viene desactivada por defecto; el usuario la activa en Perfil (L19: "nop, la tenes que activar").
 - S10: "obviamente quiero que la aplicacion siga aprovechando la informacoin y datos que se estvieron cargando, por ejemplo luego de esta migracion grande que fue, que sigan apareciendo los datos que todo este tiempo usando la apliciion, que eso siga como siempre, se entiende?" (L20).
   - Aceptación:
@@ -131,7 +131,7 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
   - `npm run e2e:visual` 18/18; solo cambiaron `perfil-*`. eslint limpio en lo tocado. Revisé `perfil-dark`.
   - Risk: none (solo lectura; formato nuevo que todavía nadie consume)
 - [x] T13 · S3, S8 · ruta: delegada (respaldo de contexto de ~150k del parent, un writer Sonnet) · D1 resuelta en L29. Feature `onboarding`: pantalla Primer uso según `C-Welcome`, catálogo de plantillas, caso de uso que crea la rutina con los casos de uso de `routines` existentes (respeta "una sola rutina activa", J6a.2). Ajustar el e2e "muestra \"Sin rutina activa\"…" y sumar uno de primer uso · Aceptación: S3 · Evidencia: `72ecb05` y `96c8fe8` (L30). RED en Jest, lo reportó el writer y no lo observó el parent: catálogo 6/6, caso de uso 10/10, componente 8/8 y Hoy 3/5. Los e2e se escribieron después de implementar. GREEN: `npm test` 1770/1770, e2e 34/34 en el puerto 4300, `npm run e2e:visual:update` 20/20, con `primer-uso-*` nuevas y las otras 18 sin cambios. tsc limpio; `npm run lint` da 5 errores, todos previos. Revisé `primer-uso-light` y `primer-uso-dark` · Risk: none (crea registros solo con los casos de uso existentes)
-- [ ] T14 · S1 · ruta: inline · Limpieza: borrar la rampa `forge-*`, `accent-50..700`, `--pr-warm*` si queda sin uso, los bloques viejos `.forge-dark`/`.forge-light`, las Geist y sus `preload`; regenerar todas las baselines. En `public/manifest.webmanifest` cambian solo los colores: `id`, `start_url`, `scope` y `name` quedan igual, así la app instalada sigue siendo la misma (S10) · Aceptación: `rg` de S1 sin resultados; build verde · Evidencia: — · Risk: item 6 (igual que T4)
+- [x] T14 · S1 · ruta: inline · Limpieza: borrar la rampa `forge-*`, `accent-50..700`, `--pr-warm*` si queda sin uso, los bloques viejos `.forge-dark`/`.forge-light`, las Geist y sus `preload`; regenerar todas las baselines. En `public/manifest.webmanifest` cambian solo los colores: `id`, `start_url`, `scope` y `name` quedan igual, así la app instalada sigue siendo la misma (S10) · Aceptación: `rg` de S1 sin resultados; build verde · Evidencia: `5d6e949` (L32). `rg` de S1 sobre `src` sin resultados (el `index.html` está en `src/`, no en `public/`). `npm run build` verde, sin Geist ni tokens viejos en `dist` ni en `ngsw.json`. `npm test` 1770/1770. e2e 34/34 en el puerto 4300. `npm run e2e:pwa` 4/4, con fuentes offline. `npm run e2e:visual:update` 20/20, sin ninguna captura cambiada. `npm run lint` da los mismos 5 errores previos · Risk: item 6 (igual que T4)
 - [x] T16 · S10 · ruta: delegada (auditoría en workflow) e inline (chequeo diferencial) · Continuidad de datos:
   - Auditoría de solo lectura de antes (`081e4d3`) y después: capa de persistencia y cada pantalla, con verificación adversarial de cada hallazgo.
   - Chequeo diferencial en scratch: la build de `081e4d3` escribe datos con su propia UI y la build nueva los muestra en el mismo origen.
@@ -473,3 +473,14 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
     - Mientras Hoy carga no muestra ningún estado vacío, así que desaparece el destello de "Sin rutina activa" para quien tiene rutinas.
   - S8 queda implementado tal como está escrito: Primer uso aparece solo si no hay ninguna rutina.
   - Próximo paso: confirmar S8 con el usuario y seguir con T14.
+- L31 (2026-10-28) S8 confirmado. Respuesta del usuario, textual:
+  > confirmo
+  - No cambia código: T13 ya lo implementa así.
+  - Próximo paso: T14.
+- L32 (2026-10-28) T14 cerrada, inline.
+  - Además de lo listado en T14, se borraron otros tokens viejos que no usaba ninguna pantalla: `--destructive-*` (lo reemplaza `danger`), `--elev-*`, los atajos `--accent`, `--accent-text`, `--accent-rgb` y `--accent-fg`, y los colores `destructive` de Tailwind.
+  - También se borró la línea de Geist en `public/fonts/LICENSE.txt`.
+  - El manifest no tiene `id` ni `scope`; no se agregaron, porque cambiarían la identidad de la app instalada. `theme_color` y `background_color` pasan a `#F6F6F4`, el fondo claro. El manifest es estático y no sigue el tema; `index.html` ya ajusta `theme-color` antes del primer pintado.
+  - Se reescribieron dos specs que nombraban clases viejas (`bg-forge-800` y un comentario con `bg-accent-500`), para que el `rg` de S1 dé vacío.
+  - Ninguna captura cambió: la limpieza no movió un píxel.
+  - Próximo paso: T15. Antes, hay que corregir los 5 errores previos de lint.
