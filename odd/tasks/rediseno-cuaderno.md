@@ -1,7 +1,7 @@
 # rediseno-cuaderno
 
 Objetivo: migrar toda la UI de Forge a la dirección C "Cuaderno" (claro y oscuro) y sumar las funciones nuevas del canvas · Por qué: el usuario quiere un diseño nuevo completo y eligió C.
-Rama: `feat/rediseno-cuaderno` desde `081e4d3` · Entrega: single-pr · Runner: `npm test` (Jest), `npm run e2e` (Playwright), detectados en `package.json` (el proyecto no tiene bloque `## ODD`) · Mirror Engram: `odd/rediseno-cuaderno/tasks` (ok)
+Rama: `feat/rediseno-cuaderno` desde `081e4d3` · Entrega: single-pr · Runner: `npm test` (Jest), `npm run e2e` (Playwright), detectados en `package.json` (el proyecto no tiene bloque `## ODD`) · Mirror Engram: `odd/rediseno-cuaderno/tasks` (ok). Desde L22, Log L1–L16 está en `odd/rediseno-cuaderno/tasks-log-1`, porque Engram limita cada observación a 50 000 bytes
 Pronóstico: ~5500 líneas cambiadas (agregadas + borradas, sin generados ni capturas) · Heurística por tarea: ~400 (no es límite)
 Ruteo de modelo: caso 4. Opus escribió este documento con riesgo por tarea; una sesión Sonnet lo retoma y ejecuta sin replanificar.
 
