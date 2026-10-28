@@ -34,6 +34,11 @@ export interface Exercise {
    * Only meaningful when trackingType === 'weight-reps'.
    */
   readonly weightUnit: WeightUnit;
+  /**
+   * Kilograms of one plate, only on 'plates' exercises (S11). Unset means
+   * DEFAULT_PLATE_WEIGHT_KG. Used for volume and 1RM, never to display a set.
+   */
+  readonly plateWeightKg?: number;
   readonly isCustom: boolean;
   readonly createdAt: Date;
   readonly updatedAt: Date;

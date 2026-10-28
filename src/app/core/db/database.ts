@@ -79,6 +79,8 @@ export interface ExerciseRow {
   trackingType: string;
   /** Optional — defaults to 'kg' for backward-compat. NOT indexed (no version bump needed). */
   weightUnit?: string;
+  /** Optional — kg per plate on 'plates' exercises (S11); unset means 5 kg. NOT indexed (no version bump needed). */
+  plateWeightKg?: number;
   isCustom: boolean;
   createdAt: Date;
   updatedAt: Date;

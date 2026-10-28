@@ -178,4 +178,39 @@ describe('CreateCustomExerciseUseCase', () => {
     });
     expect(repo.savedExercises[0]!.weightUnit).toBe('kg');
   });
+
+  // ── S11: plate weight ──────────────────────────────────────────────────────
+
+  it('saves the plate weight of a plates exercise', async () => {
+    await useCase.execute({
+      name: 'Prensa máquina',
+      muscleGroup: 'legs',
+      trackingType: 'weight-reps',
+      weightUnit: 'plates',
+      plateWeightKg: 10,
+    });
+    expect(repo.savedExercises[0]!.plateWeightKg).toBe(10);
+  });
+
+  it('leaves the plate weight unset when it is empty or invalid, so the default applies', async () => {
+    await useCase.execute({
+      name: 'Prensa máquina',
+      muscleGroup: 'legs',
+      trackingType: 'weight-reps',
+      weightUnit: 'plates',
+      plateWeightKg: 0,
+    });
+    expect(repo.savedExercises[0]!.plateWeightKg).toBeUndefined();
+  });
+
+  it('never saves a plate weight on a kg exercise', async () => {
+    await useCase.execute({
+      name: 'Curl bíceps',
+      muscleGroup: 'biceps',
+      trackingType: 'weight-reps',
+      weightUnit: 'kg',
+      plateWeightKg: 10,
+    });
+    expect(repo.savedExercises[0]!.plateWeightKg).toBeUndefined();
+  });
 });

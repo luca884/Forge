@@ -156,4 +156,38 @@ describe('EditCustomExerciseUseCase', () => {
 
     expect(repo.savedExercises[0]!.weightUnit).toBe('plates');
   });
+
+  // ── S11: plate weight ──────────────────────────────────────────────────────
+
+  it('sets the plate weight when the exercise moves to plates', async () => {
+    repo.setExercises([makeExercise({ id: 'ex-1', isCustom: true, weightUnit: 'kg' })]);
+
+    await useCase.execute({ id: 'ex-1', weightUnit: 'plates', plateWeightKg: 10 });
+
+    expect(repo.savedExercises[0]!.plateWeightKg).toBe(10);
+  });
+
+  it('preserves the plate weight when the input does not mention it', async () => {
+    repo.setExercises([makeExercise({ id: 'ex-1', isCustom: true, weightUnit: 'plates', plateWeightKg: 10 })]);
+
+    await useCase.execute({ id: 'ex-1', name: 'Updated Name' });
+
+    expect(repo.savedExercises[0]!.plateWeightKg).toBe(10);
+  });
+
+  it('clears the plate weight when the input empties it, so the default applies again', async () => {
+    repo.setExercises([makeExercise({ id: 'ex-1', isCustom: true, weightUnit: 'plates', plateWeightKg: 10 })]);
+
+    await useCase.execute({ id: 'ex-1', plateWeightKg: undefined });
+
+    expect(repo.savedExercises[0]!.plateWeightKg).toBeUndefined();
+  });
+
+  it('drops the plate weight when the exercise moves back to kg', async () => {
+    repo.setExercises([makeExercise({ id: 'ex-1', isCustom: true, weightUnit: 'plates', plateWeightKg: 10 })]);
+
+    await useCase.execute({ id: 'ex-1', weightUnit: 'kg' });
+
+    expect(repo.savedExercises[0]!.plateWeightKg).toBeUndefined();
+  });
 });

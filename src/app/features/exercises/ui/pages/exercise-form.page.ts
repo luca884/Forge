@@ -8,7 +8,12 @@ import { EditCustomExerciseUseCase } from '../../domain/use-cases/edit-custom-ex
 import { DeleteCustomExerciseUseCase } from '../../domain/use-cases/delete-custom-exercise.use-case';
 import { ExerciseInUseError } from '../../domain/errors/exercise-in-use.error';
 import { TrackingType } from '@core/shared/domain/tracking-type';
-import { WeightUnit, WEIGHT_UNIT_OPTIONS } from '@core/shared/domain/weight-unit';
+import {
+  DEFAULT_PLATE_WEIGHT_KG,
+  WeightUnit,
+  WEIGHT_UNIT_OPTIONS,
+  normalizePlateWeightKg,
+} from '@core/shared/domain/weight-unit';
 import {
   FgPageHeaderComponent,
   FgInputComponent,
@@ -116,6 +121,23 @@ const TRACKING_TYPES: TrackingType[] = ['weight-reps', 'bodyweight-reps', 'time'
                   }
                 </select>
               </label>
+              @if (exerciseForm.get('weightUnit')?.value === 'plates') {
+                <label class="flex flex-col gap-1.5">
+                  <span class="t-caption text-ink-2">Peso por placa (opcional)</span>
+                  <span class="flex items-center gap-2">
+                    <input
+                      type="number"
+                      inputmode="decimal"
+                      min="0"
+                      step="0.5"
+                      formControlName="plateWeightKg"
+                      [placeholder]="defaultPlateWeightKg"
+                      class="h-11 w-24 px-3 rounded-[10px] bg-surface border border-line text-ink font-mono tabular-nums outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
+                    />
+                    <span class="t-caption text-ink-2">kg · solo para el volumen</span>
+                  </span>
+                </label>
+              }
             }
 
             <label class="flex flex-col gap-1.5">
@@ -203,7 +225,11 @@ export class ExerciseFormPage implements OnInit {
     trackingType: ['weight-reps' as TrackingType, Validators.required],
     equipment: [''],
     weightUnit: ['kg' as WeightUnit],
+    plateWeightKg: [null as number | null],
   });
+
+  /** Shown as the placeholder: an empty field means this weight (S11). */
+  readonly defaultPlateWeightKg = String(DEFAULT_PLATE_WEIGHT_KG);
 
   ngOnInit(): void {
     void this.loadForm();
@@ -227,6 +253,7 @@ export class ExerciseFormPage implements OnInit {
             trackingType: exercise.trackingType,
             equipment: exercise.equipment ?? '',
             weightUnit: exercise.weightUnit ?? 'kg',
+            plateWeightKg: exercise.plateWeightKg ?? null,
           });
         }
       } finally {
@@ -240,8 +267,11 @@ export class ExerciseFormPage implements OnInit {
   async onSubmit(): Promise<void> {
     if (this.exerciseForm.invalid) return;
 
-    const { name, muscleGroup, trackingType, equipment, weightUnit } = this.exerciseForm.value;
+    const { name, muscleGroup, trackingType, equipment, weightUnit, plateWeightKg } = this.exerciseForm.value;
     if (!name || !muscleGroup || !trackingType) return;
+    const resolvedUnit: WeightUnit = trackingType === 'weight-reps' ? ((weightUnit as WeightUnit) ?? 'kg') : 'kg';
+    // Always sent (even empty) so editing can clear it; the use cases keep it only on plates exercises.
+    const resolvedPlateWeightKg = normalizePlateWeightKg(resolvedUnit, plateWeightKg);
 
     this.isSaving.set(true);
     this.nameError.set(null);
@@ -252,25 +282,23 @@ export class ExerciseFormPage implements OnInit {
         const id = this.route.snapshot.paramMap.get('id')!;
         // weightUnit only applies when trackingType is weight-reps;
         // for other types it's ignored but harmlessly passed through.
-        const resolvedWeightUnit: WeightUnit =
-          trackingType === 'weight-reps' ? ((weightUnit as WeightUnit) ?? 'kg') : 'kg';
         await this.editUseCase.execute({
           id,
           name,
           muscleGroup: muscleGroup as MuscleGroup,
           equipment: equipment ? (equipment as Equipment) : undefined,
-          weightUnit: resolvedWeightUnit,
+          weightUnit: resolvedUnit,
+          plateWeightKg: resolvedPlateWeightKg,
         });
         await this.router.navigate(['/exercises']);
       } else {
-        const resolvedWeightUnitCreate: WeightUnit =
-          trackingType === 'weight-reps' ? ((weightUnit as WeightUnit) ?? 'kg') : 'kg';
         const created = await this.createUseCase.execute({
           name,
           muscleGroup: muscleGroup as MuscleGroup,
           trackingType: trackingType as TrackingType,
           equipment: equipment ? (equipment as Equipment) : undefined,
-          weightUnit: resolvedWeightUnitCreate,
+          weightUnit: resolvedUnit,
+          plateWeightKg: resolvedPlateWeightKg,
         });
         const returnRoutineId = this.returnRoutineId();
         const returnDayId = this.returnDayId();

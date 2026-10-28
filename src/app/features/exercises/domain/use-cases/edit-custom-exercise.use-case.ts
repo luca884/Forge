@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Exercise, Equipment, MuscleGroup } from '../exercise.entity';
 import { ExerciseRepository } from '../exercise.repository';
-import { WeightUnit } from '@core/shared/domain/weight-unit';
+import { WeightUnit, normalizePlateWeightKg } from '@core/shared/domain/weight-unit';
 import { DuplicateExerciseNameError } from '../errors/duplicate-exercise-name.error';
 import { ExerciseNameRequiredError } from '../errors/exercise-name-required.error';
 import { ExerciseNotFoundError } from '../errors/exercise-not-found.error';
@@ -13,6 +13,11 @@ export interface EditCustomExerciseInput {
   equipment?: Equipment;
   /** Only meaningful for weight-reps exercises. */
   weightUnit?: WeightUnit;
+  /**
+   * Kg per plate (S11). Leave the key out to keep the saved value; pass it as
+   * undefined to clear it, so the default applies again.
+   */
+  plateWeightKg?: number;
 }
 
 @Injectable()
@@ -44,12 +49,17 @@ export class EditCustomExerciseUseCase {
       }
     }
 
+    const weightUnit = input.weightUnit ?? existing.weightUnit;
     const updated: Exercise = {
       ...existing,
       name: input.name !== undefined ? input.name.trim() : existing.name,
       muscleGroup: input.muscleGroup ?? existing.muscleGroup,
       equipment: input.equipment !== undefined ? input.equipment : existing.equipment,
-      weightUnit: input.weightUnit ?? existing.weightUnit,
+      weightUnit,
+      plateWeightKg: normalizePlateWeightKg(
+        weightUnit,
+        'plateWeightKg' in input ? input.plateWeightKg : existing.plateWeightKg,
+      ),
       updatedAt: new Date(),
     };
 
