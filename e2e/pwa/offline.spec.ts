@@ -49,6 +49,38 @@ test('J14.1 app shell carga offline desde SW cache', async ({ page, context }) =
 });
 
 // ---------------------------------------------------------------------------
+// J14.4 — Self-hosted fonts are served from the SW cache when offline
+// ---------------------------------------------------------------------------
+
+test('J14.4 fuentes servidas offline desde SW cache', async ({ page, context }) => {
+  await page.goto('/');
+  await page.waitForSelector('fg-root');
+  await waitForServiceWorker(page);
+  await page.reload();
+  await page.waitForSelector('fg-root');
+
+  await context.setOffline(true);
+  try {
+    // no-store skips Chrome's HTTP cache: only the SW cache can answer.
+    const served = await page.evaluate(async () => {
+      const urls = ['/fonts/InterTight-Variable.woff2', '/fonts/JetBrainsMono-Variable.woff2'];
+      return Promise.all(
+        urls.map(async (url) => {
+          try {
+            return (await fetch(url, { cache: 'no-store' })).ok;
+          } catch {
+            return false;
+          }
+        }),
+      );
+    });
+    expect(served).toEqual([true, true]);
+  } finally {
+    await context.setOffline(false);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // J14.2 — IndexedDB data persists and is readable when offline
 // ---------------------------------------------------------------------------
 
