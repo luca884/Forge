@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures/db-reset';
-import { FIXED_NOW, seedVisualData } from './visual-data';
+import { FIXED_NOW, seedVisualData, type SeedOptions } from './visual-data';
 
 /**
  * Visual journey: one screenshot per screen, in light and dark.
@@ -20,7 +20,7 @@ type Theme = 'light' | 'dark';
 interface Screen {
   /** Baseline file stem, e.g. `hoy` -> `hoy-light.png`. */
   readonly name: string;
-  readonly seed?: { readonly activeSession?: boolean };
+  readonly seed?: SeedOptions;
   /** Navigates from the booted, seeded app to the screen and waits for its landmark. */
   readonly open: (page: Page) => Promise<void>;
 }
@@ -34,6 +34,18 @@ const SCREENS: readonly Screen[] = [
       await page.goto('/training');
       await expect(page.locator('[data-routine-card]')).toContainText('Torso / Pierna');
       await expect(page.locator('[data-days-list]')).toBeVisible();
+    },
+  },
+  {
+    name: 'primer-uso',
+    // A new install: no routines at all, so Hoy shows Primer uso instead of "Sin rutina activa".
+    seed: { empty: true },
+    open: async (page) => {
+      await page.goto('/training');
+      await expect(page.getByRole('heading', { name: 'Empezá en 3 pasos' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Usar plantilla Push / Pull / Piernas' })).toBeVisible();
+      // Step 1 shows the preferred unit (kg while no profile is saved).
+      await expect(page.getByText('kg · listo')).toBeVisible();
     },
   },
   {

@@ -267,6 +267,8 @@ function buildActiveSession(): { session: SeedSession; workedSets: SeedWorkedSet
 export interface SeedOptions {
   /** Add a session in progress with a few sets already logged. */
   readonly activeSession?: boolean;
+  /** Seed nothing: the empty database of a new install, which Hoy answers with Primer uso. */
+  readonly empty?: boolean;
 }
 
 /**
@@ -274,6 +276,8 @@ export interface SeedOptions {
  * Dexie created the schema (navigate-first contract of the seed helpers).
  */
 export async function seedVisualData(page: Page, options: SeedOptions = {}): Promise<void> {
+  if (options.empty) return;
+
   const history = buildHistory();
   const sessions = [...history.sessions];
   const workedSets = [...history.workedSets];
