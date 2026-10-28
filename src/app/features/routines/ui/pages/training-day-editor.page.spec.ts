@@ -14,6 +14,8 @@ import { SetRestSecondsUseCase } from '../../domain/use-cases/set-rest-seconds.u
 import { TargetSet } from '../../domain/target-set';
 import { RoutineRepository } from '../../domain/routine.repository';
 import { Routine } from '../../domain/routine.entity';
+import { RestPreferencesService } from '@core/rest-preferences/rest-preferences.service';
+import { TrackingType } from '@core/shared/domain/tracking-type';
 
 // ---- Factories ----
 
@@ -26,6 +28,14 @@ const makeView = (overrides: Partial<TrainingDayView> = {}): TrainingDayView => 
   updatedAt: new Date(),
   ...overrides,
 });
+
+// Series como las deja el editor: vaciar un campo guarda `undefined` y "Agregar serie" guarda 0,
+// aunque el tipo diga `number`. Por eso los valores entran como `unknown`.
+const looseSet = (set: Record<string, unknown>): TargetSet => set as unknown as TargetSet;
+const repsSet = (reps: unknown): TargetSet => looseSet({ type: 'weight-reps', reps });
+const timeSet = (durationSec: unknown): TargetSet => looseSet({ type: 'time', durationSec });
+const distanceSet = (distanceKm: unknown): TargetSet =>
+  looseSet({ type: 'distance-time', distanceKm, durationSec: 600 });
 
 // ---- flush helper (slice F pattern) ----
 
@@ -481,6 +491,100 @@ describe('TrainingDayEditorPage', () => {
       await fixture.whenStable();
 
       expect(setRestSecondsSpy).toHaveBeenCalledWith({ dayId: 'd-1', exerciseId: 'ex-1', restSeconds: 120 });
+    });
+  });
+
+  describe('columna Objetivo con series vacías, inválidas, iguales y distintas', () => {
+    interface TargetCase {
+      readonly name: string;
+      readonly trackingType: TrackingType;
+      readonly sets: readonly TargetSet[];
+      readonly expected: string;
+    }
+
+    /** Dibuja un ejercicio por caso y devuelve [caso, texto de su columna Objetivo]. */
+    async function renderedTargets(cases: readonly TargetCase[]): Promise<string[][]> {
+      const view = makeView({
+        exercises: cases.map((c, i) => ({
+          exerciseId: `ex-${i}`,
+          exerciseName: `Ejercicio ${i}`,
+          order: i,
+          targetSets: [...c.sets],
+          trackingType: c.trackingType,
+        })),
+      });
+      const { fixture } = makeFixture({ view });
+      await flush(fixture);
+
+      const rows = fixture.debugElement.queryAll(By.css('[data-exercise-row]'));
+      return cases.map((c, i) => [
+        c.name,
+        (rows[i]!.nativeElement as HTMLElement).querySelectorAll('[data-cell]')[2]?.textContent?.trim() ?? '',
+      ]);
+    }
+
+    it('B1: ignora los valores vacíos o inválidos y, si no queda ninguno, muestra "N series"', async () => {
+      const cases: TargetCase[] = [
+        { name: 'reps vacías', trackingType: 'weight-reps', sets: [repsSet(undefined), repsSet(undefined)], expected: '2 series' },
+        { name: 'reps inválidas (NaN, negativa, 0)', trackingType: 'weight-reps', sets: [repsSet(NaN), repsSet(-3), repsSet(0)], expected: '3 series' },
+        { name: 'una sola serie vacía', trackingType: 'weight-reps', sets: [repsSet(undefined)], expected: '1 serie' },
+        { name: 'reps iguales y una vacía', trackingType: 'weight-reps', sets: [repsSet(undefined), repsSet(8), repsSet(8)], expected: '3 × 8' },
+        { name: 'reps distintas y una inválida', trackingType: 'weight-reps', sets: [repsSet(NaN), repsSet(6), repsSet(8)], expected: '3 × 6–8' },
+        { name: 'tiempo vacío', trackingType: 'time', sets: [timeSet(undefined), timeSet(undefined)], expected: '2 series' },
+        { name: 'tiempo inválido (0, NaN)', trackingType: 'time', sets: [timeSet(0), timeSet(NaN)], expected: '2 series' },
+        { name: 'tiempo igual y la primera vacía', trackingType: 'time', sets: [timeSet(undefined), timeSet(60), timeSet(60)], expected: '3 × 60 s' },
+        { name: 'distancia vacía', trackingType: 'distance-time', sets: [distanceSet(undefined), distanceSet(undefined)], expected: '2 series' },
+        { name: 'distancia inválida (negativa, infinita)', trackingType: 'distance-time', sets: [distanceSet(-1), distanceSet(Infinity)], expected: '2 series' },
+        { name: 'distancia igual y la primera vacía', trackingType: 'distance-time', sets: [distanceSet(undefined), distanceSet(5), distanceSet(5)], expected: '3 × 5 km' },
+      ];
+
+      expect(await renderedTargets(cases)).toEqual(cases.map((c) => [c.name, c.expected]));
+    });
+
+    it('B2: en tiempo y distancia muestra el rango cuando las series difieren', async () => {
+      const cases: TargetCase[] = [
+        { name: 'tiempo igual', trackingType: 'time', sets: [timeSet(60), timeSet(60)], expected: '2 × 60 s' },
+        { name: 'tiempo distinto, en desorden', trackingType: 'time', sets: [timeSet(60), timeSet(30), timeSet(45)], expected: '3 × 30–60 s' },
+        { name: 'tiempo distinto y una vacía', trackingType: 'time', sets: [timeSet(undefined), timeSet(30), timeSet(60)], expected: '3 × 30–60 s' },
+        { name: 'distancia igual', trackingType: 'distance-time', sets: [distanceSet(5), distanceSet(5)], expected: '2 × 5 km' },
+        { name: 'distancia distinta, en desorden', trackingType: 'distance-time', sets: [distanceSet(5), distanceSet(2), distanceSet(3.5)], expected: '3 × 2–5 km' },
+        { name: 'distancia distinta y una inválida', trackingType: 'distance-time', sets: [distanceSet(NaN), distanceSet(2), distanceSet(5)], expected: '3 × 2–5 km' },
+      ];
+
+      expect(await renderedTargets(cases)).toEqual(cases.map((c) => [c.name, c.expected]));
+    });
+  });
+
+  describe('placeholder del descanso', () => {
+    const view = makeView({
+      exercises: [
+        { exerciseId: 'ex-1', exerciseName: 'Sentadilla', order: 0, targetSets: [], trackingType: 'weight-reps' },
+      ],
+    });
+
+    function restPlaceholder(fixture: ComponentFixture<TrainingDayEditorPage>): string {
+      fixture.componentInstance.toggleExpand('ex-1');
+      fixture.detectChanges();
+      const input = fixture.debugElement.query(By.css('input[aria-label="Descanso en segundos"]'));
+      return (input.nativeElement as HTMLInputElement).placeholder;
+    }
+
+    beforeEach(() => localStorage.clear());
+    afterEach(() => localStorage.clear());
+
+    it('sin descanso por defecto guardado sugiere 90 segundos, como antes', async () => {
+      const { fixture } = makeFixture({ view });
+      await flush(fixture);
+
+      expect(restPlaceholder(fixture)).toBe('90');
+    });
+
+    it('B3: sugiere el "Descanso por defecto" de Perfil, en segundos', async () => {
+      const { fixture } = makeFixture({ view });
+      await flush(fixture);
+      TestBed.inject(RestPreferencesService).setDefaultSeconds(150);
+
+      expect(restPlaceholder(fixture)).toBe('150');
     });
   });
 });

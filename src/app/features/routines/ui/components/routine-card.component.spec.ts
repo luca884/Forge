@@ -3,6 +3,7 @@ import { By } from '@angular/platform-browser';
 import { RoutineCardComponent } from './routine-card.component';
 import { Routine } from '../../domain/routine.entity';
 import { TrainingDay } from '../../domain/training-day.entity';
+import { DAYS_OF_WEEK } from '../../domain/value-objects/weekly-schedule';
 
 const baseRoutine: Routine = {
   id: 'r-1',
@@ -147,6 +148,28 @@ describe('RoutineCardComponent', () => {
       expect(getText(fixture)).not.toContain('por semana');
     });
 
+    it('B5: cuenta solo los días del horario que existen y deja el horario como está', () => {
+      // "d-gone" se borró de la rutina, pero su id sigue guardado en el horario.
+      const withGone = { monday: 'd-1', wednesday: 'd-gone', thursday: 'd-2' };
+      fixture.componentRef.setInput('routine', { ...activeRoutine, schedule: withGone });
+      fixture.detectChanges();
+      expect(getText(fixture)).toContain('2 días · 2 sesiones por semana');
+      const cells = fixture.debugElement.queryAll(By.css('[data-week-strip] [role="listitem"]'));
+      expect(cellText(cells[2]!.nativeElement as HTMLElement)).toBe('MIÉ —');
+
+      fixture.componentRef.setInput('routine', {
+        ...activeRoutine,
+        schedule: { monday: 'd-1', wednesday: 'd-gone' },
+      });
+      fixture.detectChanges();
+      expect(getText(fixture)).toContain('2 días · 1 sesión por semana');
+
+      fixture.componentRef.setInput('routine', { ...activeRoutine, schedule: { wednesday: 'd-gone' } });
+      fixture.detectChanges();
+      expect(getText(fixture)).toContain('2 días');
+      expect(getText(fixture)).not.toContain('por semana');
+    });
+
     it('dibuja los 7 días de la semana con la sigla del día entrenado y "—" en descanso', () => {
       const cells = fixture.debugElement.queryAll(By.css('[data-week-strip] [role="listitem"]'));
       expect(cells).toHaveLength(7);
@@ -199,6 +222,50 @@ describe('RoutineCardComponent', () => {
       const btn = fixture.debugElement.query(By.css('button[aria-label="Abrir rutina Torso / Pierna"]'));
       (btn.nativeElement as HTMLButtonElement).click();
       expect(emitted).toEqual(activeRoutine);
+    });
+  });
+
+  describe('siglas de los días', () => {
+    /** Rutina activa con un día por nombre (de lunes en adelante): siglas de la tira y de la tabla. */
+    function renderedCodes(names: readonly string[]): { strip: string[]; table: string[] } {
+      const days = names.map((name, i) => makeDay(`d-${i}`, name, []));
+      const schedule = Object.fromEntries(DAYS_OF_WEEK.slice(0, days.length).map((dow, i) => [dow, `d-${i}`]));
+      const card = TestBed.createComponent(RoutineCardComponent);
+      card.componentRef.setInput('routine', { ...activeRoutine, schedule });
+      card.componentRef.setInput('dayCount', days.length);
+      card.componentRef.setInput('days', days);
+      card.detectChanges();
+
+      const strip = card.debugElement
+        .queryAll(By.css('[data-week-strip] [role="listitem"]'))
+        .map((cell) => (cell.nativeElement as HTMLElement).children[1]?.textContent?.trim() ?? '')
+        .filter((code) => code !== '—');
+      const table = card.debugElement
+        .queryAll(By.css('[data-day-row]'))
+        .map((row) => (row.nativeElement as HTMLElement).children[0]?.textContent?.trim() ?? '');
+      return { strip, table };
+    }
+
+    it('B4: son únicas dentro de la rutina, iguales en la tira y en la tabla', () => {
+      const scenarios: readonly { names: string[]; codes: string[] }[] = [
+        { names: ['Push', 'Pull'], codes: ['PUS', 'PUL'] },
+        { names: ['Pecho y tríceps', 'Piernas y hombros'], codes: ['PYT', 'PYH'] },
+        { names: ['Torso A', 'Tren A'], codes: ['TOA', 'TRA'] },
+        { names: ['Push', 'Pull', 'Piernas'], codes: ['PUS', 'PUL', 'PI'] },
+        { names: ['Día A', 'Día A'], codes: ['DA', 'DA2'] },
+        // Nunca pasan de 4 letras (la columna mide 28 px): si las letras no alcanzan, se numera.
+        { names: ['Torso/Pierna', 'Torso/Brazo'], codes: ['TO', 'TO2'] },
+      ];
+
+      const rendered = scenarios.map(({ names }) => renderedCodes(names));
+
+      expect(rendered.map((r) => r.table)).toEqual(scenarios.map((s) => s.codes));
+      expect(rendered.map((r) => r.strip)).toEqual(scenarios.map((s) => s.codes));
+    });
+
+    it('B4: la misma lista da siempre las mismas siglas, sin importar el orden de los días', () => {
+      expect(renderedCodes(['Push', 'Pull']).table).toEqual(renderedCodes(['Push', 'Pull']).table);
+      expect(renderedCodes(['Pull', 'Push']).table).toEqual(['PUL', 'PUS']);
     });
   });
 });

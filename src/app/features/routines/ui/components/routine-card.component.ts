@@ -61,6 +61,88 @@ function dayCode(name: string): string {
   return code.toUpperCase();
 }
 
+/** Largo máximo de una sigla con letras: la columna de la tabla mide 28 px. */
+const MAX_DAY_CODE_LENGTH = 4;
+
+/**
+ * Candidatas de sigla de un nombre, de la más corta a la más larga (hasta 4 letras): la base de
+ * `dayCode` y, después, más letras del primer término con las iniciales de los demás
+ * ("Push" -> PU, PUS, PUSH; "Torso A" -> TA, TOA, TORA; "Pecho y tríceps" -> PY, PYT, PEYT).
+ */
+function dayCodeLadder(name: string): readonly string[] {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const first = words[0] ?? '';
+  const initials = words
+    .slice(1)
+    .map((word) => word.charAt(0))
+    .join('');
+  const ladder = [dayCode(name)];
+  for (let letters = 1; letters <= first.length; letters++) {
+    const candidate = (first.slice(0, letters) + initials).toUpperCase();
+    if (candidate.length > MAX_DAY_CODE_LENGTH) break;
+    if (candidate.length > (ladder.at(-1) ?? '').length) ladder.push(candidate);
+  }
+  return ladder;
+}
+
+/** La sigla de un nombre mientras compite con las de los otros días: sube por sus candidatas. */
+interface CodeClaim {
+  readonly ladder: readonly string[];
+  step: number;
+}
+
+const claimedCode = (claim: CodeClaim): string => claim.ladder[claim.step] ?? '';
+
+/**
+ * Siglas de los días de una rutina, por id del día. Son únicas dentro de la rutina:
+ * cuando dos o más días comparten sigla, todos pasan a la siguiente candidata de su nombre
+ * hasta distinguirse ("Push" y "Pull" -> "PUS" y "PUL"). Con letras no se distinguen los días
+ * con las mismas candidatas (nombres iguales o que solo difieren después de la cuarta letra):
+ * el segundo y los siguientes suman su número ("DA", "DA2").
+ * Solo depende de los nombres (y del orden, para los repetidos), así que la misma lista
+ * da siempre las mismas siglas.
+ */
+function uniqueDayCodes(days: readonly TrainingDay[]): ReadonlyMap<string, string> {
+  // Un reclamo por cada lista de candidatas distinta: si son iguales, las letras no los separan.
+  const claims = new Map<string, CodeClaim>();
+  const dayClaims = days.map((day) => {
+    const ladder = dayCodeLadder(day.name);
+    const key = ladder.join('|');
+    const claim = claims.get(key) ?? { ladder, step: 0 };
+    claims.set(key, claim);
+    return { id: day.id, claim };
+  });
+
+  // Los nombres que comparten sigla suben todos a su siguiente candidata, hasta que ninguno pueda subir.
+  let moved: boolean;
+  do {
+    moved = false;
+    const uses = new Map<string, number>();
+    for (const claim of claims.values()) {
+      uses.set(claimedCode(claim), (uses.get(claimedCode(claim)) ?? 0) + 1);
+    }
+    for (const claim of claims.values()) {
+      const shared = (uses.get(claimedCode(claim)) ?? 0) > 1;
+      if (shared && claim.step < claim.ladder.length - 1) {
+        claim.step++;
+        moved = true;
+      }
+    }
+  } while (moved);
+
+  // Lo que sigue repetido (nombres iguales o sin más candidatas) se numera por orden.
+  const taken = new Set<string>();
+  return new Map(
+    dayClaims.map(({ id, claim }) => {
+      const base = claimedCode(claim);
+      let code = base;
+      for (let n = 2; taken.has(code); n++) code = `${base}${n}`;
+      taken.add(code);
+      return [id, code] as const;
+    }),
+  );
+}
+
 function pluralDays(n: number): string {
   return n === 1 ? '1 día' : `${n} días`;
 }
@@ -189,10 +271,19 @@ export class RoutineCardComponent {
 
   protected readonly dayLabel = computed(() => pluralDays(this.dayCount()));
 
+  private readonly daysById = computed(() => new Map(this.days().map((d) => [d.id, d] as const)));
+
+  private readonly codeById = computed(() => uniqueDayCodes(this.days()));
+
+  /** Sesiones por semana: el horario puede nombrar días que ya se borraron, esos no cuentan. */
   private readonly scheduledCount = computed(() => {
     const schedule = this.routine().schedule;
     if (!schedule) return 0;
-    return DAYS_OF_WEEK.filter((dow) => schedule[dow] !== undefined).length;
+    const byId = this.daysById();
+    return DAYS_OF_WEEK.filter((dow) => {
+      const dayId = schedule[dow];
+      return dayId !== undefined && byId.has(dayId);
+    }).length;
   });
 
   protected readonly summary = computed(() => {
@@ -204,7 +295,8 @@ export class RoutineCardComponent {
 
   protected readonly weekCells = computed<readonly WeekCell[]>(() => {
     const schedule = this.routine().schedule;
-    const byId = new Map(this.days().map((d) => [d.id, d] as const));
+    const byId = this.daysById();
+    const codes = this.codeById();
     const today = this.todayDow();
     return DAYS_OF_WEEK.map((dow) => {
       const dayId = schedule?.[dow];
@@ -212,7 +304,7 @@ export class RoutineCardComponent {
       return {
         dow,
         label: DOW_SHORT[dow],
-        code: day ? dayCode(day.name) : null,
+        code: day ? (codes.get(day.id) ?? null) : null,
         isToday: dow === today,
       };
     });
@@ -220,9 +312,10 @@ export class RoutineCardComponent {
 
   protected readonly dayRows = computed<readonly DayRow[]>(() => {
     const todayId = this.routine().schedule?.[this.todayDow()];
+    const codes = this.codeById();
     return this.days().map((day) => ({
       day,
-      code: dayCode(day.name),
+      code: codes.get(day.id) ?? '',
       exercises: day.exercises.length,
       sets: day.exercises.reduce((total, e) => total + e.targetSets.length, 0),
       isToday: todayId !== undefined && todayId === day.id,

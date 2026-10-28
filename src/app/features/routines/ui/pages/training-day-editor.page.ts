@@ -34,23 +34,49 @@ import { SetRestSecondsUseCase } from '../../domain/use-cases/set-rest-seconds.u
 import { TargetSetEditorComponent } from '../components/target-set-editor.component';
 import { TargetSet } from '../../domain/target-set';
 import { RoutineRepository } from '../../domain/routine.repository';
+import { RestPreferencesService } from '@core/rest-preferences/rest-preferences.service';
 
-/** "4 × 6–8", "3 × 5", "2 × 60 s", "2 × 5 km"; "—" sin series. Usa el tipo de la primera serie. */
+/** "1 serie", "3 series". */
+function seriesLabel(count: number): string {
+  return count === 1 ? '1 serie' : `${count} series`;
+}
+
+/**
+ * Un valor objetivo sirve para el resumen si es un número finito mayor que cero.
+ * Vaciar un campo del editor guarda `undefined` y "Agregar serie" guarda 0.
+ */
+function isUsable(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+/** "5" con valores iguales, "6–8" con valores distintos; null si ninguno sirve. */
+function formatRange(values: readonly unknown[]): string | null {
+  const usable = values.filter(isUsable);
+  if (usable.length === 0) return null;
+  const min = Math.min(...usable);
+  const max = Math.max(...usable);
+  return min === max ? `${min}` : `${min}–${max}`;
+}
+
+/**
+ * "4 × 6–8", "3 × 5", "3 × 30–60 s", "2 × 5 km"; "N series" si ningún valor sirve; "—" sin series.
+ * Usa el tipo de la primera serie y el rango de los valores que sirven; la cantidad cuenta todas las series.
+ */
 function formatTarget(sets: readonly TargetSet[]): string {
   const first = sets[0];
   if (!first) return '—';
+  const withRange = (values: readonly unknown[], unit: string): string => {
+    const range = formatRange(values);
+    return range === null ? seriesLabel(sets.length) : `${sets.length} × ${range}${unit}`;
+  };
   switch (first.type) {
     case 'weight-reps':
-    case 'bodyweight-reps': {
-      const reps = sets.flatMap((s) => (s.type === first.type ? [s.reps] : []));
-      const min = Math.min(...reps);
-      const max = Math.max(...reps);
-      return `${sets.length} × ${min === max ? min : `${min}–${max}`}`;
-    }
+    case 'bodyweight-reps':
+      return withRange(sets.flatMap((s) => (s.type === first.type ? [s.reps] : [])), '');
     case 'time':
-      return `${sets.length} × ${first.durationSec} s`;
+      return withRange(sets.flatMap((s) => (s.type === 'time' ? [s.durationSec] : [])), ' s');
     case 'distance-time':
-      return `${sets.length} × ${first.distanceKm} km`;
+      return withRange(sets.flatMap((s) => (s.type === 'distance-time' ? [s.distanceKm] : [])), ' km');
   }
 }
 
@@ -138,8 +164,11 @@ function formatRest(seconds: number): string {
           ></fg-empty-state>
         } @else {
           <fg-card [padding]="0">
+            <!-- One grid shared through subgrid, so Objetivo grows to its longest label and stays aligned with its header.
+                 A subgrid's padding comes out of its edge tracks: 36px = 24px + pl-3, 50px = 44px + pr-1.5. -->
+            <div class="grid grid-cols-[36px_minmax(0,1fr)_minmax(72px,max-content)_50px] gap-x-1.5">
             <div
-              class="grid grid-cols-[24px_minmax(0,1fr)_72px_44px] gap-x-1.5 pt-2.5 pb-1.5 pl-3 pr-1.5 text-[10px] leading-3 font-semibold tracking-[0.06em] uppercase text-ink-2 border-b border-line"
+              class="col-span-4 grid grid-cols-subgrid pt-2.5 pb-1.5 pl-3 pr-1.5 text-[10px] leading-3 font-semibold tracking-[0.06em] uppercase text-ink-2 border-b border-line"
               aria-hidden="true"
             >
               <span>#</span><span>Ejercicio</span><span>Objetivo</span><span></span>
@@ -148,12 +177,12 @@ function formatRest(seconds: number): string {
               @let expanded = expandedExerciseId() === exercise.exerciseId;
               <div
                 data-exercise-row
-                class="border-b border-line-soft last:border-b-0"
+                class="col-span-4 grid grid-cols-subgrid border-b border-line-soft last:border-b-0"
                 [class.bg-accent-soft]="expanded"
               >
                 <button
                   type="button"
-                  class="w-full grid grid-cols-[24px_minmax(0,1fr)_72px_44px] gap-x-1.5 items-center min-h-[48px] pl-3 pr-1.5 text-left"
+                  class="col-span-4 grid grid-cols-subgrid items-center min-h-[48px] pl-3 pr-1.5 text-left"
                   [attr.aria-label]="'Editar series de ' + exercise.exerciseName"
                   [attr.aria-expanded]="expanded"
                   (click)="toggleExpand(exercise.exerciseId)"
@@ -170,14 +199,14 @@ function formatRest(seconds: number): string {
                       <span class="font-mono text-[11px] text-ink-2">desc. {{ restLabel(exercise.restSeconds) }}</span>
                     }
                   </span>
-                  <span data-cell class="font-mono text-[13px] tabular-nums">{{ targetLabel(exercise) }}</span>
+                  <span data-cell class="font-mono text-[13px] tabular-nums whitespace-nowrap">{{ targetLabel(exercise) }}</span>
                   <span class="w-11 h-11 flex items-center justify-center" [class.text-ink]="expanded" [class.text-ink-2]="!expanded" [class.rotate-180]="expanded">
                     <fg-icon name="chevron-down" [size]="18"></fg-icon>
                   </span>
                 </button>
 
                 @if (expanded) {
-                  <div class="flex flex-col gap-3 px-3 pt-1 pb-3">
+                  <div class="col-span-4 flex flex-col gap-3 px-3 pt-1 pb-3">
                     <fg-target-set-editor
                       [trackingType]="exercise.trackingType"
                       [targetSets]="exercise.targetSets"
@@ -191,7 +220,7 @@ function formatRest(seconds: number): string {
                           type="number"
                           inputmode="numeric"
                           min="0"
-                          placeholder="90"
+                          [placeholder]="restPlaceholder()"
                           aria-label="Descanso en segundos"
                           class="target-num w-16 h-8 rounded-md bg-surface border border-line focus:border-accent outline-none text-center font-mono text-[15px] text-ink tabular-nums"
                           [value]="exercise.restSeconds ?? ''"
@@ -210,6 +239,7 @@ function formatRest(seconds: number): string {
                 }
               </div>
             }
+            </div>
           </fg-card>
         }
 
@@ -236,6 +266,7 @@ export class TrainingDayEditorPage implements OnInit {
   private readonly setTargetSets = inject(SetTargetSetsUseCase);
   private readonly setRestSeconds = inject(SetRestSecondsUseCase);
   private readonly routineRepo = inject(RoutineRepository);
+  private readonly restPreferences = inject(RestPreferencesService);
 
   readonly day = signal<TrainingDayView | null>(null);
   readonly routineId = signal<string>('');
@@ -250,9 +281,11 @@ export class TrainingDayEditorPage implements OnInit {
     const exercises = this.day()?.exercises ?? [];
     const sets = exercises.reduce((total, e) => total + e.targetSets.length, 0);
     const exLabel = exercises.length === 1 ? '1 ejercicio' : `${exercises.length} ejercicios`;
-    const setLabel = sets === 1 ? '1 serie' : `${sets} series`;
-    return `${exLabel} · ${setLabel}`;
+    return `${exLabel} · ${seriesLabel(sets)}`;
   });
+
+  /** Segundos que descansa un ejercicio sin descanso propio: el "Descanso por defecto" de Perfil. */
+  protected readonly restPlaceholder = computed(() => String(this.restPreferences.defaultSeconds()));
 
   /* eslint-disable @typescript-eslint/unbound-method */
   readonly form: FormGroup = this.fb.group({
