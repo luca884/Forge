@@ -350,8 +350,12 @@ export class TrainingSessionPage implements OnInit, OnDestroy {
     void this.init();
   }
 
+  /** Set once the page is left, so a late init() never takes the wake lock back. */
+  private destroyed = false;
+
   /** Finish, cancel and minimize all leave this page, which ends the hold. */
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.wakeLock.release();
   }
 
@@ -368,6 +372,7 @@ export class TrainingSessionPage implements OnInit, OnDestroy {
       }
 
       // "Pantalla siempre encendida": only while this page shows an open session.
+      if (this.destroyed) return;
       this.wakeLock.hold();
 
       await this.store.refreshSets();
