@@ -508,3 +508,8 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
   - Test-first: el test nuevo destruye la página mientras `loadActive()` sigue pendiente. RED observado: `hold()` se llamaba 1 vez.
   - Checks: `npm test` 1772/1772, lint limpio, build verde, e2e 34/34 en el puerto 4300.
   - Los demás avisos de L33 siguen abiertos.
+- L35 (2026-10-28) Se borraron los worktrees WIP. Respuesta del usuario, textual:
+  > dale, que ms falta para temrinar
+  - Antes de borrarlos se verificó que no tuvieran cambios sin commitear. También se verificó que cada commit WIP (`bd87b54`, `c327d46`, `86f2293`) estuviera contenido en su commit integrado (`3b55fc4`, `80187d1`, `a4c027c`): los mismos archivos, más las correcciones de revisión, los e2e y las capturas.
+  - Se borraron los worktrees `.claude/worktrees/wf_4b271193-2d2-{1,2,3}` y las ramas `worktree-wf_4b271193-2d2-{1,2,3}`.
+  - Para terminar falta solo la entrega (`single-pr`): push de `feat/rediseno-cuaderno` y PR a `main`. Queda esperando la autorización del usuario.
