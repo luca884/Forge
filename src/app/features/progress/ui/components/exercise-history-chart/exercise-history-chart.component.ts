@@ -6,13 +6,15 @@
  * DOES NOT import from chart.js or ng2-charts — only from <fg-line-chart> (CC-18 / ADR-13).
  * Cuaderno: metric and range selectors are real buttons (aria-pressed) in labelled groups.
  * Weight-based metrics are plotted in the preferred unit, so the axis label and the
- * values agree.
+ * values agree. On a plates exercise "Peso" is the plate count (axis "Placas") and the
+ * derived metrics (volume, 1RM) use plates × plate weight in kg (S11).
  */
 import { Component, computed, input, signal } from '@angular/core';
 import type { WorkedSet } from '@features/training/domain/worked-set';
 import type { TrackingType } from '@core/shared/domain/tracking-type';
 import type { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
-import { buildTimeSeries, metricAxisLabel, type LineChartSeries, type Metric } from '../../helpers/time-series';
+import type { WeightUnitInfo } from '@core/shared/domain/weight-unit';
+import { buildTimeSeries, metricAxisLabel, plotsPlates, type LineChartSeries, type Metric } from '../../helpers/time-series';
 import { displayWeightValue } from '../../helpers/weight-display';
 import { LineChartComponent } from '../line-chart/line-chart.component';
 
@@ -95,6 +97,9 @@ export class ExerciseHistoryChartComponent {
   /** Preferred weight unit — used for axis labels (D-9, ADR-22). Chart data values remain in kg. */
   readonly unit = input<PreferredUnit>('kg');
 
+  /** The exercise's weight unit and plate weight; null for a kg exercise or while it loads. */
+  readonly exercise = input<WeightUnitInfo | null>(null);
+
   readonly selectedMetric = signal<Metric>('weight');
   readonly range = signal<HistoryRange>('all');
   protected readonly ranges = RANGES;
@@ -115,12 +120,16 @@ export class ExerciseHistoryChartComponent {
     return this.sets().filter((set) => set.createdAt >= cutoff);
   });
 
-  /** Chart data in the preferred unit (the helper builds it in kg). */
+  /**
+   * Chart data in the preferred unit (the helper builds it in kg). The plate count of a
+   * plates exercise is not a weight, so it is plotted as it is.
+   */
   readonly series = computed<LineChartSeries[]>(() => {
     const metric = this.selectedMetric();
     const unit = this.unit();
-    const built = buildTimeSeries(this.rangedSets(), this.trackingType(), metric, unit);
-    if (unit === 'kg' || !WEIGHT_VALUED.includes(metric)) return built;
+    const exercise = this.exercise();
+    const built = buildTimeSeries(this.rangedSets(), this.trackingType(), metric, unit, exercise);
+    if (unit === 'kg' || !WEIGHT_VALUED.includes(metric) || plotsPlates(metric, exercise)) return built;
     return built.map((s) => ({
       ...s,
       points: s.points.map((p) => ({ x: p.x, y: displayWeightValue(p.y, unit) })),
@@ -128,7 +137,7 @@ export class ExerciseHistoryChartComponent {
   });
 
   /** Axis title; the series carries the same text, so the tooltip names the unit too. */
-  readonly yLabel = computed(() => metricAxisLabel(this.selectedMetric(), this.unit()));
+  readonly yLabel = computed(() => metricAxisLabel(this.selectedMetric(), this.unit(), this.exercise()?.weightUnit));
 
   metricLabel(m: Metric): string {
     return METRIC_LABELS[m];

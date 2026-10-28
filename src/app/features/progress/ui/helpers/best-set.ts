@@ -16,7 +16,11 @@ function hasReps(set: WorkedSet): set is RepSet {
   return set.type === 'weight-reps' || set.type === 'bodyweight-reps';
 }
 
-function loadKg(set: RepSet): number {
+/**
+ * The weight as logged, in the unit of its exercise (kg or plates). Two sets of the same
+ * exercise share that unit, so comparing them raw is valid; no kg conversion is needed here.
+ */
+function loggedWeight(set: RepSet): number {
   return set.type === 'weight-reps' ? set.weight.value : (set.extraWeight?.value ?? 0);
 }
 
@@ -24,7 +28,7 @@ function loadKg(set: RepSet): number {
 export function compareBestSet(a: WorkedSet, b: WorkedSet): number {
   if (!hasReps(a)) return hasReps(b) ? -1 : 0;
   if (!hasReps(b)) return 1;
-  return loadKg(a) - loadKg(b) || a.reps.value - b.reps.value;
+  return loggedWeight(a) - loggedWeight(b) || a.reps.value - b.reps.value;
 }
 
 /** The best set of the list, or null when none has reps. */

@@ -8,6 +8,7 @@ import { signal } from '@angular/core';
 import { By } from '@angular/platform-browser';
 import { NO_ERRORS_SCHEMA } from '@angular/core';
 import { ExerciseHistoryPage } from './exercise-history.page';
+import { ExerciseHistoryChartComponent } from '../components/exercise-history-chart/exercise-history-chart.component';
 import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import { ToastService } from '@core/shared/ui';
@@ -323,6 +324,67 @@ describe('ExerciseHistoryPage', () => {
       await settle();
       // 100 kg × 5 reps = 500 kg → 1102 lb
       expect(root().querySelector('[data-session-volume]')?.textContent?.trim()).toBe('1102');
+    });
+
+    // D4 / S11: a plates exercise shows plates, never kg nor lb; volume and 1RM go over plates × plate weight.
+    describe('plates exercise', () => {
+      const tile = (stat: string): string =>
+        root().querySelector(`[aria-label="Resumen del ejercicio"] [data-stat="${stat}"]`)?.textContent?.trim() ?? '';
+
+      beforeEach(() => {
+        const exRepo = TestBed.inject(ExerciseRepository) as unknown as { getById: jest.Mock };
+        exRepo.getById.mockResolvedValue({ ...mockExercise, name: 'Prensa', weightUnit: 'plates', plateWeightKg: 10 });
+        getAllWorkedSetsMock.mockResolvedValue([
+          makeSet({ id: 'ws-a', sessionId: 's-1', weight: { value: 6 } as any, reps: { value: 8 } as any, createdAt: new Date('2026-01-01') }),
+          makeSet({ id: 'ws-b', sessionId: 's-1', weight: { value: 7 } as any, reps: { value: 5 } as any, createdAt: new Date('2026-01-01') }),
+        ]);
+      });
+
+      it('shows "Mejor serie" as plates, not converted to lb', async () => {
+        unitSignal.set('lb');
+        await settle();
+        expect(tile('best')).toBe('7 placas × 5');
+      });
+
+      it('reads one plate in the singular', async () => {
+        getAllWorkedSetsMock.mockResolvedValue([makeSet({ weight: { value: 1 } as any, reps: { value: 5 } as any })]);
+        await settle();
+        expect(tile('best')).toBe('1 placa × 5');
+      });
+
+      it('estimates the 1RM over plates × plate weight, in the preferred unit', async () => {
+        // best set 7 plates x 5 = 70 kg x 5 → Epley 81.67 kg → 81.7 kg → 180.1 lb
+        unitSignal.set('lb');
+        await settle();
+        expect(tile('1rm')).toBe('180.1 lb');
+      });
+
+      it('lists every set of the history as plates', async () => {
+        unitSignal.set('lb');
+        await settle();
+        expect(root().textContent).toContain('6 placas × 8 · 7 placas × 5');
+      });
+
+      it('names the column "Series (placas × reps)"', async () => {
+        await settle();
+        expect(root().textContent).toContain('Series (placas × reps)');
+        expect(root().textContent).not.toContain('Series (lb × reps)');
+      });
+
+      it('counts the session volume as plates × plate weight × reps, in the preferred unit', async () => {
+        unitSignal.set('lb');
+        await settle();
+        // (6 × 8 + 7 × 5) plates × 10 kg = 830 kg → 1829.8 lb
+        expect(root().querySelector('[data-session-volume]')?.textContent?.trim()).toBe('1830');
+      });
+
+      it('plots the plate count in the chart, with the axis named "Placas"', async () => {
+        unitSignal.set('lb');
+        await settle();
+        const chart = fixture.debugElement.query(By.directive(ExerciseHistoryChartComponent))
+          .componentInstance as ExerciseHistoryChartComponent;
+        expect(chart.yLabel()).toBe('Placas');
+      });
     });
 
     it('groupedHistory groups sets by sessionId', async () => {

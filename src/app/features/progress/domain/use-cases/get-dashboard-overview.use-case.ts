@@ -1,4 +1,5 @@
 import { Injectable, inject } from '@angular/core';
+import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
 import { SessionRepository } from '@features/training/domain/session.repository';
 import { computeOverview } from '../services/progress-aggregation.service';
 import type { DashboardOverview } from '../models/dashboard-overview.model';
@@ -6,6 +7,7 @@ import type { DashboardOverview } from '../models/dashboard-overview.model';
 @Injectable()
 export class GetDashboardOverviewUseCase {
   private readonly sessionRepo = inject(SessionRepository);
+  private readonly exerciseRepo = inject(ExerciseRepository);
 
   async execute({ dateWindowDays = 30 }: { dateWindowDays?: number } = {}): Promise<DashboardOverview> {
     const today = new Date();
@@ -15,14 +17,15 @@ export class GetDashboardOverviewUseCase {
     const priorStart = new Date(today);
     priorStart.setDate(today.getDate() - dateWindowDays * 2);
 
-    const [currentSets, allPriorSets] = await Promise.all([
+    const [currentSets, allPriorSets, exercises] = await Promise.all([
       this.sessionRepo.getWorkedSetsSince(currentStart),
       this.sessionRepo.getWorkedSetsSince(priorStart),
+      this.exerciseRepo.getAll(),
     ]);
 
     const currentStartTime = currentStart.getTime();
     const priorSets = allPriorSets.filter(s => s.createdAt.getTime() < currentStartTime);
 
-    return computeOverview(currentSets, priorSets);
+    return computeOverview(currentSets, priorSets, exercises);
   }
 }

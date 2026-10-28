@@ -55,6 +55,7 @@ export class ExportHistoryCsvUseCase {
       .sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime());
     const routineNames = new Map(routines.map((routine) => [routine.id, routine.name]));
     const exerciseNames = new Map(exercises.map((exercise) => [exercise.id, exercise.name]));
+    const platesExerciseIds = new Set(exercises.filter((exercise) => exercise.weightUnit === 'plates').map((exercise) => exercise.id));
     const dayNames = await this.dayNames(completed);
     const setsBySession = groupBySession(sets);
 
@@ -71,7 +72,7 @@ export class ExportHistoryCsvUseCase {
           exerciseNames.get(set.exerciseId) ?? '',
           String(serie),
           SET_TYPE_LABEL[set.type],
-          ...measures(set, unit),
+          ...measures(set, unit, platesExerciseIds.has(set.exerciseId)),
           set.isPR ? 'sí' : 'no',
         ]);
       }
@@ -99,11 +100,16 @@ function groupBySession(sets: readonly WorkedSet[]): Map<string, WorkedSet[]> {
   return bySession;
 }
 
-/** peso, unidad, reps, tiempo_s, distancia_km — empty when the cell does not apply to the set type. */
-function measures(set: WorkedSet, unit: PreferredUnit): [string, string, string, string, string] {
+/**
+ * peso, unidad, reps, tiempo_s, distancia_km — empty when the cell does not apply to the set type.
+ * A plates set is written as logged with the unit "placas": it is never converted to lb (D4).
+ */
+function measures(set: WorkedSet, unit: PreferredUnit, plates: boolean): [string, string, string, string, string] {
   switch (set.type) {
     case 'weight-reps':
-      return [formatWeight(set.weight.value, unit), unit, String(set.reps.value), '', ''];
+      return plates
+        ? [String(set.weight.value), 'placas', String(set.reps.value), '', '']
+        : [formatWeight(set.weight.value, unit), unit, String(set.reps.value), '', ''];
     case 'bodyweight-reps':
       return set.extraWeight
         ? [formatWeight(set.extraWeight.value, unit), unit, String(set.reps.value), '', '']

@@ -1,6 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { GetDashboardOverviewUseCase } from './get-dashboard-overview.use-case';
 import { SessionRepository } from '@features/training/domain/session.repository';
+import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
+import type { Exercise } from '@features/exercises/domain/exercise.entity';
 import { Session } from '@features/training/domain/session.entity';
 import { WorkedSet, WeightRepsSet } from '@features/training/domain/worked-set';
 import { Reps } from '@core/shared/domain/value-objects/reps';
@@ -47,13 +49,16 @@ class StubSessionRepository extends SessionRepository {
 describe('GetDashboardOverviewUseCase', () => {
   let useCase: GetDashboardOverviewUseCase;
   let repo: StubSessionRepository;
+  const getAllExercises = jest.fn<Promise<Exercise[]>, []>();
 
   beforeEach(() => {
     repo = new StubSessionRepository();
+    getAllExercises.mockReset().mockResolvedValue([]);
     TestBed.configureTestingModule({
       providers: [
         GetDashboardOverviewUseCase,
         { provide: SessionRepository, useValue: repo },
+        { provide: ExerciseRepository, useValue: { getAll: getAllExercises } },
       ],
     });
     useCase = TestBed.inject(GetDashboardOverviewUseCase);
@@ -128,6 +133,28 @@ describe('GetDashboardOverviewUseCase', () => {
     expect(result.setsCurrent).toBe(1);
     expect(result.setsPrior).toBe(2);
     expect(result.setsDeltaPct).toBe(-50);
+  });
+
+  // S11: a plates set weighs plates × the plate weight of its exercise, not the plate count in kg.
+  it('weighs the plates sets of both windows with the plate weight of their exercise', async () => {
+    const today = new Date();
+    const inCurrent = new Date(today);
+    inCurrent.setDate(today.getDate() - 10);
+    const inPrior = new Date(today);
+    inPrior.setDate(today.getDate() - 40);
+    repo.sets = [
+      { ...makeWRSet('ws-1', 's1', inCurrent, 4, 10), exerciseId: 'press' },
+      { ...makeWRSet('ws-2', 's2', inPrior, 3, 10), exerciseId: 'press' },
+    ];
+    getAllExercises.mockResolvedValue([{
+      id: 'press', name: 'Prensa', muscleGroup: 'legs', trackingType: 'weight-reps',
+      weightUnit: 'plates', plateWeightKg: 10, isCustom: true, createdAt: new Date(), updatedAt: new Date(),
+    }]);
+
+    const result = await useCase.execute();
+
+    expect(result.volumeCurrentKg).toBe(4 * 10 * 10);
+    expect(result.volumePriorKg).toBe(3 * 10 * 10);
   });
 
   it('honours custom dateWindowDays parameter', async () => {

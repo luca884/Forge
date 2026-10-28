@@ -107,6 +107,40 @@ describe('PRListPage', () => {
     expect(text).toContain('100 kg');
   });
 
+  // D4 / S11: a plates exercise shows plates, never kg nor lb.
+  describe('plates exercise', () => {
+    async function settleWithPlates(plates: number): Promise<string> {
+      const platesExercise = { ...mockExercise, id: 'ex-plates', name: 'Prensa', weightUnit: 'plates' as const, plateWeightKg: 10 };
+      const set = { ...prSet, id: 'ws-plates', exerciseId: 'ex-plates', weight: { value: plates } as any } as WorkedSet;
+      const record: PersonalRecord = {
+        id: 'pr-plates', exerciseId: 'ex-plates', set, achievedAt: new Date('2026-01-01'),
+        trackingType: 'weight-reps', workedSetId: set.id,
+      };
+      (TestBed.inject(ExerciseRepository) as unknown as { getAll: jest.Mock }).getAll.mockResolvedValue([mockExercise, platesExercise]);
+      (TestBed.inject(PersonalRecordRepository) as unknown as { listAll: jest.Mock }).listAll.mockResolvedValue([record]);
+
+      fixture = TestBed.createComponent(PRListPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await Promise.resolve();
+      await Promise.resolve();
+      fixture.detectChanges();
+      return (fixture.nativeElement as HTMLElement).textContent ?? '';
+    }
+
+    it('shows the record as plates, not converted to lb', async () => {
+      // unit is "lb" here (beforeEach)
+      const text = await settleWithPlates(7);
+      expect(text).toContain('7 placas × 5 reps');
+      expect(text).not.toContain('lb');
+    });
+
+    it('reads one plate in the singular', async () => {
+      const text = await settleWithPlates(1);
+      expect(text).toContain('1 placa × 5 reps');
+    });
+  });
+
   describe('redesign D-2', () => {
     let routerNavigateSpy: jest.Mock;
     let listAllMock: jest.Mock;

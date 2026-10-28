@@ -323,6 +323,61 @@ describe('ProgressHomePage', () => {
     });
   });
 
+  // D4 / S11: a plates exercise shows plates, never kg nor lb; its 1RM goes over plates × plate weight.
+  describe('plates exercise', () => {
+    const platesExercise = {
+      ...mockExercise,
+      id: 'ex-plates',
+      name: 'Prensa',
+      weightUnit: 'plates' as const,
+      plateWeightKg: 10,
+    };
+
+    async function initWithPlatesRecord(plates: number): Promise<HTMLElement> {
+      const set = {
+        ...prSet,
+        id: 'ws-plates',
+        exerciseId: 'ex-plates',
+        weight: { value: plates } as any,
+        reps: { value: 5 } as any,
+      } as WorkedSet;
+      const record: PersonalRecord = {
+        id: 'pr-plates',
+        exerciseId: 'ex-plates',
+        set,
+        achievedAt: new Date('2026-01-02'),
+        trackingType: 'weight-reps',
+        workedSetId: set.id,
+      };
+      (TestBed.inject(ExerciseRepository) as unknown as { getAll: jest.Mock }).getAll.mockResolvedValue([
+        mockExercise,
+        platesExercise,
+      ]);
+      (TestBed.inject(PersonalRecordRepository) as unknown as { listAll: jest.Mock }).listAll.mockResolvedValue([record]);
+      await init();
+      return (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('[data-testid="pr-row"]')!;
+    }
+
+    it('lists the best set as plates, not converted to lb', async () => {
+      unitSignal.set('lb');
+      const row = await initWithPlatesRecord(7);
+      expect(row.textContent).toContain('7 placas × 5');
+    });
+
+    it('reads one plate in the singular', async () => {
+      const row = await initWithPlatesRecord(1);
+      expect(row.textContent).toContain('1 placa × 5');
+      expect(row.textContent).not.toContain('1 placas');
+    });
+
+    it('estimates the 1RM over plates × plate weight and shows it in the preferred unit', async () => {
+      // 7 plates × 10 kg = 70 kg x 5 → Epley 81.67 kg → 81.7 kg → 180.1 lb
+      unitSignal.set('lb');
+      const row = await initWithPlatesRecord(7);
+      expect(row.textContent).toContain('180.1 lb');
+    });
+  });
+
   // P3-3: toast.error shown when init() fails
   it('calls toast.error when init() rejects (P3-3)', async () => {
     const exRepo = TestBed.inject(ExerciseRepository) as unknown as { getAll: jest.Mock };

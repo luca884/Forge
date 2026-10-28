@@ -6,7 +6,10 @@ export interface ExerciseProgressEntry {
   readonly exerciseId: string;
   readonly exerciseName: string;
   readonly trackingType: TrackingType;
-  /** Best-of-workout scalar at the first workout (units depend on trackingType). */
+  /**
+   * Best-of-workout scalar at the first workout (units depend on trackingType).
+   * weight-reps: Epley 1RM in kg over the load, so plates exercises count plates × plate weight (S11).
+   */
   readonly firstValue: number;
   /** Best-of-workout scalar at the latest workout. */
   readonly latestValue: number;

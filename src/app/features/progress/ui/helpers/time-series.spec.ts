@@ -124,6 +124,36 @@ describe('buildTimeSeries', () => {
     });
   });
 
+  // S11: a plates exercise plots plates for "Peso" and kg (plates × plate weight) for volume and 1RM.
+  describe('plates exercise', () => {
+    const plates = { weightUnit: 'plates', plateWeightKg: 10 } as const;
+    const sets: WorkedSet[] = [
+      weightRepsSet({ createdAt: t1, weight: { value: 3 } as any, reps: { value: 5 } as any }),
+      weightRepsSet({ createdAt: t2, weight: { value: 4 } as any, reps: { value: 5 } as any }),
+    ];
+
+    it('plots the plate count for the weight metric and names the axis "Placas"', () => {
+      const [first] = buildTimeSeries(sets, 'weight-reps', 'weight', 'lb', plates);
+      expect(first!.points.map((p) => p.y)).toEqual([3, 4]);
+      expect(first!.label).toBe('Placas');
+    });
+
+    it('plots volume in kg as plates × plate weight × reps', () => {
+      const [first] = buildTimeSeries(sets, 'weight-reps', 'volume', 'kg', plates);
+      expect(first!.points.map((p) => p.y)).toEqual([150, 200]);
+    });
+
+    it('estimates the 1RM over the load in kg', () => {
+      const [first] = buildTimeSeries(sets, 'weight-reps', '1rm', 'kg', plates);
+      expect(first!.points[0]!.y).toBe(OneRepMax.epley(30, 5).kg);
+    });
+
+    it('falls back to 5 kg per plate when the exercise sets no plate weight', () => {
+      const [first] = buildTimeSeries(sets, 'weight-reps', 'volume', 'kg', { weightUnit: 'plates' });
+      expect(first!.points.map((p) => p.y)).toEqual([75, 100]);
+    });
+  });
+
   describe('series label', () => {
     it('uses a descriptive label per metric', () => {
       const sets: WorkedSet[] = [weightRepsSet()];

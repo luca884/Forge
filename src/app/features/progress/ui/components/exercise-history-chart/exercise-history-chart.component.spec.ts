@@ -267,6 +267,43 @@ describe('ExerciseHistoryChartComponent', () => {
     });
   });
 
+  // ── S11: a plates exercise plots plates, and kg (converted like any weight) for the derived metrics ──
+  describe('plates exercise', () => {
+    const plateSets: WorkedSet[] = [
+      { ...sampleSets[0]!, weight: { value: 3 } as any },
+      { ...sampleSets[1]!, weight: { value: 4 } as any },
+    ] as WorkedSet[];
+
+    function renderPlates(unit: 'kg' | 'lb'): void {
+      fixture = TestBed.createComponent(ExerciseHistoryChartComponent);
+      fixture.componentRef.setInput('sets', plateSets);
+      fixture.componentRef.setInput('trackingType', 'weight-reps');
+      fixture.componentRef.setInput('unit', unit);
+      fixture.componentRef.setInput('exercise', { weightUnit: 'plates', plateWeightKg: 10 });
+      fixture.detectChanges();
+    }
+
+    it('plots the plate count and names the axis "Placas", whatever the preferred unit', () => {
+      renderPlates('lb');
+      expect(fixture.componentInstance.series()[0]!.points.map((p) => p.y)).toEqual([3, 4]);
+      expect(fixture.componentInstance.yLabel()).toBe('Placas');
+      expect(fixture.componentInstance.series()[0]!.label).toBe('Placas');
+    });
+
+    it('keeps the "Peso" button label', () => {
+      renderPlates('kg');
+      expect(metricButtons().map((b) => b.textContent?.trim())).toEqual(['Peso', 'Reps', 'Volumen', '1RM est.']);
+    });
+
+    it('plots volume in lb from the load in kg', () => {
+      renderPlates('lb');
+      fixture.componentInstance.selectedMetric.set('volume');
+      // 3 x 10 kg x 5 reps = 150 kg → 330.7 lb; 4 x 10 x 5 = 200 kg → 440.9 lb
+      expect(fixture.componentInstance.series()[0]!.points.map((p) => p.y)).toEqual([330.7, 440.9]);
+      expect(fixture.componentInstance.yLabel()).toBe('Volumen (lb×reps)');
+    });
+  });
+
   // ── ADR-13: fg-line-chart still present ──────────────────────────────────
   it('fg-line-chart element is present (ADR-13 preserved, D-6/S4)', () => {
     fixture = TestBed.createComponent(ExerciseHistoryChartComponent);

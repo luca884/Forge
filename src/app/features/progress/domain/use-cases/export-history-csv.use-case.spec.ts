@@ -49,7 +49,7 @@ interface Stubs {
   sets: WorkedSet[];
   routines: { id: string; name: string }[];
   days: { id: string; name: string }[];
-  exercises: { id: string; name: string }[];
+  exercises: { id: string; name: string; weightUnit?: 'kg' | 'plates' }[];
 }
 
 function setup(stubs: Partial<Stubs> = {}): { useCase: ExportHistoryCsvUseCase; getWorkedSetsSince: jest.Mock } {
@@ -146,6 +146,19 @@ describe('ExportHistoryCsvUseCase', () => {
     const { content } = await useCase.execute('lb');
 
     expect(lines(content)[1]).toBe('2026-03-02,Torso / Pierna,Pierna A,Sentadilla,1,peso_reps,220.5,lb,5,,,no');
+  });
+
+  // D4: the stored number of a plates exercise is plates, so the file says "placas" and never converts it.
+  it('writes a plates set as plates with the unit "placas", whatever the preferred unit', async () => {
+    const { useCase } = setup({
+      sessions: [makeSession('s-1')],
+      sets: [weightReps('s-1', 'ex-press', 7, 5)],
+      exercises: [{ id: 'ex-press', name: 'Prensa', weightUnit: 'plates' }],
+    });
+
+    const { content } = await useCase.execute('lb');
+
+    expect(lines(content)[1]).toBe('2026-03-02,Torso / Pierna,Pierna A,Prensa,1,peso_reps,7,placas,5,,,no');
   });
 
   it('writes bodyweight, time and distance sets with only the cells that apply', async () => {

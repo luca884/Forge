@@ -5,6 +5,7 @@
 import { WorkedSet, WeightRepsSet, BodyweightRepsSet } from '@features/training/domain/worked-set';
 import { Reps } from '@core/shared/domain/value-objects/reps';
 import { Weight } from '@core/shared/domain/value-objects/weight';
+import { OneRepMax } from '@core/shared/domain/value-objects/one-rep-max';
 import { Exercise } from '@features/exercises/domain/exercise.entity';
 import {
   IMPROVING_MIN_PCT,
@@ -114,8 +115,35 @@ const exDistance: Exercise = {
   updatedAt: new Date(),
 };
 
+/** Machine exercise logged in plates: no plate weight set, so each plate is the default 5 kg. */
+const exPlates: Exercise = {
+  id: 'ex-plates',
+  name: 'Prensa',
+  muscleGroup: 'legs',
+  trackingType: 'weight-reps',
+  weightUnit: 'plates',
+  isCustom: true,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
+/** Same, with its own plate weight (S11). */
+const exPlates10: Exercise = { ...exPlates, id: 'ex-plates-10', name: 'Jalón', plateWeightKg: 10 };
+
+const allExercises: readonly Exercise[] = [exWeight, exBw, exTime, exDistance, exPlates, exPlates10];
+
 // ── Volume ────────────────────────────────────────────────────────────────
 describe('computeVolume', () => {
+  it('counts a plates set as plates × 5 kg × reps when the exercise sets no plate weight', () => {
+    const sets: WorkedSet[] = [wr('s1', 'ex-plates', 4, 10, new Date('2026-07-01'))];
+    expect(computeVolume(sets, allExercises)).toBe(4 * 5 * 10);
+  });
+
+  it('counts a plates set with the plate weight of its own exercise', () => {
+    const sets: WorkedSet[] = [wr('s1', 'ex-plates-10', 4, 10, new Date('2026-07-01'))];
+    expect(computeVolume(sets, allExercises)).toBe(4 * 10 * 10);
+  });
+
   it('sums weight-reps and bodyweight-reps with extra weight', () => {
     const sets: WorkedSet[] = [
       wr('s1', 'ex-wr', 80, 5, new Date('2026-07-01')),
@@ -123,16 +151,16 @@ describe('computeVolume', () => {
       timeSet('s1', 'ex-time', 60, new Date('2026-07-01')),
       distanceSet('s1', 'ex-dist', 3, 600, new Date('2026-07-01')),
     ];
-    expect(computeVolume(sets)).toBe(80 * 5 + 20 * 10);
+    expect(computeVolume(sets, allExercises)).toBe(80 * 5 + 20 * 10);
   });
 
   it('bodyweight-reps without extra weight contributes 0', () => {
     const sets: WorkedSet[] = [bw('s1', 'ex-bw', 15, undefined, new Date('2026-07-01'))];
-    expect(computeVolume(sets)).toBe(0);
+    expect(computeVolume(sets, allExercises)).toBe(0);
   });
 
   it('empty list returns 0', () => {
-    expect(computeVolume([])).toBe(0);
+    expect(computeVolume([], allExercises)).toBe(0);
   });
 });
 
@@ -244,7 +272,7 @@ function atTenAm(date: Date): Date {
 
 describe('weeklyTrendPoints', () => {
   it('returns empty array when weeksBack is 0', () => {
-    expect(weeklyTrendPoints([], 0)).toEqual([]);
+    expect(weeklyTrendPoints([], 0, allExercises)).toEqual([]);
   });
 
   it('groups sets by ISO Monday-start week', () => {
@@ -260,7 +288,7 @@ describe('weeklyTrendPoints', () => {
       wr('s3', 'ex-wr', 100, 5, atTenAm(thisMon)),
     ];
 
-    const result = weeklyTrendPoints(sets, 2);
+    const result = weeklyTrendPoints(sets, 2, allExercises);
     expect(result).toHaveLength(2);
     expect(result[0]!.weekStart).toBe(prevMon.toLocaleDateString('en-CA'));
     expect(result[0]!.volumeKg).toBe(100 * 5 * 2);
@@ -268,6 +296,16 @@ describe('weeklyTrendPoints', () => {
     expect(result[1]!.weekStart).toBe(thisMon.toLocaleDateString('en-CA'));
     expect(result[1]!.volumeKg).toBe(100 * 5);
     expect(result[1]!.sessions).toBe(1);
+  });
+
+  it('counts the plates sets of a week through the plate weight of their exercise', () => {
+    const sets: WorkedSet[] = [
+      wr('s1', 'ex-plates', 4, 10, atTenAm(mondayWeeksAgo(0))),
+      wr('s1', 'ex-plates-10', 3, 8, atTenAm(mondayWeeksAgo(0))),
+    ];
+
+    const result = weeklyTrendPoints(sets, 1, allExercises);
+    expect(result[0]!.volumeKg).toBe(4 * 5 * 10 + 3 * 10 * 8);
   });
 
   it('zero-fills gaps', () => {
@@ -280,7 +318,7 @@ describe('weeklyTrendPoints', () => {
       wr('s2', 'ex-wr', 100, 5, atTenAm(thisMon)),
     ];
 
-    const result = weeklyTrendPoints(sets, 3);
+    const result = weeklyTrendPoints(sets, 3, allExercises);
     expect(result[0]!.weekStart).toBe(twoWeeksAgo.toLocaleDateString('en-CA'));
     expect(result[0]!.sessions).toBe(1);
     expect(result[1]!.weekStart).toBe(oneWeekAgo.toLocaleDateString('en-CA'));
@@ -291,7 +329,7 @@ describe('weeklyTrendPoints', () => {
   });
 
   it('returns all-zero points when no sets', () => {
-    const result = weeklyTrendPoints([], 4);
+    const result = weeklyTrendPoints([], 4, allExercises);
     expect(result).toHaveLength(4);
     expect(result.every(p => p.volumeKg === 0 && p.sessions === 0)).toBe(true);
   });
@@ -308,7 +346,7 @@ describe('computeOverview', () => {
       wr('s3', 'ex-wr', 100, 5, new Date('2026-06-21')),
     ];
 
-    const result = computeOverview(current, prior);
+    const result = computeOverview(current, prior, allExercises);
     expect(result.sessionsCurrent).toBe(2);
     expect(result.sessionsPrior).toBe(1);
     expect(result.sessionsDeltaPct).toBe(100);
@@ -320,18 +358,28 @@ describe('computeOverview', () => {
     expect(result.volumeDeltaPct).toBe(100);
   });
 
+  it('counts the plates sets of both windows through the plate weight of their exercise', () => {
+    const current: WorkedSet[] = [wr('s1', 'ex-plates-10', 5, 10, new Date('2026-07-21'))];
+    const prior: WorkedSet[] = [wr('s2', 'ex-plates', 4, 10, new Date('2026-06-21'))];
+
+    const result = computeOverview(current, prior, allExercises);
+    expect(result.volumeCurrentKg).toBe(5 * 10 * 10);
+    expect(result.volumePriorKg).toBe(4 * 5 * 10);
+    expect(result.volumeDeltaPct).toBe(150);
+  });
+
   it('null deltas when prior is empty', () => {
     const current: WorkedSet[] = [
       wr('s1', 'ex-wr', 100, 5, new Date('2026-07-21')),
     ];
-    const result = computeOverview(current, []);
+    const result = computeOverview(current, [], allExercises);
     expect(result.sessionsDeltaPct).toBeNull();
     expect(result.setsDeltaPct).toBeNull();
     expect(result.volumeDeltaPct).toBeNull();
   });
 
   it('zero values when both windows are empty', () => {
-    const result = computeOverview([], []);
+    const result = computeOverview([], [], allExercises);
     expect(result.sessionsCurrent).toBe(0);
     expect(result.sessionsPrior).toBe(0);
     expect(result.sessionsDeltaPct).toBeNull();
@@ -356,6 +404,19 @@ describe('exerciseProgressEntries', () => {
     expect(result[0]!.trackingType).toBe('weight-reps');
     expect(result[0]!.deltaPct).toBeCloseTo(10, 1);
     expect(result[0]!.status).toBe('improving');
+    expect(result[0]!.unitLabel).toBe('kg');
+  });
+
+  it('estimates the 1RM of a plates exercise over plates × plate weight, in kg', () => {
+    // 3 plates x 5 -> 30 kg x 5; 4 plates x 5 -> 40 kg x 5, at 10 kg per plate
+    const sets: WorkedSet[] = [
+      wr('sA', 'ex-plates-10', 3, 5, new Date('2026-06-01')),
+      wr('sB', 'ex-plates-10', 4, 5, new Date('2026-07-01')),
+    ];
+
+    const result = exerciseProgressEntries(sets, allExercises);
+    expect(result[0]!.firstValue).toBeCloseTo(OneRepMax.epley(30, 5).kg, 6);
+    expect(result[0]!.latestValue).toBeCloseTo(OneRepMax.epley(40, 5).kg, 6);
     expect(result[0]!.unitLabel).toBe('kg');
   });
 
