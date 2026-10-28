@@ -15,23 +15,50 @@ import {
 // ─── J1 — Empty state smoke ───────────────────────────────────────────────────
 
 test.describe('J1 — Empty state', () => {
-  test('muestra "Sin rutina activa" y el CTA navega a /routines', async ({ page }) => {
+  test('con rutinas pero ninguna activa muestra "Sin rutina activa" y el CTA navega a /routines', async ({
+    page,
+  }) => {
+    // S8: only an empty database shows Primer uso. One stored routine, not active, keeps this state.
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await seedRoutines(page, [
+      {
+        id: 'rt-inactive',
+        name: 'Rutina guardada',
+        isActive: false,
+        schedule: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+
     await page.goto('/training');
     await page.waitForLoadState('networkidle');
 
     // Empty state section renders when no active routine exists
     await expect(page.locator('[data-empty-state]')).toBeVisible();
 
-    // Heading text — h3 at training-home.page.ts:192
+    // Heading text of the empty state
     await expect(page.getByRole('heading', { name: 'Sin rutina activa' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Empezá en 3 pasos' })).toHaveCount(0);
 
-    // CTA link — routerLink="/routines" at training-home.page.ts:194
+    // CTA link — routerLink="/routines"
     const cta = page.getByRole('link', { name: 'Configurar rutinas' });
     await expect(cta).toBeVisible();
     await cta.click();
 
     // Angular Router resolves lazy /routines chunk
     await expect(page).toHaveURL(/\/routines$/);
+  });
+
+  test('sin ninguna rutina muestra Primer uso en lugar de "Sin rutina activa"', async ({ page }) => {
+    await page.goto('/training');
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.getByRole('heading', { name: 'Empezá en 3 pasos' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Plantillas' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Sin rutina activa' })).toHaveCount(0);
+    await expect(page.locator('[data-empty-state]')).toHaveCount(0);
   });
 });
 

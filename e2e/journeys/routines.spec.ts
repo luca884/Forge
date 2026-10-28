@@ -355,7 +355,14 @@ test.describe('J5 — Weekly schedule', () => {
 // ─── J6a — Auto-activate first routine ───────────────────────────────────────
 
 test.describe('J6a — Auto-activate first routine', () => {
-  test('J6a.1 — training-home muestra estado vacío sin rutinas', async ({ page }) => {
+  // S8: with no routines at all Hoy shows Primer uso (J1); "Sin rutina activa" is for routines with none active.
+  test('J6a.1 — training-home muestra estado vacío con rutinas pero ninguna activa', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await seedRoutines(page, [
+      { id: 'r-1', name: 'Inactiva', isActive: false, schedule: null, createdAt: new Date(), updatedAt: new Date() },
+    ]);
+
     await page.goto('/training');
     await page.waitForLoadState('networkidle');
 
