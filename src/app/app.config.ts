@@ -15,6 +15,7 @@ import { AuditEventLogRepository, AuditEventFilter } from '@core/shared/events/a
 import { AuditEvent } from '@core/shared/events/audit-event';
 import { AuditEventLogListener } from '@core/shared/events/audit-event-log.listener';
 import { PwaUpdateService } from '@core/pwa/pwa-update.service';
+import { AppearanceService } from '@core/appearance/appearance.service';
 
 // Profile repository at root so UserPreferencesService (root-scoped) can inject it.
 // ADR-22 addendum — consistent with AuditEventLogRepository pattern.
@@ -109,6 +110,15 @@ export const appConfig: ApplicationConfig = {
       provide: APP_INITIALIZER,
       useFactory: (pwaUpdate: PwaUpdateService) => () => pwaUpdate.start(),
       deps: [PwaUpdateService],
+      multi: true,
+    },
+
+    // Appearance (theme + accent) — the index.html inline script already painted it;
+    // instantiating here keeps "Sistema" following prefers-color-scheme from the start.
+    {
+      provide: APP_INITIALIZER,
+      useFactory: (appearance: AppearanceService) => () => appearance,
+      deps: [AppearanceService],
       multi: true,
     },
 

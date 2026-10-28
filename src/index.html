@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es" data-theme="dark">
+<html lang="es">
   <head>
     <meta charset="utf-8" />
     <title>Forge</title>
@@ -7,7 +7,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
     <link rel="manifest" href="manifest.webmanifest" />
-    <meta name="theme-color" content="#0c0a09" />
+    <meta name="theme-color" content="#F6F6F4" />
+    <!-- Applies the stored appearance before first paint (no flash). Same rules as
+         AppearanceService; pinned by appearance-boot-script.spec.ts. -->
+    <script>
+      (function () {
+        var theme = 'system';
+        var accent = 'cobalt';
+        try {
+          var stored = JSON.parse(localStorage.getItem('forge.appearance') || '{}') || {};
+          if (['light', 'dark', 'system'].indexOf(stored.theme) >= 0) theme = stored.theme;
+          if (['cobalt', 'orange', 'green', 'ink'].indexOf(stored.accent) >= 0) accent = stored.accent;
+        } catch (e) {}
+        if (theme === 'system') {
+          theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        var root = document.documentElement;
+        root.setAttribute('data-theme', theme);
+        root.setAttribute('data-accent', accent);
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', theme === 'dark' ? '#0F0F11' : '#F6F6F4');
+      })();
+    </script>
     <link rel="preload" href="/fonts/InterTight-Variable.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/fonts/JetBrainsMono-Variable.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
