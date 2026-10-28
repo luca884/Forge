@@ -14,6 +14,8 @@ import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import { AppearanceService } from '@core/appearance/appearance.service';
 import { RestPreferencesService } from '@core/rest-preferences/rest-preferences.service';
 import { ScreenWakeLockService } from '@core/wake-lock/screen-wake-lock.service';
+import { ExportHistoryCsvUseCase } from '@features/progress/domain/use-cases/export-history-csv.use-case';
+import { FileDownloadService } from '@core/files/file-download.service';
 import { WritableSignal, signal } from '@angular/core';
 
 interface ToastMock {
@@ -30,6 +32,7 @@ interface Setup {
   install: jest.Mock;
   requestPermission: jest.Mock;
   unit: WritableSignal<'kg' | 'lb'>;
+  downloadSpy: jest.Mock;
 }
 
 function fakeWakeLockService(supported: boolean): Pick<ScreenWakeLockService, 'supported' | 'enabled' | 'setEnabled'> {
@@ -52,7 +55,10 @@ function makeFixture(opts: {
   canInstall?: boolean;
   notifications?: { supported: boolean; permission: 'granted' | 'denied' | 'default' };
   wakeLockSupported?: boolean;
+  exportSpy?: jest.Mock;
 } = {}): Setup {
+  const exportSpy = opts.exportSpy ?? jest.fn().mockResolvedValue({ content: '', rowCount: 0 });
+  const downloadSpy = jest.fn();
   const clearSpy = opts.clearSpy ?? jest.fn().mockResolvedValue(undefined);
   const setUnitSpy = opts.setUnitSpy ?? jest.fn().mockResolvedValue(undefined);
   const toastMock = opts.toastMock ?? { success: jest.fn(), error: jest.fn(), info: jest.fn() };
@@ -80,6 +86,8 @@ function makeFixture(opts: {
       { provide: UserPreferencesService, useValue: { unit, loadOnce: jest.fn().mockResolvedValue(undefined) } },
       { provide: SetPreferredUnitUseCase, useValue: { execute: setUnitSpy } },
       { provide: ScreenWakeLockService, useValue: fakeWakeLockService(opts.wakeLockSupported ?? true) },
+      { provide: ExportHistoryCsvUseCase, useValue: { execute: exportSpy } },
+      { provide: FileDownloadService, useValue: { downloadCsv: downloadSpy } },
     ],
   })
     .overrideComponent(ProfilePage, {
@@ -90,7 +98,7 @@ function makeFixture(opts: {
     .compileComponents();
 
   const fixture = TestBed.createComponent(ProfilePage);
-  return { fixture, clearSpy, setUnitSpy, toastMock, install, requestPermission, unit };
+  return { fixture, clearSpy, setUnitSpy, toastMock, install, requestPermission, unit, downloadSpy };
 }
 
 function root(fixture: ComponentFixture<ProfilePage>): HTMLElement {
@@ -366,6 +374,63 @@ describe('ProfilePage', () => {
       await flush(fixture);
 
       expect(buttonByText(fixture, 'Permitir notificaciones')).toBeUndefined();
+    });
+  });
+
+  describe('Datos — Exportar historial (CSV) (S5)', () => {
+    it('descarga el CSV en la unidad preferida, con la fecha local en el nombre', async () => {
+      const exportSpy = jest.fn().mockResolvedValue({ content: 'fecha,rutina\r\n2026-03-02,Torso\r\n', rowCount: 1 });
+      const { fixture, unit, downloadSpy } = makeFixture({ exportSpy });
+      unit.set('lb');
+      await flush(fixture);
+
+      buttonByText(fixture, 'Exportar historial (CSV)')!.click();
+      await flush(fixture);
+
+      const today = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const expectedName = `forge-historial-${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}.csv`;
+      expect(exportSpy).toHaveBeenCalledWith('lb');
+      expect(downloadSpy).toHaveBeenCalledWith(expectedName, 'fecha,rutina\r\n2026-03-02,Torso\r\n');
+    });
+
+    it('sin series registradas, avisa y no descarga nada', async () => {
+      const exportSpy = jest.fn().mockResolvedValue({ content: 'fecha\r\n', rowCount: 0 });
+      const { fixture, toastMock, downloadSpy } = makeFixture({ exportSpy });
+      await flush(fixture);
+
+      await fixture.componentInstance.onExportHistory();
+
+      expect(toastMock.info).toHaveBeenCalledWith('Todavía no hay series para exportar.');
+      expect(downloadSpy).not.toHaveBeenCalled();
+    });
+
+    it('si falla la lectura, avisa con un toast de error', async () => {
+      const exportSpy = jest.fn().mockRejectedValue(new Error('fallo DB'));
+      const { fixture, toastMock, downloadSpy } = makeFixture({ exportSpy });
+      await flush(fixture);
+
+      // Called directly: see the rejection note in "Unidad de peso".
+      await fixture.componentInstance.onExportHistory();
+
+      expect(toastMock.error).toHaveBeenCalledWith('No se pudo exportar el historial', 'fallo DB');
+      expect(downloadSpy).not.toHaveBeenCalled();
+      expect(fixture.componentInstance.exporting()).toBe(false);
+    });
+
+    it('mientras exporta, el botón queda deshabilitado', async () => {
+      let finish: (value: { content: string; rowCount: number }) => void = () => undefined;
+      const exportSpy = jest.fn(() => new Promise((resolve) => (finish = resolve)));
+      const { fixture } = makeFixture({ exportSpy });
+      await flush(fixture);
+
+      buttonByText(fixture, 'Exportar historial (CSV)')!.click();
+      fixture.detectChanges();
+      expect(buttonByText(fixture, 'Exportar historial (CSV)')!.disabled).toBe(true);
+
+      finish({ content: '', rowCount: 0 });
+      await flush(fixture);
+      expect(buttonByText(fixture, 'Exportar historial (CSV)')!.disabled).toBe(false);
     });
   });
 

@@ -1,5 +1,25 @@
+import { readFileSync } from 'node:fs';
 import { test, expect } from '../fixtures/db-reset';
-import { seedProfile, type SeedProfile } from '../fixtures/seed';
+import {
+  daysAgo,
+  seedExercises,
+  seedProfile,
+  seedRoutines,
+  seedSessions,
+  seedTrainingDays,
+  seedWorkedSets,
+  type SeedProfile,
+} from '../fixtures/seed';
+
+/** YYYY-MM-DD in local time, like Session.date. */
+function localDate(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function after(date: Date, seconds: number): Date {
+  return new Date(date.getTime() + seconds * 1000);
+}
 
 // ─── J13 — Perfil ─────────────────────────────────────────────────────────────
 
@@ -82,5 +102,70 @@ test.describe('J13 — Perfil', () => {
 
     await expect(html).toHaveAttribute('data-accent', 'green');
     await expect(accents.getByRole('radio', { name: 'Verde' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  test('J13.4 — "Exportar historial (CSV)" descarga todas las series terminadas, también las de hace más de un año', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    const oldStart = daysAgo(400);
+    const recentStart = daysAgo(2);
+    const now = new Date();
+
+    await seedExercises(page, [
+      {
+        id: 'ex-e2e-squat',
+        name: 'Sentadilla, barra',
+        muscleGroup: 'legs',
+        trackingType: 'weight-reps',
+        isCustom: true,
+        createdAt: oldStart,
+        updatedAt: oldStart,
+      },
+    ]);
+    await seedRoutines(page, [
+      { id: 'rt-e2e', name: 'Torso / Pierna', isActive: true, schedule: null, createdAt: oldStart, updatedAt: oldStart },
+    ]);
+    await seedTrainingDays(page, [
+      { id: 'day-e2e', routineId: 'rt-e2e', name: 'Pierna A', exercises: [], createdAt: oldStart, updatedAt: oldStart },
+    ]);
+    await seedSessions(page, [
+      {
+        id: 's-old', routineId: 'rt-e2e', dayId: 'day-e2e', date: localDate(oldStart), status: 'completed',
+        startedAt: oldStart, endedAt: after(oldStart, 3600), createdAt: oldStart, updatedAt: oldStart,
+      },
+      {
+        id: 's-recent', routineId: 'rt-e2e', dayId: 'day-e2e', date: localDate(recentStart), status: 'completed',
+        startedAt: recentStart, endedAt: after(recentStart, 3600), createdAt: recentStart, updatedAt: recentStart,
+      },
+      {
+        id: 's-open', routineId: 'rt-e2e', dayId: 'day-e2e', date: localDate(now), status: 'in-progress',
+        startedAt: now, createdAt: now, updatedAt: now,
+      },
+    ]);
+    await seedWorkedSets(page, [
+      { id: 'ws-old-1', sessionId: 's-old', exerciseId: 'ex-e2e-squat', type: 'weight-reps', isPR: false, reps: 8, weightKg: 60, createdAt: after(oldStart, 60) },
+      { id: 'ws-old-2', sessionId: 's-old', exerciseId: 'ex-e2e-squat', type: 'weight-reps', isPR: true, reps: 8, weightKg: 62.5, createdAt: after(oldStart, 240) },
+      { id: 'ws-recent', sessionId: 's-recent', exerciseId: 'ex-e2e-squat', type: 'weight-reps', isPR: true, reps: 5, weightKg: 100, createdAt: after(recentStart, 60) },
+      { id: 'ws-open', sessionId: 's-open', exerciseId: 'ex-e2e-squat', type: 'weight-reps', isPR: false, reps: 10, weightKg: 40, createdAt: after(now, 1) },
+    ]);
+
+    await page.goto('/profile');
+    await page.waitForLoadState('networkidle');
+
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Exportar historial (CSV)' }).click();
+    const download = await downloadPromise;
+
+    expect(download.suggestedFilename()).toBe(`forge-historial-${localDate(new Date())}.csv`);
+    const bytes = readFileSync(await download.path());
+    expect([...bytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+    expect(bytes.subarray(3).toString('utf8').split('\r\n')).toEqual([
+      'fecha,rutina,dia,ejercicio,serie,tipo,peso,unidad,reps,tiempo_s,distancia_km,pr',
+      `${localDate(oldStart)},Torso / Pierna,Pierna A,"Sentadilla, barra",1,peso_reps,60,kg,8,,,no`,
+      `${localDate(oldStart)},Torso / Pierna,Pierna A,"Sentadilla, barra",2,peso_reps,62.5,kg,8,,,sí`,
+      `${localDate(recentStart)},Torso / Pierna,Pierna A,"Sentadilla, barra",1,peso_reps,100,kg,5,,,sí`,
+      '',
+    ]);
   });
 });

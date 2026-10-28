@@ -10,6 +10,8 @@ import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import { AccentId, AppearanceService, ThemePreference } from '@core/appearance/appearance.service';
 import { RestPreferencesService } from '@core/rest-preferences/rest-preferences.service';
 import { ScreenWakeLockService } from '@core/wake-lock/screen-wake-lock.service';
+import { FileDownloadService } from '@core/files/file-download.service';
+import { ExportHistoryCsvUseCase } from '@features/progress/domain/use-cases/export-history-csv.use-case';
 import { ToastService } from '@core/shared/ui/toast/toast.service';
 import { FgButtonComponent, FgIconComponent } from '@core/shared/ui';
 
@@ -30,6 +32,12 @@ const ACCENT_OPTIONS: readonly { id: AccentId; label: string; light: string; dar
 const UNIT_OPTIONS: readonly PreferredUnit[] = ['kg', 'lb'];
 
 const REST_STEP_SECONDS = 15;
+
+/** YYYY-MM-DD in the device's time zone, for the export file name. */
+function localDateStamp(date: Date): string {
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
 
 @Component({
   selector: 'fg-profile-page',
@@ -229,6 +237,15 @@ const REST_STEP_SECONDS = 15;
               <fg-icon name="chevron-right" [size]="16" class="text-ink-2"></fg-icon>
             </button>
           }
+          <button
+            type="button"
+            class="w-full flex items-center justify-between min-h-12 pl-3.5 pr-3 border-b border-line-soft bg-transparent text-ink text-[15px] font-medium text-left disabled:opacity-60"
+            [disabled]="exporting()"
+            (click)="onExportHistory()"
+          >
+            Exportar historial (CSV)
+            <fg-icon name="chevron-right" [size]="16" class="text-ink-2"></fg-icon>
+          </button>
           @if (!confirmingClear()) {
             <button
               type="button"
@@ -273,6 +290,8 @@ export class ProfilePage implements OnInit {
   private readonly clearHistoryUseCase = inject(ClearTrainingHistoryUseCase);
   private readonly toastService = inject(ToastService);
   private readonly userPreferences = inject(UserPreferencesService);
+  private readonly exportHistoryCsvUseCase = inject(ExportHistoryCsvUseCase);
+  private readonly fileDownload = inject(FileDownloadService);
   readonly appearance = inject(AppearanceService);
   readonly rest = inject(RestPreferencesService);
   readonly wakeLock = inject(ScreenWakeLockService);
@@ -286,6 +305,7 @@ export class ProfilePage implements OnInit {
 
   readonly unit = this.userPreferences.unit;
   readonly editingRest = signal(false);
+  readonly exporting = signal(false);
   readonly confirmingClear = signal(false);
   readonly clearing = signal(false);
 
@@ -318,6 +338,24 @@ export class ProfilePage implements OnInit {
 
   stepRest(delta: number): void {
     this.rest.setDefaultSeconds(Math.max(0, this.rest.defaultSeconds() + delta));
+  }
+
+  /** "Exportar historial (CSV)": every set of every completed session, in the preferred unit (D2). */
+  async onExportHistory(): Promise<void> {
+    if (this.exporting()) return;
+    this.exporting.set(true);
+    try {
+      const { content, rowCount } = await this.exportHistoryCsvUseCase.execute(this.unit());
+      if (rowCount === 0) {
+        this.toastService.info('Todavía no hay series para exportar.');
+        return;
+      }
+      this.fileDownload.downloadCsv(`forge-historial-${localDateStamp(new Date())}.csv`, content);
+    } catch (err) {
+      this.toastService.error('No se pudo exportar el historial', err instanceof Error ? err.message : undefined);
+    } finally {
+      this.exporting.set(false);
+    }
   }
 
   async onInstallApp(): Promise<void> {
