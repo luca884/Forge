@@ -211,6 +211,21 @@ describe('TrainingSessionPage', () => {
     expect(wakeLock.release).toHaveBeenCalledTimes(1);
   });
 
+  it('does not hold the wake lock when the page is left before the session finishes loading', async () => {
+    let finishLoading!: () => void;
+    mockStore.loadActive.mockReturnValue(new Promise<void>((resolve) => (finishLoading = resolve)));
+    fixture = TestBed.createComponent(TrainingSessionPage);
+    fixture.detectChanges();
+
+    fixture.destroy();
+    activeSessionSignal.set(makeSession());
+    finishLoading();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(wakeLock.hold).not.toHaveBeenCalled();
+  });
+
   // --- Existing smoke tests ---
 
   it('renders without error when UserPreferencesService provides unit="lb"', () => {
