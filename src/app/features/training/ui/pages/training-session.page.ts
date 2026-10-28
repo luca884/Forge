@@ -17,7 +17,8 @@ import {
   ProgressionTarget,
 } from '../../domain/services/progression-target-calculator';
 import { TrainingSessionStore } from '../services/training-session.store';
-import { DEFAULT_REST_SECONDS, RestTimerService } from '../services/rest-timer.service';
+import { RestTimerService } from '../services/rest-timer.service';
+import { RestPreferencesService } from '@core/rest-preferences/rest-preferences.service';
 import { ExerciseSessionCardComponent } from '../components/exercise-session-card.component';
 import { RestTimerComponent } from '../components/rest-timer.component';
 import { PrCelebrationComponent } from '../components/pr-celebration.component';
@@ -173,7 +174,7 @@ function formatHMS(totalSeconds: number): string {
                 [sessionId]="store.activeSession()?.id ?? ''"
                 [unit]="unit()"
                 [expanded]="true"
-                [restSeconds]="item.exerciseInDay.restSeconds ?? defaultRestSeconds"
+                [restSeconds]="item.exerciseInDay.restSeconds ?? defaultRestSeconds()"
                 [note]="item.exerciseInDay.note"
                 [progressionTargetData]="progressionTargetData()"
                 [previousSessionSets]="previousSessionSets()"
@@ -240,7 +241,7 @@ export class TrainingSessionPage implements OnInit {
   readonly unit = this.userPrefs.unit;
 
   /** Rest shown for exercises without their own override — the same default the timer uses. */
-  readonly defaultRestSeconds = DEFAULT_REST_SECONDS;
+  readonly defaultRestSeconds = inject(RestPreferencesService).defaultSeconds;
 
   private readonly weightPipe = new DisplayWeightPipe();
 

@@ -33,6 +33,7 @@ import { GetProgressionTargetUseCase } from '../../domain/use-cases/get-progress
 import { GetPreviousSessionSetsUseCase } from '../../domain/use-cases/get-previous-session-sets.use-case';
 import { ProgressionTargetCalculator } from '../../domain/services/progression-target-calculator';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
+import { RestPreferencesService } from '@core/rest-preferences/rest-preferences.service';
 import type { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
 import type { WorkedSet } from '../../domain/worked-set';
 import { Router } from '@angular/router';
@@ -401,6 +402,22 @@ describe('TrainingSessionPage', () => {
     fixture.detectChanges();
     expect(card().restSeconds()).toBe(90);
     expect(card().note()).toBeUndefined();
+  });
+
+  it('shows the default rest saved in Perfil for exercises without their own rest', () => {
+    TestBed.inject(RestPreferencesService).setDefaultSeconds(150);
+    fixture = TestBed.createComponent(TrainingSessionPage);
+    fixture.componentInstance.initLoading.set(false);
+    fixture.componentInstance.exercisesWithData.set([
+      { exercise: makeExercise('ex-b', 'Remo') as any, exerciseInDay: makeExerciseInDay('ex-b', 2) as any },
+    ]);
+    fixture.componentInstance.focus('ex-b');
+    fixture.detectChanges();
+
+    const card = fixture.debugElement.query(By.directive(ExerciseSessionCardComponent))
+      .componentInstance as ExerciseSessionCardComponent;
+    expect(card.restSeconds()).toBe(150);
+    localStorage.clear();
   });
 
   it('moves focus to the next incomplete exercise after logging its final target set', async () => {

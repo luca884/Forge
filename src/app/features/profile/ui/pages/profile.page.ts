@@ -1,310 +1,300 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { Profile } from '../../domain/profile.entity';
-import { GetUserProfileUseCase } from '../../domain/use-cases/get-user-profile.use-case';
-import { SetUserProfileUseCase } from '../../domain/use-cases/set-user-profile.use-case';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { SetPreferredUnitUseCase } from '../../domain/use-cases/set-preferred-unit.use-case';
+import { PreferredUnit } from '../../domain/value-objects/preferred-unit.vo';
 import { ClearTrainingHistoryUseCase } from '@core/shared/domain/use-cases/clear-training-history.use-case';
 import { TrainingHistoryReset } from '@core/shared/domain/training-history-reset';
 import { DexieTrainingHistoryReset } from '@core/shared/data/dexie-training-history-reset';
 import { PwaInstallService } from '@core/pwa/pwa-install.service';
 import { NotificationPermissionService } from '@core/notifications/notification-permission.service';
+import { UserPreferencesService } from '@core/profile/user-preferences.service';
+import { AccentId, AppearanceService, ThemePreference } from '@core/appearance/appearance.service';
+import { RestPreferencesService } from '@core/rest-preferences/rest-preferences.service';
 import { ToastService } from '@core/shared/ui/toast/toast.service';
-import {
-  FgPageHeaderComponent,
-  FgInputComponent,
-  FgButtonComponent,
-  FgCardComponent,
-} from '@core/shared/ui';
+import { FgButtonComponent, FgIconComponent } from '@core/shared/ui';
+
+const THEME_OPTIONS: readonly { id: ThemePreference; label: string }[] = [
+  { id: 'light', label: 'Claro' },
+  { id: 'dark', label: 'Oscuro' },
+  { id: 'system', label: 'Sistema' },
+];
+
+/** Swatch colors from the C canvas; Tinta flips to the light ink in dark mode, like the accent itself. */
+const ACCENT_OPTIONS: readonly { id: AccentId; label: string; light: string; dark: string }[] = [
+  { id: 'cobalt', label: 'Cobalto', light: '#2B59FF', dark: '#2B59FF' },
+  { id: 'orange', label: 'Naranja', light: '#FF5A1F', dark: '#FF5A1F' },
+  { id: 'green', label: 'Verde', light: '#0F9D76', dark: '#0F9D76' },
+  { id: 'ink', label: 'Tinta', light: '#111113', dark: '#EDEDEA' },
+];
+
+const UNIT_OPTIONS: readonly PreferredUnit[] = ['kg', 'lb'];
+
+const REST_STEP_SECONDS = 15;
 
 @Component({
   selector: 'fg-profile-page',
   standalone: true,
-  imports: [
-    ReactiveFormsModule,
-    FgPageHeaderComponent,
-    FgInputComponent,
-    FgButtonComponent,
-    FgCardComponent,
-  ],
+  imports: [FgButtonComponent, FgIconComponent],
   providers: [
     ClearTrainingHistoryUseCase,
     { provide: TrainingHistoryReset, useClass: DexieTrainingHistoryReset },
   ],
   template: `
-    <fg-page-header title="Perfil"></fg-page-header>
+    <section class="bg-page text-ink flex flex-col gap-[14px] px-4 pt-5 pb-6">
+      <header>
+        <h1 class="text-[32px] leading-9 font-bold tracking-[-0.03em] text-ink">Perfil</h1>
+      </header>
 
-    <div class="px-4 pt-3 pb-6 flex flex-col gap-4">
-      @if (isLoading()) {
-        <p class="t-body text-forge-400">Cargando...</p>
-      } @else if (profile() === null) {
-        <!-- Primera vez: setup inicial inline -->
-        <fg-card>
-          <form [formGroup]="profileForm" (ngSubmit)="onSave()" class="flex flex-col gap-4">
-            <h2 class="t-h3 text-forge-100">Configurá tu perfil</h2>
-
-            <div class="flex flex-col gap-1.5">
-              <fg-input id="name" label="Nombre" placeholder="Tu nombre" formControlName="name"></fg-input>
-              @if (profileForm.get('name')?.invalid && profileForm.get('name')?.touched) {
-                <span class="t-caption text-destructive">El nombre es requerido</span>
+      <!-- Apariencia -->
+      <section class="flex flex-col gap-1.5" aria-labelledby="look-title">
+        <h2 id="look-title" class="text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase text-ink-2">
+          Apariencia
+        </h2>
+        <div class="bg-surface border border-line rounded-lg">
+          <div class="flex items-center justify-between gap-2 min-h-14 pl-3.5 pr-2.5 border-b border-line-soft">
+            <span class="text-[15px] font-medium">Tema</span>
+            <div role="radiogroup" aria-label="Tema" class="flex gap-0.5 p-0.5 rounded-md border border-line bg-page">
+              @for (option of themeOptions; track option.id) {
+                <button
+                  type="button"
+                  role="radio"
+                  [attr.aria-checked]="appearance.theme() === option.id"
+                  class="h-8 px-3 rounded-sm text-[13px]"
+                  [class]="appearance.theme() === option.id
+                    ? 'bg-surface text-accent-ink font-semibold'
+                    : 'bg-transparent text-ink-2 font-medium'"
+                  (click)="appearance.setTheme(option.id)"
+                >{{ option.label }}</button>
               }
             </div>
-
-            <label class="flex flex-col gap-1.5">
-              <span class="t-caption text-forge-300">Unidad de peso</span>
-              <select
-                formControlName="preferredUnit"
-                class="h-11 px-3 rounded-md bg-forge-900 border border-forge-700 text-forge-100 t-body outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
-              >
-                <option value="kg">Kilogramos (kg)</option>
-                <option value="lb">Libras (lb)</option>
-              </select>
-            </label>
-
-            <button
-              type="submit"
-              fg-button
-              variant="primary"
-              size="lg"
-              class="w-full"
-              [disabled]="profileForm.invalid || isSaving()"
-            >
-              Guardar perfil
-            </button>
-          </form>
-        </fg-card>
-      } @else {
-        <!-- Configuración existente -->
-        <fg-card>
-          <form [formGroup]="profileForm" (ngSubmit)="onSave()" class="flex flex-col gap-4">
-            <div class="flex flex-col gap-1.5">
-              <fg-input id="name" label="Nombre" formControlName="name"></fg-input>
-              @if (profileForm.get('name')?.invalid && profileForm.get('name')?.touched) {
-                <span class="t-caption text-destructive">El nombre es requerido</span>
-              }
-            </div>
-
-            <label class="flex flex-col gap-1.5">
-              <span class="t-caption text-forge-300">Unidad de peso</span>
-              <select
-                formControlName="preferredUnit"
-                class="h-11 px-3 rounded-md bg-forge-900 border border-forge-700 text-forge-100 t-body outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
-              >
-                <option value="kg">Kilogramos (kg)</option>
-                <option value="lb">Libras (lb)</option>
-              </select>
-            </label>
-
-            <div class="flex flex-col gap-1.5">
-              <span class="t-caption text-forge-300">Avatar (opcional)</span>
-              <input
-                type="file"
-                accept="image/*"
-                (change)="onAvatarChange($event)"
-                class="t-body-sm text-forge-300 file:mr-3 file:rounded-md file:border-0 file:bg-forge-850 file:px-3 file:py-2 file:text-forge-100"
-              />
-              @if (profile()?.avatarBase64) {
-                <img
-                  [src]="profile()!.avatarBase64"
-                  alt="Avatar"
-                  class="mt-2 h-20 w-20 rounded-full object-cover"
-                />
-                <button type="button" fg-button variant="ghost" size="sm" (click)="clearAvatar()">
-                  Quitar foto
+          </div>
+          <div class="flex items-center justify-between gap-2 min-h-14 pl-3.5 pr-2.5">
+            <span class="text-[15px] font-medium">Color de acento</span>
+            <div role="radiogroup" aria-label="Color de acento" class="flex gap-1">
+              @for (option of accentOptions; track option.id) {
+                <button
+                  type="button"
+                  role="radio"
+                  [attr.aria-checked]="appearance.accent() === option.id"
+                  [attr.aria-label]="option.label"
+                  class="w-10 h-10 rounded-full flex items-center justify-center"
+                  (click)="appearance.setAccent(option.id)"
+                >
+                  <span
+                    class="w-[26px] h-[26px] rounded-full"
+                    [style.background]="swatchColor(option)"
+                    [style.box-shadow]="appearance.accent() === option.id
+                      ? '0 0 0 2px rgb(var(--color-surface)), 0 0 0 4px ' + swatchColor(option)
+                      : 'none'"
+                  ></span>
                 </button>
               }
             </div>
-
-            <button
-              type="submit"
-              fg-button
-              variant="primary"
-              size="lg"
-              class="w-full"
-              [disabled]="profileForm.invalid || isSaving()"
-            >
-              Guardar cambios
-            </button>
-          </form>
-        </fg-card>
-      }
-
-      <!-- Sección PWA -->
-      @if (pwaInstallService.canInstall()) {
-        <button
-          type="button"
-          fg-button
-          variant="secondary"
-          size="lg"
-          class="w-full"
-          (click)="onInstallApp()"
-        >
-          Instalar app
-        </button>
-      }
-
-      <!-- Sección Notificaciones -->
-      <fg-card>
-        @if (notificationService.supported()) {
-          <button
-            type="button"
-            fg-button
-            variant="secondary"
-            size="lg"
-            class="w-full"
-            (click)="onRequestNotification()"
-          >
-            Activar notificaciones
-            <span class="text-forge-400">
-              @if (notificationService.permission() === 'granted') {
-                (concedido)
-              } @else if (notificationService.permission() === 'denied') {
-                (denegado)
-              } @else {
-                (pendiente)
-              }
-            </span>
-          </button>
-        } @else {
-          <p class="t-body-sm text-forge-400">
-            Las notificaciones requieren instalar la app primero.
-          </p>
-        }
-      </fg-card>
-
-      <!-- Zona de peligro -->
-      <fg-card>
-        @if (!confirmingClear()) {
-          <div class="flex flex-col gap-2">
-            <button
-              type="button"
-              fg-button
-              variant="destructive"
-              [leadingIcon]="'trash'"
-              (click)="confirmingClear.set(true)"
-              class="w-full"
-            >
-              Borrar historial
-            </button>
-            <p class="t-caption text-forge-400">
-              Borra rutinas, sesiones e historial de entrenamiento. Conserva perfil y ejercicios.
-            </p>
           </div>
-        } @else {
-          <div class="flex flex-col gap-2">
-            <span class="t-body-sm text-forge-300">
-              ¿Borrar todo el historial de entrenamiento? No se puede deshacer.
-            </span>
-            <div class="flex gap-2">
-              <button
-                type="button"
-                fg-button
-                variant="destructive"
-                class="flex-1"
-                [disabled]="clearing()"
-                (click)="onClearHistory()"
-              >Borrar</button>
-              <button
-                type="button"
-                fg-button
-                variant="ghost"
-                class="flex-1"
-                (click)="confirmingClear.set(false)"
-              >Cancelar</button>
+        </div>
+      </section>
+
+      <!-- Entrenamiento -->
+      <section class="flex flex-col gap-1.5" aria-labelledby="train-title">
+        <h2 id="train-title" class="text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase text-ink-2">
+          Entrenamiento
+        </h2>
+        <div class="bg-surface border border-line rounded-lg">
+          <div class="flex items-center justify-between gap-2 min-h-[52px] pl-3.5 pr-2.5 border-b border-line-soft">
+            <span class="text-[15px] font-medium">Unidad de peso</span>
+            <div role="radiogroup" aria-label="Unidad de peso" class="flex gap-0.5 p-0.5 rounded-md border border-line bg-page">
+              @for (option of unitOptions; track option) {
+                <button
+                  type="button"
+                  role="radio"
+                  [attr.aria-checked]="unit() === option"
+                  class="h-8 min-w-11 px-2.5 rounded-sm font-mono text-[13px]"
+                  [class]="unit() === option ? 'bg-surface text-accent-ink font-medium' : 'bg-transparent text-ink-2'"
+                  (click)="onUnitChange(option)"
+                >{{ option }}</button>
+              }
             </div>
           </div>
-        }
-      </fg-card>
 
-      @if (saveError()) {
-        <p class="t-body-sm text-destructive" role="alert">{{ saveError() }}</p>
-      }
-    </div>
+          <div class="border-b border-line-soft">
+            <button
+              type="button"
+              class="w-full flex items-center justify-between gap-2 min-h-[52px] pl-3.5 pr-3 bg-transparent text-ink text-left"
+              aria-controls="rest-default-panel"
+              [attr.aria-expanded]="editingRest()"
+              (click)="editingRest.set(!editingRest())"
+            >
+              <span class="text-[15px] font-medium">Descanso por defecto</span>
+              <span class="flex items-center gap-1.5 text-ink-2">
+                <span class="font-mono text-sm text-ink">{{ restLabel() }}</span>
+                <fg-icon
+                  name="chevron-right"
+                  [size]="16"
+                  class="transition-transform"
+                  [class.rotate-90]="editingRest()"
+                ></fg-icon>
+              </span>
+            </button>
+            @if (editingRest()) {
+              <div id="rest-default-panel" class="flex items-center justify-between gap-2 px-3.5 pb-3">
+                <span class="text-[12px] text-ink-2">Para ejercicios sin descanso propio</span>
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    aria-label="Restar 15 segundos"
+                    class="h-9 px-3 rounded-md border border-line bg-page font-mono text-[13px] text-ink disabled:opacity-40"
+                    [disabled]="rest.defaultSeconds() === 0"
+                    (click)="stepRest(-restStep)"
+                  >−15s</button>
+                  <button
+                    type="button"
+                    aria-label="Sumar 15 segundos"
+                    class="h-9 px-3 rounded-md border border-line bg-page font-mono text-[13px] text-ink"
+                    (click)="stepRest(restStep)"
+                  >+15s</button>
+                </div>
+              </div>
+            }
+          </div>
+
+          <div class="flex flex-col gap-2 py-2 px-3.5">
+            <div class="flex items-center justify-between gap-2 min-h-9">
+              <span class="flex flex-col">
+                <span class="text-[15px] font-medium">Aviso al terminar el descanso</span>
+                <span class="text-[12px] text-ink-2">Sonido y notificación</span>
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-label="Aviso al terminar el descanso"
+                [attr.aria-checked]="rest.alertOnEnd()"
+                class="w-[46px] h-7 flex-none rounded-full p-[3px] flex"
+                [class]="rest.alertOnEnd() ? 'bg-accent justify-end' : 'bg-dash justify-start'"
+                (click)="rest.setAlertOnEnd(!rest.alertOnEnd())"
+              >
+                <span class="w-[22px] h-[22px] rounded-full bg-white"></span>
+              </button>
+            </div>
+            @if (rest.alertOnEnd()) {
+              @if (!notificationService.supported()) {
+                <p class="text-[12px] text-ink-2">Las notificaciones requieren instalar la app primero.</p>
+              } @else if (notificationService.permission() === 'default') {
+                <button
+                  type="button"
+                  class="self-start text-[13px] font-semibold text-accent-ink"
+                  (click)="onRequestNotification()"
+                >Permitir notificaciones</button>
+              } @else if (notificationService.permission() === 'denied') {
+                <p class="text-[12px] text-ink-2">Notificaciones bloqueadas en el navegador: solo suena el aviso.</p>
+              }
+            }
+          </div>
+        </div>
+      </section>
+
+      <!-- Datos -->
+      <section class="flex flex-col gap-1.5" aria-labelledby="data-title">
+        <h2 id="data-title" class="text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase text-ink-2">
+          Datos
+        </h2>
+        <div class="bg-surface border border-line rounded-lg">
+          @if (pwaInstallService.canInstall()) {
+            <button
+              type="button"
+              class="w-full flex items-center justify-between min-h-12 pl-3.5 pr-3 border-b border-line-soft bg-transparent text-ink text-[15px] font-medium text-left"
+              (click)="onInstallApp()"
+            >
+              Instalar Forge en el inicio
+              <fg-icon name="chevron-right" [size]="16" class="text-ink-2"></fg-icon>
+            </button>
+          }
+          @if (!confirmingClear()) {
+            <button
+              type="button"
+              class="w-full flex items-center min-h-12 px-3.5 bg-transparent text-danger text-[15px] font-semibold text-left"
+              (click)="confirmingClear.set(true)"
+            >Borrar historial</button>
+          } @else {
+            <div class="flex flex-col gap-2 p-3.5">
+              <span class="text-[15px] font-medium text-ink">
+                ¿Borrar todo el historial de entrenamiento? No se puede deshacer.
+              </span>
+              <span class="text-[12px] text-ink-2">
+                Borra rutinas, sesiones e historial de entrenamiento. Conserva perfil y ejercicios.
+              </span>
+              <div class="flex gap-2">
+                <button
+                  type="button"
+                  fg-button
+                  variant="destructive"
+                  class="flex-1"
+                  [disabled]="clearing()"
+                  (click)="onClearHistory()"
+                >Borrar</button>
+                <button
+                  type="button"
+                  fg-button
+                  variant="ghost"
+                  class="flex-1"
+                  (click)="confirmingClear.set(false)"
+                >Cancelar</button>
+              </div>
+            </div>
+          }
+        </div>
+        <span class="text-[12px] leading-4 text-ink-2">Tus datos se guardan solo en este dispositivo.</span>
+      </section>
+    </section>
   `,
 })
 export class ProfilePage implements OnInit {
-  private readonly getUserProfileUseCase = inject(GetUserProfileUseCase);
-  private readonly setUserProfileUseCase = inject(SetUserProfileUseCase);
+  private readonly setPreferredUnitUseCase = inject(SetPreferredUnitUseCase);
   private readonly clearHistoryUseCase = inject(ClearTrainingHistoryUseCase);
   private readonly toastService = inject(ToastService);
+  private readonly userPreferences = inject(UserPreferencesService);
+  readonly appearance = inject(AppearanceService);
+  readonly rest = inject(RestPreferencesService);
   readonly pwaInstallService = inject(PwaInstallService);
   readonly notificationService = inject(NotificationPermissionService);
 
-  private readonly fb = inject(FormBuilder);
+  readonly themeOptions = THEME_OPTIONS;
+  readonly accentOptions = ACCENT_OPTIONS;
+  readonly unitOptions = UNIT_OPTIONS;
+  readonly restStep = REST_STEP_SECONDS;
 
-  readonly profile = signal<Profile | null | undefined>(undefined);
-  readonly isLoading = signal(true);
-  readonly isSaving = signal(false);
-  readonly saveError = signal<string | null>(null);
+  readonly unit = this.userPreferences.unit;
+  readonly editingRest = signal(false);
   readonly confirmingClear = signal(false);
   readonly clearing = signal(false);
 
-  private avatarBase64: string | undefined;
-
-  readonly profileForm = this.fb.group({
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    name: ['', Validators.required],
-    preferredUnit: ['kg'],
+  readonly restLabel = computed(() => {
+    const seconds = this.rest.defaultSeconds();
+    const s = seconds % 60;
+    return `${Math.floor(seconds / 60)}:${s < 10 ? `0${s}` : s}`;
   });
 
   ngOnInit(): void {
-    void this.loadProfile();
+    void this.userPreferences.loadOnce();
   }
 
-  private async loadProfile(): Promise<void> {
-    try {
-      const existing = await this.getUserProfileUseCase.execute();
-      this.profile.set(existing);
-      if (existing) {
-        this.profileForm.patchValue({
-          name: existing.name,
-          preferredUnit: existing.preferredUnit,
-        });
-        this.avatarBase64 = existing.avatarBase64;
-      }
-    } finally {
-      this.isLoading.set(false);
-    }
+  swatchColor(option: (typeof ACCENT_OPTIONS)[number]): string {
+    return this.appearance.resolvedTheme() === 'dark' ? option.dark : option.light;
   }
 
-  async onSave(): Promise<void> {
-    if (this.profileForm.invalid) return;
-
-    const { name, preferredUnit } = this.profileForm.value;
-    if (!name) return;
-
-    this.isSaving.set(true);
-    this.saveError.set(null);
-
+  /** Applies the unit app-wide right away; restores the previous one if saving fails. */
+  async onUnitChange(unit: PreferredUnit): Promise<void> {
+    const previous = this.unit();
+    if (unit === previous) return;
+    this.unit.set(unit);
     try {
-      await this.setUserProfileUseCase.execute({
-        name,
-        preferredUnit: (preferredUnit as 'kg' | 'lb') ?? 'kg',
-        avatarBase64: this.avatarBase64,
-      });
-      // Reload profile to reflect changes
-      const updated = await this.getUserProfileUseCase.execute();
-      this.profile.set(updated);
+      await this.setPreferredUnitUseCase.execute(unit);
     } catch (err) {
-      this.saveError.set(err instanceof Error ? err.message : 'Error al guardar');
-    } finally {
-      this.isSaving.set(false);
+      this.unit.set(previous);
+      this.toastService.error(err instanceof Error ? err.message : 'Error al guardar la unidad');
     }
   }
 
-  onAvatarChange(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      this.avatarBase64 = reader.result as string;
-    };
-    reader.readAsDataURL(file);
-  }
-
-  clearAvatar(): void {
-    this.avatarBase64 = undefined;
+  stepRest(delta: number): void {
+    this.rest.setDefaultSeconds(Math.max(0, this.rest.defaultSeconds() + delta));
   }
 
   async onInstallApp(): Promise<void> {
