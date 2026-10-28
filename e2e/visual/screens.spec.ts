@@ -41,7 +41,7 @@ const SCREENS: readonly Screen[] = [
     seed: { activeSession: true },
     open: async (page) => {
       await page.goto('/training/session');
-      await expect(page.getByText(/3 de \d+ sets/)).toBeVisible();
+      await expect(page.getByText(/3 de \d+ series/)).toBeVisible();
     },
   },
   {
@@ -49,7 +49,7 @@ const SCREENS: readonly Screen[] = [
     seed: { activeSession: true },
     open: async (page) => {
       await page.goto('/training/session');
-      await expect(page.getByText(/3 de \d+ sets/)).toBeVisible();
+      await expect(page.getByText(/3 de \d+ series/)).toBeVisible();
       await page.getByRole('button', { name: 'Terminar sesión' }).click();
       await expect(page).toHaveURL(/\/training\/session\/summary$/);
       await expect(page.getByText('Sesión terminada')).toBeVisible();

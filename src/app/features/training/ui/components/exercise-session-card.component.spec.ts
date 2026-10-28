@@ -104,7 +104,7 @@ describe('ExerciseSessionCardComponent', () => {
 
   // ── VISUAL REDESIGN TESTS (D-4) ────────────────────────────────────────────
 
-  it('wrapper has rounded-[14px] bg-forge-900 ring-1 ring-inset overflow-hidden', () => {
+  it('wrapper is a Cuaderno surface section (bg-surface, border-line, overflow-hidden)', () => {
     fixture = TestBed.createComponent(ExerciseSessionCardComponent);
     fixture.componentRef.setInput('exercise', mockExercise);
     fixture.componentRef.setInput('loggedSets', []);
@@ -113,11 +113,24 @@ describe('ExerciseSessionCardComponent', () => {
     fixture.detectChanges();
     const wrapper = (fixture.nativeElement as HTMLElement).firstElementChild as HTMLElement;
     expect(wrapper).toBeTruthy();
-    expect(wrapper.classList).toContain('bg-forge-900');
+    expect(wrapper.tagName).toBe('SECTION');
+    expect(wrapper.classList).toContain('bg-surface');
+    expect(wrapper.classList).toContain('border-line');
     expect(wrapper.classList).toContain('overflow-hidden');
   });
 
-  it('header contains exercise name in h3 or span with t-h3 class', () => {
+  it('uses only semantic Cuaderno classes (no forge-*, accent-<n>, ring-white, destructive-*)', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', [weightRepsSet, prSet]);
+    fixture.componentRef.setInput('targetSets', [targetSet, targetSet, targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.detectChanges();
+    const html = (fixture.nativeElement as HTMLElement).innerHTML;
+    expect(html).not.toMatch(/forge-\d|accent-\d|ring-white|destructive-\d|--pr-warm/);
+  });
+
+  it('header names the section with an h2 holding the exercise name', () => {
     fixture = TestBed.createComponent(ExerciseSessionCardComponent);
     fixture.componentRef.setInput('exercise', mockExercise);
     fixture.componentRef.setInput('loggedSets', []);
@@ -125,12 +138,14 @@ describe('ExerciseSessionCardComponent', () => {
     fixture.componentRef.setInput('sessionId', 's-1');
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
-    const nameEl = el.querySelector<HTMLElement>('.t-h3');
+    const nameEl = el.querySelector<HTMLElement>('h2');
     expect(nameEl).toBeTruthy();
     expect(nameEl!.textContent).toContain('Sentadilla');
+    const section = el.querySelector('section')!;
+    expect(section.getAttribute('aria-labelledby')).toBe(nameEl!.id);
   });
 
-  it('done/total counter has text-accent-300 when all sets done', () => {
+  it('done/total counter is accent-ink when all series done', () => {
     fixture = TestBed.createComponent(ExerciseSessionCardComponent);
     fixture.componentRef.setInput('exercise', mockExercise);
     fixture.componentRef.setInput('loggedSets', [weightRepsSet]);
@@ -138,12 +153,13 @@ describe('ExerciseSessionCardComponent', () => {
     fixture.componentRef.setInput('sessionId', 's-1');
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
-    const counter = el.querySelector<HTMLElement>('.text-accent-300');
+    const counter = el.querySelector<HTMLElement>('[data-set-counter]');
     expect(counter).toBeTruthy();
-    expect(counter!.textContent).toContain('1/1');
+    expect(counter!.classList).toContain('text-accent-ink');
+    expect(counter!.textContent).toContain('1/1 series');
   });
 
-  it('done/total counter has text-forge-300 when incomplete', () => {
+  it('done/total counter is ink-2 when incomplete', () => {
     fixture = TestBed.createComponent(ExerciseSessionCardComponent);
     fixture.componentRef.setInput('exercise', mockExercise);
     fixture.componentRef.setInput('loggedSets', [weightRepsSet]);
@@ -151,9 +167,10 @@ describe('ExerciseSessionCardComponent', () => {
     fixture.componentRef.setInput('sessionId', 's-1');
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
-    const counter = el.querySelector<HTMLElement>('.text-forge-300');
+    const counter = el.querySelector<HTMLElement>('[data-set-counter]');
     expect(counter).toBeTruthy();
-    expect(counter!.textContent).toContain('1/2');
+    expect(counter!.classList).toContain('text-ink-2');
+    expect(counter!.textContent).toContain('1/2 series');
   });
 
   it('shows fg-chip PR label when isPR set exists', () => {
@@ -168,20 +185,141 @@ describe('ExerciseSessionCardComponent', () => {
     expect(text).toContain('PR');
   });
 
-  it('chevron-down icon is in header', () => {
+  it('planilla: column header row names Serie, Anterior, Peso, Reps and Hecha', () => {
     fixture = TestBed.createComponent(ExerciseSessionCardComponent);
     fixture.componentRef.setInput('exercise', mockExercise);
     fixture.componentRef.setInput('loggedSets', []);
-    fixture.componentRef.setInput('targetSets', []);
+    fixture.componentRef.setInput('targetSets', [targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.detectChanges();
+    const head = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('[data-sheet-head]');
+    expect(head).toBeTruthy();
+    const labels = Array.from(head!.children).map((c) => c.textContent?.trim());
+    expect(labels).toEqual(['Serie', 'Anterior', 'Peso', 'Reps', 'Hecha']);
+  });
+
+  it('planilla: bodyweight-reps header says Extra instead of Peso', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', { ...mockExercise, trackingType: 'bodyweight-reps' });
+    fixture.componentRef.setInput('loggedSets', []);
+    fixture.componentRef.setInput('targetSets', [{ type: 'bodyweight-reps', reps: 10 } as TargetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.detectChanges();
+    const head = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('[data-sheet-head]')!;
+    const labels = Array.from(head.children).map((c) => c.textContent?.trim());
+    expect(labels).toEqual(['Serie', 'Anterior', 'Extra', 'Reps', 'Hecha']);
+  });
+
+  it('planilla: done row shows number, weight through the preferred unit, reps and a check', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', [weightRepsSet]);
+    fixture.componentRef.setInput('targetSets', [targetSet, targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('unit', 'lb');
+    fixture.detectChanges();
+    const row = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('button[aria-label="Editar set"]')!;
+    const cells = Array.from(row.querySelectorAll<HTMLElement>('[data-cell]')).map((c) => c.textContent?.trim());
+    expect(cells).toEqual(['1', '—', '220.5 lb', '5']);
+    expect(row.querySelector('fg-icon[name="check"]')).toBeTruthy();
+  });
+
+  it('planilla: the Anterior column shows what was done in that slot last time', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', [weightRepsSet]);
+    fixture.componentRef.setInput('targetSets', [targetSet, targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('previousSessionSets', [
+      {
+        id: 'p-0', sessionId: 's-prev', exerciseId: 'ex-1', targetSetIndex: 0, type: 'weight-reps',
+        reps: { value: 8 } as any, weight: { value: 20 } as any, isPR: false, createdAt: new Date('2026-02-08'),
+      },
+      {
+        id: 'p-1', sessionId: 's-prev', exerciseId: 'ex-1', targetSetIndex: 1, type: 'weight-reps',
+        reps: { value: 7 } as any, weight: { value: 20 } as any, isPR: false, createdAt: new Date('2026-02-08'),
+      },
+    ]);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const done = el.querySelector<HTMLElement>('button[aria-label="Editar set"] [data-cell="prev"]')!;
+    expect(done.textContent?.trim()).toBe('20 kg × 8');
+    const pending = el.querySelector<HTMLElement>('[data-pending-row] [data-cell="prev"]')!;
+    expect(pending.textContent?.trim()).toBe('20 kg × 7');
+  });
+
+  it('planilla: pending rows show the planned target of that slot and an empty check box', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', []);
+    fixture.componentRef.setInput('targetSets', [targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('unit', 'lb');
+    fixture.detectChanges();
+    const row = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('[data-pending-row]')!;
+    const cells = Array.from(row.querySelectorAll<HTMLElement>('[data-cell]')).map((c) => c.textContent?.trim());
+    expect(cells).toEqual(['1', '—', '154.3 lb', '8']);
+    expect(row.getAttribute('aria-current')).toBe('step');
+  });
+
+  // ── CABECERA: objetivo y descanso ─────────────────────────────────────────
+
+  it('header meta shows the target with weight in the preferred unit', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', []);
+    fixture.componentRef.setInput('targetSets', [targetSet, targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('unit', 'lb');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.targetLabel()).toBe('Objetivo 2 × 8 · 154.3 lb');
+    fixture.componentRef.setInput('unit', 'kg');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.targetLabel()).toBe('Objetivo 2 × 8 · 70 kg');
+  });
+
+  it('header meta shows the rest time only when the host provides it (0 hides it)', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', []);
+    fixture.componentRef.setInput('targetSets', [targetSet]);
     fixture.componentRef.setInput('sessionId', 's-1');
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
-    // fg-icon renders a host element with name attribute or an inner element
-    const icons = el.querySelectorAll('fg-icon');
-    const chevronPresent = Array.from(icons).some(
-      (ic) => (ic as HTMLElement).getAttribute('name') === 'chevron-down',
-    );
-    expect(chevronPresent).toBe(true);
+    expect(el.textContent).not.toContain('descanso');
+
+    fixture.componentRef.setInput('restSeconds', 120);
+    fixture.detectChanges();
+    expect(el.textContent).toContain('descanso 2:00');
+
+    fixture.componentRef.setInput('restSeconds', 90);
+    fixture.detectChanges();
+    expect(el.textContent).toContain('descanso 1:30');
+
+    fixture.componentRef.setInput('restSeconds', 0);
+    fixture.detectChanges();
+    expect(el.textContent).not.toContain('descanso');
+  });
+
+  it('shows the exercise note under the sets when provided', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', []);
+    fixture.componentRef.setInput('targetSets', [targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('note', 'Pausa de 1 s abajo.');
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Pausa de 1 s abajo.');
+  });
+
+  it('passes the next series number to the logger', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', [weightRepsSet]);
+    fixture.componentRef.setInput('targetSets', [targetSet, targetSet, targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('fg-set-logger')!.textContent).toContain('Serie 2');
   });
 
   it('expanded=true shows sets list with done indicator dot', () => {
