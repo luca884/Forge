@@ -447,3 +447,95 @@ test.describe('J14 — Prefill con lo de la última vez', () => {
     );
   });
 });
+
+// ─── J15 — Ejercicio en placas (D4, S11) ──────────────────────────────────────
+
+test.describe('J15 — Ejercicio en placas', () => {
+  test('las series se ven en placas y el volumen usa el peso por placa del ejercicio', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    const now = new Date();
+    const startedAt = new Date(now.getTime() - 30 * 60 * 1000);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+    await seedProfile(page, { id: 'me', name: '', preferredUnit: 'lb', createdAt: now, updatedAt: now });
+    await seedExercises(page, [
+      {
+        id: 'ex-prensa',
+        name: 'Prensa máquina',
+        muscleGroup: 'legs',
+        trackingType: 'weight-reps',
+        weightUnit: 'plates',
+        plateWeightKg: 10,
+        isCustom: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+    await seedRoutines(page, [
+      { id: 'rt-1', name: 'Rutina test', isActive: true, schedule: null, createdAt: now, updatedAt: now },
+    ]);
+    await seedTrainingDays(page, [
+      {
+        id: 'day-1',
+        routineId: 'rt-1',
+        name: 'Día 1',
+        exercises: [
+          {
+            exerciseId: 'ex-prensa',
+            order: 0,
+            targetSets: [0, 1, 2].map(() => ({ type: 'weight-reps' as const, reps: 10, weightKg: 7 })),
+          },
+        ],
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+    await seedSessions(page, [
+      {
+        id: 'ses-1',
+        routineId: 'rt-1',
+        dayId: 'day-1',
+        date: today,
+        startedAt,
+        status: 'in-progress',
+        createdAt: startedAt,
+        updatedAt: startedAt,
+      },
+    ]);
+    // 3 series de 7 placas × 10 reps, a 10 kg por placa: 2100 kg = 4629.7 lb.
+    await seedWorkedSets(
+      page,
+      [0, 1, 2].map((i) => ({
+        id: `ws-${i}`,
+        sessionId: 'ses-1',
+        exerciseId: 'ex-prensa',
+        type: 'weight-reps' as const,
+        targetSetIndex: i,
+        reps: 10,
+        weightKg: 7,
+        isPR: false,
+        createdAt: startedAt,
+      })),
+    );
+
+    await page.goto('/training/session');
+    await expect(page.getByText(/3 de 3 series/)).toBeVisible();
+    await page.getByRole('button', { name: 'Terminar sesión' }).click();
+    await expect(page).toHaveURL(/\/training\/session\/summary$/);
+
+    const totals = page.getByRole('region', { name: 'Totales' });
+    await expect(totals.locator('[data-total-value]').nth(1)).toHaveText('4629.7');
+    await expect(totals.locator('[data-total-unit]')).toHaveText('lb');
+    // La serie sigue en placas: nunca "kg" ni convertida a lb.
+    const row = page.locator('[data-exercise-row]').first();
+    await expect(row).toContainText('7 placas');
+    await expect(row).not.toContainText(/\d\s*(kg|lb)/);
+
+    // El formulario muestra el peso por placa guardado.
+    await page.goto('/exercises/ex-prensa/edit');
+    await expect(page.getByLabel('Peso por placa (opcional)')).toHaveValue('10');
+  });
+});

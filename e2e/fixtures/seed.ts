@@ -79,6 +79,8 @@ export interface SeedExercise {
   muscleGroup: string;
   equipment?: string;
   trackingType: string; // 'weight-reps' | 'bodyweight-reps' | 'time' | 'distance-time'
+  weightUnit?: 'kg' | 'plates';
+  plateWeightKg?: number;
   isCustom: boolean;
   createdAt: Date;
   updatedAt: Date;
