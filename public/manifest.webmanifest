@@ -4,8 +4,8 @@
   "description": "Tu log de gimnasio offline-first",
   "start_url": "/",
   "display": "standalone",
-  "theme_color": "#0c0a09",
-  "background_color": "#111827",
+  "theme_color": "#F6F6F4",
+  "background_color": "#F6F6F4",
   "icons": [
     {
       "src": "/icons/icon-192.png",
