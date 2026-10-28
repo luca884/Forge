@@ -8,7 +8,7 @@
  * in component-level providers[]. Root-level providers do NOT override them.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { signal } from '@angular/core';
+import { signal, type WritableSignal } from '@angular/core';
 import { Router } from '@angular/router';
 import { RouterTestingModule } from '@angular/router/testing';
 import { TrainingHomePage } from './training-home.page';
@@ -23,6 +23,7 @@ import { TrainingSessionStore } from '../services/training-session.store';
 import { SessionRepository } from '../../domain/session.repository';
 import { ExerciseRepository } from '../../../exercises/domain/exercise.repository';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
+import type { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
 import type { Session } from '../../domain/session.entity';
 import type { WorkedSet } from '../../domain/worked-set';
 import type { Routine } from '../../../routines/domain/routine.entity';
@@ -148,6 +149,8 @@ describe('TrainingHomePage', () => {
   let cancelUCMock: { execute: jest.Mock };
   let lastSetUCMock: { execute: jest.Mock };
   let sessionRepoMock: { getAllSessions: jest.Mock; getSetsForSession: jest.Mock };
+  let unitSignal: WritableSignal<PreferredUnit>;
+  let loadOnceMock: jest.Mock;
 
   async function setup(overrides: {
     routine?: Routine | null;
@@ -187,6 +190,8 @@ describe('TrainingHomePage', () => {
       getSetsForSession: jest.fn().mockImplementation(async (id: string) => setsBySession[id] ?? []),
     };
     storeMock = { loadActive: jest.fn().mockResolvedValue(undefined), activeSession: signal(null), clear: jest.fn() };
+    unitSignal = signal<PreferredUnit>('kg');
+    loadOnceMock = jest.fn().mockResolvedValue(undefined);
 
     await TestBed.configureTestingModule({
       imports: [TrainingHomePage, RouterTestingModule],
@@ -196,7 +201,7 @@ describe('TrainingHomePage', () => {
         { provide: TrainingSessionStore, useValue: storeMock },
         { provide: SessionRepository, useValue: sessionRepoMock },
         { provide: ExerciseRepository, useValue: { getAll: jest.fn().mockResolvedValue(exercises) } },
-        { provide: UserPreferencesService, useValue: { unit: signal('kg'), loadOnce: jest.fn().mockResolvedValue(undefined) } },
+        { provide: UserPreferencesService, useValue: { unit: unitSignal, loadOnce: loadOnceMock } },
       ],
     })
       .overrideComponent(TrainingHomePage, {
@@ -520,7 +525,8 @@ describe('TrainingHomePage', () => {
       expect(rows).toHaveLength(2);
       // Más reciente primero
       expect(rows[0].textContent).toContain('Torso');
-      expect(rows[0].textContent).toContain('52 min · 2.500 kg · 3 series');
+      // A2: el volumen pasa por DisplayWeightPipe: punto decimal y sin separador de miles.
+      expect(rows[0].textContent).toContain('52 min · 2500 kg · 3 series');
       expect(rows[0].textContent).toContain('PR ×2');
       expect(rows[1].textContent).toContain('Piernas');
       expect(rows[1].textContent).toContain('57 min · 500 kg · 1 serie');
@@ -555,6 +561,74 @@ describe('TrainingHomePage', () => {
       expect(html).not.toMatch(/\baccent-\d/);
       expect(html).not.toMatch(/destructive-\d|text-destructive/);
       expect(html).not.toMatch(/#[0-9a-fA-F]{6}\b/);
+    });
+
+    // ── T17 · unidad A: correcciones de la auditoría de T16 ─────────────────────
+
+    describe('correcciones de la auditoría (T17 · A1–A4)', () => {
+      it('A1: the week strip marks "done" by the local date of startedAt, not by Session.date (UTC)', async () => {
+        freezeDate('2026-10-27T10:00:00');
+        // Lunes 26 a las 22:30 locales: en UTC−3 la sesión se guarda con date del martes.
+        const mondayNight: Session = {
+          ...completedSession('s-night', '2026-10-27', 'd-1'),
+          startedAt: new Date(2026, 9, 26, 22, 30),
+          endedAt: new Date(2026, 9, 26, 23, 40),
+        };
+        await setup({ sessions: [mondayNight] });
+        expect(root().querySelector('[data-week-cell="monday"]')?.getAttribute('data-week-state')).toBe('done');
+        // El martes todavía no se entrenó: sigue siendo "hoy".
+        expect(root().querySelector('[data-week-cell="tuesday"]')?.getAttribute('data-week-state')).toBe('today');
+      });
+
+      it('A2: "Diario" volume uses the preferred unit with the display-weight format, also on a rest day', async () => {
+        await setup({
+          suggestedDay: { day: null, reason: 'rest-day' },
+          sessions: [
+            completedSession('s-new', '2026-10-26', 'd-1', 52),
+            completedSession('s-old', '2026-10-20', 'd-2', 40),
+          ],
+          setsBySession: {
+            's-new': [weightSet('a', 's-new', 100, 10), weightSet('b', 's-new', 100, 10)],
+            // 32.2 × 3 = 96.60000000000001 en coma flotante: el ruido no llega al texto.
+            's-old': [weightSet('c', 's-old', 32.2, 3)],
+          },
+        });
+        // El día de descanso no arma el plan, pero igual pide la unidad preferida.
+        expect(loadOnceMock).toHaveBeenCalled();
+        const rows = (): string[] =>
+          Array.from(root().querySelectorAll('[data-journal-row]')).map((r) => r.textContent ?? '');
+        expect(rows()[0]).toContain('52 min · 2000 kg · 2 series');
+        expect(rows()[1]).toContain('40 min · 96.6 kg · 1 serie');
+
+        // La unidad llega cuando el Diario ya estaba armado: el volumen la sigue.
+        unitSignal.set('lb');
+        fixture.detectChanges();
+        expect(rows()[0]).toContain('52 min · 4409.2 lb · 2 series');
+        expect(rows()[1]).toContain('40 min · 213.0 lb · 1 serie');
+        expect(rows().join(' ')).not.toContain('kg');
+      });
+
+      it('A3: "Hoy toca" shows "Nombre · Etiqueta" when the day has a label', async () => {
+        await setup({ suggestedDay: { day: mockDay, reason: 'scheduled' } });
+        expect(root().querySelector('[data-hero] h2')?.textContent?.trim()).toBe('Piernas · A');
+      });
+
+      it('A3: "Hoy toca" shows only the name when the day has no label', async () => {
+        const unlabeled: TrainingDay = { ...mockDay, label: undefined };
+        await setup({ days: [unlabeled], suggestedDay: { day: unlabeled, reason: 'scheduled' } });
+        expect(root().querySelector('[data-hero] h2')?.textContent?.trim()).toBe('Piernas');
+      });
+
+      it('A4: shows the description of the active routine in a secondary line', async () => {
+        await setup();
+        expect(root().querySelector('[data-hero] [data-routine-description]')?.textContent?.trim()).toBe('Rutina de fuerza');
+      });
+
+      it('A4: shows no description line when the routine has none', async () => {
+        const { description: _description, ...withoutDescription } = mockRoutine;
+        await setup({ routine: withoutDescription });
+        expect(root().querySelector('[data-routine-description]')).toBeNull();
+      });
     });
   });
 });

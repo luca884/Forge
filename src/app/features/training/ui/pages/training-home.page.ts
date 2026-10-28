@@ -17,6 +17,7 @@ import { ExerciseRepository } from '../../../exercises/domain/exercise.repositor
 import { TargetSet } from '../../../routines/domain/target-set';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
+import type { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
 import { TrainingSessionStore } from '../services/training-session.store';
 import { SessionAlreadyInProgressError } from '../../domain/errors/session-already-in-progress.error';
 import { FgCardComponent, FgButtonComponent, FgIconComponent, ToastService } from '@core/shared/ui';
@@ -49,6 +50,22 @@ interface PlanRow {
   last: string;
 }
 
+/** What "Diario" knows about a session, before the unit-dependent text is built. */
+interface JournalEntry {
+  id: string;
+  /** Short weekday, e.g. "Lun" */
+  dow: string;
+  /** Day of the month, e.g. "26" */
+  date: string;
+  day: string;
+  /** null while the session has no end time */
+  minutes: number | null;
+  /** Sum of weight × reps, always in kg as stored. */
+  volumeKg: number;
+  sets: number;
+  prs: number;
+}
+
 interface JournalRow {
   id: string;
   /** Short weekday, e.g. "Lun" */
@@ -56,7 +73,7 @@ interface JournalRow {
   /** Day of the month, e.g. "26" */
   date: string;
   day: string;
-  /** e.g. "52 min · 8.420 kg · 18 series" */
+  /** e.g. "52 min · 8420 kg · 18 series", with the volume in the preferred unit */
   stats: string;
   /** e.g. "PR" or "PR ×2"; null without records */
   prLabel: string | null;
@@ -107,11 +124,6 @@ const MONTHS_ES = [
 /** "Martes 27 de octubre" */
 function formatLongDate(date: Date): string {
   return `${WEEKDAYS_ES[date.getDay()]} ${date.getDate()} de ${MONTHS_ES[date.getMonth()]}`;
-}
-
-/** 8420 -> "8.420" */
-function formatThousands(value: number): string {
-  return Math.round(value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
 /** YYYY-MM-DD in the device's local calendar. */
@@ -262,8 +274,9 @@ function formatTarget(sets: readonly TargetSet[]): string {
               @if (suggestedDay(); as s) {
                 @switch (s.reason) {
                   @case ('scheduled') {
+                    @let todayDay = s.day!;
                     <span class="text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase text-accent-ink">Hoy toca</span>
-                    <h2 id="plan-title" class="text-[22px] leading-7 font-semibold tracking-[-0.02em] text-ink">{{ s.day!.name }}</h2>
+                    <h2 id="plan-title" class="text-[22px] leading-7 font-semibold tracking-[-0.02em] text-ink">{{ todayDay.name }}{{ todayDay.label ? ' · ' + todayDay.label : '' }}</h2>
                   }
                   @case ('rest-day') {
                     <span class="text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase text-ink-2">Hoy</span>
@@ -283,6 +296,9 @@ function formatTarget(sets: readonly TargetSet[]): string {
             </div>
             <span data-routine-card class="text-[13px] leading-[18px] text-ink-2 text-right">{{ activeRoutine()!.name }}</span>
           </div>
+          @if (activeRoutine()!.description) {
+            <p data-routine-description class="-mt-1 px-4 pb-2.5 text-[13px] leading-[18px] text-ink-2">{{ activeRoutine()!.description }}</p>
+          }
 
           @if (suggestedDay(); as s) {
             @switch (s.reason) {
@@ -457,7 +473,9 @@ export class TrainingHomePage implements OnInit {
     const days = this.trainingDays();
     const today = new Date();
     const todayDow = dateToDayOfWeek(today);
-    const doneKeys = new Set(this.completedSessions().map((s) => s.date));
+    // Local calendar day of startedAt, like "Diario" and the progress heatmap. Session.date is
+    // stored in UTC, so a late-night session would land on the next day.
+    const doneKeys = new Set(this.completedSessions().map((s) => toLocalDateKey(s.startedAt)));
 
     return DAYS_OF_WEEK.map((dow, i) => {
       const date = dateOfWeekDay(today, i);
@@ -515,10 +533,20 @@ export class TrainingHomePage implements OnInit {
 
   readonly daysListTitle = computed(() => (this.suggestedDay()?.day ? 'Otros días' : 'Días de la rutina'));
 
-  private readonly journalRows = signal<JournalRow[]>([]);
-  readonly journal = this.journalRows.asReadonly();
+  private readonly journalEntries = signal<JournalEntry[]>([]);
+
+  /**
+   * "Diario" rows. The volume is shown in the preferred unit, so the rows follow
+   * UserPreferencesService.unit even when it loads after the sessions.
+   */
+  readonly journal = computed<JournalRow[]>(() => {
+    const unit = this.userPrefs.unit();
+    return this.journalEntries().map((entry) => this.toJournalRow(entry, unit));
+  });
 
   ngOnInit(): void {
+    // Needed by "Diario" on every day, rest days included.
+    void this.userPrefs.loadOnce();
     void this.init();
   }
 
@@ -553,7 +581,6 @@ export class TrainingHomePage implements OnInit {
     const day = suggested.day;
     if (!day) return;
     try {
-      void this.userPrefs.loadOnce();
       const [exercises, lastSets] = await Promise.all([
         this.exerciseRepo.getAll(),
         Promise.all(day.exercises.map((ex) => this.getLastSetUseCase.execute(ex.exerciseId))),
@@ -584,36 +611,44 @@ export class TrainingHomePage implements OnInit {
         Promise.all(latest.map((s) => this.sessionRepo.getSetsForSession(s.id))),
         Promise.all(latest.map((s) => this.trainingDayRepo.getById(s.dayId))),
       ]);
-      this.journalRows.set(
-        latest.map((session, i) => this.toJournalRow(session, setsPerSession[i] ?? [], dayPerSession[i] ?? null)),
+      this.journalEntries.set(
+        latest.map((session, i) => this.toJournalEntry(session, setsPerSession[i] ?? [], dayPerSession[i] ?? null)),
       );
     } catch {
-      this.journalRows.set([]);
+      this.journalEntries.set([]);
     }
   }
 
-  private toJournalRow(session: Session, sets: readonly WorkedSet[], day: TrainingDay | null): JournalRow {
-    const volumeKg = sets.reduce(
-      (acc, s) => (s.type === 'weight-reps' ? acc + s.weight.value * s.reps.value : acc),
-      0,
-    );
-    const prs = sets.filter((s) => s.isPR).length;
-    const minutes = session.endedAt
-      ? Math.max(1, Math.round((session.endedAt.getTime() - session.startedAt.getTime()) / 60_000))
-      : null;
-    const parts = [
-      minutes !== null ? `${minutes} min` : null,
-      volumeKg > 0 ? `${formatThousands(volumeKg)} kg` : null,
-      `${sets.length} ${sets.length === 1 ? 'serie' : 'series'}`,
-    ].filter((p): p is string => p !== null);
-
+  private toJournalEntry(session: Session, sets: readonly WorkedSet[], day: TrainingDay | null): JournalEntry {
     return {
       id: session.id,
       dow: WEEKDAYS_SHORT_ES[session.startedAt.getDay()] ?? '',
       date: String(session.startedAt.getDate()),
       day: day?.name ?? 'Sesión',
+      minutes: session.endedAt
+        ? Math.max(1, Math.round((session.endedAt.getTime() - session.startedAt.getTime()) / 60_000))
+        : null,
+      volumeKg: sets.reduce((acc, s) => (s.type === 'weight-reps' ? acc + s.weight.value * s.reps.value : acc), 0),
+      sets: sets.length,
+      prs: sets.filter((s) => s.isPR).length,
+    };
+  }
+
+  private toJournalRow(entry: JournalEntry, unit: PreferredUnit): JournalRow {
+    const parts = [
+      entry.minutes !== null ? `${entry.minutes} min` : null,
+      // Rounded to cents so float noise (32.2 × 3 = 96.60000000000001) never reaches the text.
+      entry.volumeKg > 0 ? this.weightPipe.transform(Math.round(entry.volumeKg * 100) / 100, unit) : null,
+      `${entry.sets} ${entry.sets === 1 ? 'serie' : 'series'}`,
+    ].filter((p): p is string => p !== null);
+
+    return {
+      id: entry.id,
+      dow: entry.dow,
+      date: entry.date,
+      day: entry.day,
       stats: parts.join(' · '),
-      prLabel: prs === 0 ? null : prs === 1 ? 'PR' : `PR ×${prs}`,
+      prLabel: entry.prs === 0 ? null : entry.prs === 1 ? 'PR' : `PR ×${entry.prs}`,
     };
   }
 
