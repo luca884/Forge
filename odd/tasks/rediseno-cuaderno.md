@@ -130,7 +130,7 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
   - `npm run e2e` 28/28, con J13.4 nuevo. Ese e2e se escribió después de implementar; el RED de esas reglas se vio en Jest.
   - `npm run e2e:visual` 18/18; solo cambiaron `perfil-*`. eslint limpio en lo tocado. Revisé `perfil-dark`.
   - Risk: none (solo lectura; formato nuevo que todavía nadie consume)
-- [ ] T13 · S3, S8 · ruta: delegada (respaldo de contexto de ~150k del parent, un writer Sonnet) · D1 resuelta en L29. Feature `onboarding`: pantalla Primer uso según `C-Welcome`, catálogo de plantillas, caso de uso que crea la rutina con los casos de uso de `routines` existentes (respeta "una sola rutina activa", J6a.2). Ajustar el e2e "muestra \"Sin rutina activa\"…" y sumar uno de primer uso · Aceptación: S3 · Evidencia: — · Risk: none (crea registros nuevos con los casos de uso existentes)
+- [x] T13 · S3, S8 · ruta: delegada (respaldo de contexto de ~150k del parent, un writer Sonnet) · D1 resuelta en L29. Feature `onboarding`: pantalla Primer uso según `C-Welcome`, catálogo de plantillas, caso de uso que crea la rutina con los casos de uso de `routines` existentes (respeta "una sola rutina activa", J6a.2). Ajustar el e2e "muestra \"Sin rutina activa\"…" y sumar uno de primer uso · Aceptación: S3 · Evidencia: `72ecb05` y `96c8fe8` (L30). RED en Jest, lo reportó el writer y no lo observó el parent: catálogo 6/6, caso de uso 10/10, componente 8/8 y Hoy 3/5. Los e2e se escribieron después de implementar. GREEN: `npm test` 1770/1770, e2e 34/34 en el puerto 4300, `npm run e2e:visual:update` 20/20, con `primer-uso-*` nuevas y las otras 18 sin cambios. tsc limpio; `npm run lint` da 5 errores, todos previos. Revisé `primer-uso-light` y `primer-uso-dark` · Risk: none (crea registros solo con los casos de uso existentes)
 - [ ] T14 · S1 · ruta: inline · Limpieza: borrar la rampa `forge-*`, `accent-50..700`, `--pr-warm*` si queda sin uso, los bloques viejos `.forge-dark`/`.forge-light`, las Geist y sus `preload`; regenerar todas las baselines. En `public/manifest.webmanifest` cambian solo los colores: `id`, `start_url`, `scope` y `name` quedan igual, así la app instalada sigue siendo la misma (S10) · Aceptación: `rg` de S1 sin resultados; build verde · Evidencia: — · Risk: item 6 (igual que T4)
 - [x] T16 · S10 · ruta: delegada (auditoría en workflow) e inline (chequeo diferencial) · Continuidad de datos:
   - Auditoría de solo lectura de antes (`081e4d3`) y después: capa de persistencia y cada pantalla, con verificación adversarial de cada hallazgo.
@@ -465,3 +465,11 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
   - Verificado en el código: `CreateRoutineUseCase` solo guarda la rutina nueva, y la deja activa solo si no hay otra activa. Ningún caso de uso de creación borra nada. Con S8, Primer uso aparece solo si no hay ninguna rutina.
   - S3 suma la aceptación de no borrar ni modificar lo existente, con su test.
   - T13 pasa a un writer: el parent está cerca del respaldo de contexto de ~150k.
+- L30 (2026-10-28) T13 cerrada.
+  - Writer Sonnet. El diff quedó dentro de su superficie. El parent ajustó J6a.1 (`routines.spec.ts`) a S8: siembra una rutina inactiva y espera "Sin rutina activa".
+  - Decisiones del writer, aceptadas por el parent:
+    - `ApplyRoutineTemplateUseCase` corre `SeedExercisesUseCase` primero, porque la biblioteca se siembra recién al abrir la lista o el picker, y sin eso una instalación nueva no encuentra los ejercicios. No hace nada si la biblioteca ya tiene ejercicios.
+    - Los días de Full body se llaman "A", "B" y "C", como en D1.
+    - Mientras Hoy carga no muestra ningún estado vacío, así que desaparece el destello de "Sin rutina activa" para quien tiene rutinas.
+  - S8 queda implementado tal como está escrito: Primer uso aparece solo si no hay ninguna rutina.
+  - Próximo paso: confirmar S8 con el usuario y seguir con T14.
