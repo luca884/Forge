@@ -3,30 +3,67 @@ import { RouterLink } from '@angular/router';
 import { Router } from '@angular/router';
 import { Routine } from '../../../routines/domain/routine.entity';
 import { TrainingDay } from '../../../routines/domain/training-day.entity';
+import { Session } from '../../domain/session.entity';
 import { RoutineRepository } from '../../../routines/domain/routine.repository';
 import { TrainingDayRepository } from '../../../routines/domain/training-day.repository';
 import { StartSessionUseCase } from '../../domain/use-cases/start-session.use-case';
 import { GetActiveSessionUseCase } from '../../domain/use-cases/get-active-session.use-case';
 import { GetSuggestedDayForTodayUseCase, SuggestedDayResult } from '../../domain/use-cases/get-suggested-day-for-today.use-case';
 import { CancelSessionUseCase } from '../../domain/use-cases/cancel-session.use-case';
+import { GetLastWorkedSetForExerciseUseCase } from '../../domain/use-cases/get-last-worked-set-for-exercise.use-case';
+import { SessionRepository } from '../../domain/session.repository';
+import { WorkedSet } from '../../domain/worked-set';
+import { ExerciseRepository } from '../../../exercises/domain/exercise.repository';
+import { TargetSet } from '../../../routines/domain/target-set';
+import { UserPreferencesService } from '@core/profile/user-preferences.service';
+import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
 import { TrainingSessionStore } from '../services/training-session.store';
 import { SessionAlreadyInProgressError } from '../../domain/errors/session-already-in-progress.error';
-import { FgCardComponent } from '@core/shared/ui';
-import { FgButtonComponent } from '@core/shared/ui';
-import { FgIconComponent } from '@core/shared/ui';
-import { ToastService } from '@core/shared/ui';
+import { FgCardComponent, FgButtonComponent, FgIconComponent, ToastService } from '@core/shared/ui';
 import { DAYS_OF_WEEK, DayOfWeek } from '../../../routines/domain/value-objects/weekly-schedule';
 
 // ─── File-local types ─────────────────────────────────────────────────────────
+
+type WeekCellState = 'done' | 'today' | 'planned' | 'rest';
 
 interface WeekCell {
   dow: DayOfWeek;
   /** Short day label: L M M J V S D */
   label: string;
+  /** Day of the month, e.g. "27" */
+  num: string;
   /** TrainingDay.label for days in schedule, null for rest days */
   dayLabel: string | null;
   isToday: boolean;
+  state: WeekCellState;
 }
+
+interface PlanRow {
+  exerciseId: string;
+  /** Zero-padded position in the day: "01", "02"… */
+  n: string;
+  name: string;
+  /** e.g. "4 × 6–8" */
+  target: string;
+  /** e.g. "100 kg × 7", or "—" when the exercise was never logged */
+  last: string;
+}
+
+interface JournalRow {
+  id: string;
+  /** Short weekday, e.g. "Lun" */
+  dow: string;
+  /** Day of the month, e.g. "26" */
+  date: string;
+  day: string;
+  /** e.g. "52 min · 8.420 kg · 18 series" */
+  stats: string;
+  /** e.g. "PR" or "PR ×2"; null without records */
+  prLabel: string | null;
+}
+
+/** How many sessions the "Diario" section lists. */
+const JOURNAL_SIZE = 4;
 
 // ─── File-local helpers ───────────────────────────────────────────────────────
 
@@ -59,6 +96,58 @@ const DOW_LABELS: Record<DayOfWeek, string> = {
   sunday: 'D',
 };
 
+// Index = Date.getDay() (0 = domingo). Fijos para no depender del ICU del entorno.
+const WEEKDAYS_ES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'] as const;
+const WEEKDAYS_SHORT_ES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'] as const;
+const MONTHS_ES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+] as const;
+
+/** "Martes 27 de octubre" */
+function formatLongDate(date: Date): string {
+  return `${WEEKDAYS_ES[date.getDay()]} ${date.getDate()} de ${MONTHS_ES[date.getMonth()]}`;
+}
+
+/** 8420 -> "8.420" */
+function formatThousands(value: number): string {
+  return Math.round(value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+/** YYYY-MM-DD in the device's local calendar. */
+function toLocalDateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/** The date of the `index`-th day (0 = Monday) of the week that contains `today`. */
+function dateOfWeekDay(today: Date, index: number): Date {
+  const mondayOffset = (today.getDay() + 6) % 7;
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate() - mondayOffset + index);
+}
+
+/** "4 × 6–8", "3 × 5", "3 × 60 s", "2 × 5 km". Uses the first set's type. */
+function formatTarget(sets: readonly TargetSet[]): string {
+  const first = sets[0];
+  if (!first) return '—';
+  switch (first.type) {
+    case 'weight-reps':
+    case 'bodyweight-reps': {
+      const reps = sets.flatMap((s) => (s.type === first.type ? [s.reps] : []));
+      const min = Math.min(...reps);
+      const max = Math.max(...reps);
+      return `${sets.length} × ${min === max ? min : `${min}–${max}`}`;
+    }
+    case 'time':
+      return `${sets.length} × ${first.durationSec} s`;
+    case 'distance-time':
+      return `${sets.length} × ${first.distanceKm} km`;
+  }
+}
+
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 @Component({
@@ -70,19 +159,21 @@ const DOW_LABELS: Record<DayOfWeek, string> = {
     GetActiveSessionUseCase,
     GetSuggestedDayForTodayUseCase,
     CancelSessionUseCase,
+    GetLastWorkedSetForExerciseUseCase,
   ],
   template: `
-    <section class="training-home bg-forge-900 min-h-screen flex flex-col gap-4 p-4">
-      <header>
-        <h1 class="t-h3 text-forge-50">Entrenar</h1>
+    <section class="training-home bg-page text-ink flex flex-col gap-[18px] px-4 pt-5 pb-4">
+      <header class="flex flex-col gap-0.5">
+        <span data-today-date class="text-[13px] leading-[18px] font-medium text-ink-2">{{ todayLabel() }}</span>
+        <h1 class="text-[32px] leading-9 font-bold tracking-[-0.03em] text-ink">Hoy</h1>
       </header>
 
       <!-- ENTRENAMIENTO EN CURSO -->
       @if (activeSessionDay()) {
-        <fg-card data-in-progress [padding]="16" class="border border-accent-500/40">
+        <fg-card data-in-progress [padding]="16" class="!border-accent">
           <div class="flex flex-col gap-3">
-            <span class="t-micro text-accent-300 tracking-widest uppercase">ENTRENAMIENTO EN CURSO</span>
-            <h2 class="t-h3 text-forge-50">{{ activeSessionDay()!.name }}</h2>
+            <span class="text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase text-accent-ink">Entrenamiento en curso</span>
+            <h2 class="text-[22px] leading-7 font-semibold tracking-[-0.02em] text-ink">{{ activeSessionDay()!.name }}</h2>
             <div class="flex gap-2">
               <button
                 fg-button
@@ -105,7 +196,7 @@ const DOW_LABELS: Record<DayOfWeek, string> = {
                 >Cancelar</button>
               } @else {
                 <div class="flex flex-col gap-2 flex-1">
-                  <span class="t-caption text-forge-300">¿Seguro? No se guarda nada.</span>
+                  <span class="text-[13px] leading-[18px] text-ink-2">¿Seguro? No se guarda nada.</span>
                   <div class="flex gap-2">
                     <button fg-button variant="secondary" size="sm" class="flex-1"
                             (click)="confirmingCancelFromHome.set(false)">Volver</button>
@@ -122,75 +213,41 @@ const DOW_LABELS: Record<DayOfWeek, string> = {
       }
 
       @if (activeRoutine()) {
-        <!-- HERO CARD -->
-        <fg-card data-hero [padding]="20" class="relative overflow-hidden">
-          @if (suggestedDay(); as s) {
-            @switch (s.reason) {
-              @case ('scheduled') {
-                @let day = s.day!;
-                <div class="flex flex-col gap-3">
-                  <span class="t-micro text-accent-300 tracking-widest uppercase">HOY TOCA</span>
-                  <h2 class="t-h1 text-forge-50">{{ day.name }}{{ day.label ? ' · ' + day.label : '' }}</h2>
-                  <button
-                    fg-button
-                    variant="primary"
-                    size="lg"
-                    [full]="true"
-                    leadingIcon="zap"
-                    (click)="startSession(day)"
-                    [disabled]="loading()"
-                    [attr.aria-label]="'Empezar sesión de ' + day.name"
-                  >Empezar sesión</button>
-                </div>
-              }
-              @case ('rest-day') {
-                <div class="flex flex-col gap-3">
-                  <span class="t-micro text-forge-400 tracking-widest uppercase">HOY</span>
-                  <h2 class="t-h1 text-forge-50">Día de descanso</h2>
-                  <p class="t-body text-forge-300">Podés elegir cualquier día si querés entrenar.</p>
-                </div>
-              }
-              @case ('no-schedule-configured') {
-                <div class="flex flex-col gap-3">
-                  <span class="t-micro text-forge-400 tracking-widest uppercase">SIN SCHEDULE</span>
-                  <h2 class="t-h1 text-forge-50">Configurá tu semana</h2>
-                  <p class="t-body text-forge-300">Asigná días a tu rutina para ver tu día sugerido.</p>
-                  <a routerLink="/routines" fg-button variant="accent_soft" size="md">Ir a rutinas</a>
-                </div>
-              }
-              @case ('no-active-routine') {
-                <!-- unreachable: parent @if (activeRoutine()) guards -->
-              }
-            }
-          } @else {
-            <div class="flex flex-col gap-2">
-              <span class="t-micro text-forge-500 tracking-widest uppercase">CARGANDO</span>
-            </div>
-          }
-        </fg-card>
-
         <!-- WEEK STRIP -->
-        <section data-week-strip>
-          <p class="t-micro text-forge-400 tracking-widest uppercase mb-2">SEMANA</p>
-          <fg-card [padding]="14">
-            <div class="grid grid-cols-7 gap-1.5" role="group" aria-label="Semana">
+        <section data-week-strip aria-label="Semana">
+          <fg-card [padding]="0">
+            <div class="grid grid-cols-7 gap-1 px-1.5 py-2" role="group" aria-label="Semana">
               @for (cell of weekCells(); track cell.dow) {
                 <div
-                  class="text-center flex flex-col items-center gap-1"
                   [attr.data-week-cell]="cell.dow"
+                  [attr.data-week-state]="cell.state"
                   [attr.aria-label]="cell.dow + (cell.dayLabel ? ', día ' + cell.dayLabel : ', descanso')"
                 >
-                  <div class="t-caption text-forge-500 text-xs">{{ cell.label }}</div>
                   <div
-                    class="week-cell-tile text-xs rounded-sm px-1"
-                    [class.is-today]="cell.isToday"
-                    [class.has-day]="!!cell.dayLabel"
-                    [class.text-accent-300]="cell.isToday"
-                    [class.font-semibold]="cell.isToday"
-                    [class.text-forge-400]="!cell.isToday"
+                    class="flex flex-col items-center gap-1 py-1.5 rounded-lg"
+                    [class.bg-accent-soft]="cell.isToday"
                     [attr.aria-current]="cell.isToday ? 'date' : null"
                   >
-                    {{ cell.dayLabel ?? '—' }}
+                    <span
+                      class="text-[11px] leading-[14px] font-semibold tracking-[0.04em]"
+                      [class.text-accent-ink]="cell.isToday"
+                      [class.text-ink-2]="!cell.isToday"
+                    >{{ cell.label }}</span>
+                    <span
+                      data-week-num
+                      class="font-mono tabular-nums text-[15px] leading-5 font-medium"
+                      [class.text-accent-ink]="cell.isToday"
+                      [class.text-ink]="!cell.isToday"
+                    >{{ cell.num }}</span>
+                    <span
+                      class="w-1.5 h-1.5 rounded-full box-border border-[1.5px]"
+                      [class.bg-ink]="cell.state === 'done'"
+                      [class.border-ink]="cell.state === 'done'"
+                      [class.bg-accent]="cell.state === 'today'"
+                      [class.border-accent]="cell.state === 'today'"
+                      [class.border-ink-2]="cell.state === 'planned'"
+                      [class.border-transparent]="cell.state === 'rest'"
+                    ></span>
                   </div>
                 </div>
               }
@@ -198,52 +255,140 @@ const DOW_LABELS: Record<DayOfWeek, string> = {
           </fg-card>
         </section>
 
-        <!-- RUTINA EN CURSO CARD -->
-        <section data-routine-card>
-          <p class="t-micro text-forge-400 tracking-widest uppercase mb-2">RUTINA EN CURSO</p>
-          <fg-card [padding]="16">
-            <h3 class="t-body text-forge-100 font-semibold">{{ activeRoutine()!.name }}</h3>
-            @if (activeRoutine()!.description) {
-              <p class="t-body-sm text-forge-400 mt-1">{{ activeRoutine()!.description }}</p>
-            }
-          </fg-card>
-        </section>
+        <!-- HOY TOCA -->
+        <fg-card data-hero [padding]="0" class="flex flex-col">
+          <div class="flex items-baseline justify-between gap-2 px-4 pt-3.5 pb-2.5">
+            <div class="flex flex-col gap-0.5 min-w-0">
+              @if (suggestedDay(); as s) {
+                @switch (s.reason) {
+                  @case ('scheduled') {
+                    <span class="text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase text-accent-ink">Hoy toca</span>
+                    <h2 id="plan-title" class="text-[22px] leading-7 font-semibold tracking-[-0.02em] text-ink">{{ s.day!.name }}</h2>
+                  }
+                  @case ('rest-day') {
+                    <span class="text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase text-ink-2">Hoy</span>
+                    <h2 id="plan-title" class="text-[22px] leading-7 font-semibold tracking-[-0.02em] text-ink">Día de descanso</h2>
+                  }
+                  @case ('no-schedule-configured') {
+                    <span class="text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase text-ink-2">Sin agenda</span>
+                    <h2 id="plan-title" class="text-[22px] leading-7 font-semibold tracking-[-0.02em] text-ink">Configurá tu semana</h2>
+                  }
+                  @case ('no-active-routine') {
+                    <!-- unreachable: parent @if (activeRoutine()) guards -->
+                  }
+                }
+              } @else {
+                <span class="text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase text-ink-2">Cargando</span>
+              }
+            </div>
+            <span data-routine-card class="text-[13px] leading-[18px] text-ink-2 text-right">{{ activeRoutine()!.name }}</span>
+          </div>
 
-        <!-- DAYS LIST -->
-        <section data-days-list>
-          <p class="t-micro text-forge-400 tracking-widest uppercase mb-2">DÍAS DE LA RUTINA</p>
-          <div class="grid grid-cols-2 gap-3">
-            @for (day of trainingDays(); track day.id) {
+          @if (suggestedDay(); as s) {
+            @switch (s.reason) {
+              @case ('scheduled') {
+                @let day = s.day!;
+                @if (planRows().length > 0) {
+                  <div class="grid grid-cols-[22px_minmax(0,1fr)_72px_96px] gap-x-2 px-4 pb-1.5 border-b border-line text-[11px] leading-[14px] font-semibold tracking-[0.06em] uppercase text-ink-2">
+                    <span>#</span><span>Ejercicio</span><span>Objetivo</span><span class="text-right">Última vez</span>
+                  </div>
+                  <ol class="list-none m-0 p-0">
+                    @for (row of planRows(); track row.exerciseId + row.n) {
+                      <li data-plan-row class="grid grid-cols-[22px_minmax(0,1fr)_72px_96px] gap-x-2 items-center px-4 min-h-12 border-b border-line-soft">
+                        <span class="font-mono text-[13px] text-ink-2">{{ row.n }}</span>
+                        <span class="text-[15px] leading-5 font-medium text-ink truncate">{{ row.name }}</span>
+                        <span class="font-mono tabular-nums text-[13px] text-ink whitespace-nowrap">{{ row.target }}</span>
+                        <span class="font-mono tabular-nums text-[13px] text-ink-2 text-right whitespace-nowrap">{{ row.last }}</span>
+                      </li>
+                    }
+                  </ol>
+                }
+                <div class="flex items-center justify-between gap-3 px-4 pt-3 pb-4">
+                  <span class="font-mono tabular-nums text-[13px] text-ink-2">{{ totalSets() }} {{ totalSets() === 1 ? 'serie' : 'series' }}</span>
+                  <button
+                    fg-button
+                    variant="primary"
+                    size="md"
+                    leadingIcon="play"
+                    (click)="startSession(day)"
+                    [disabled]="loading()"
+                    [attr.aria-label]="'Empezar sesión de ' + day.name"
+                  >Empezá</button>
+                </div>
+              }
+              @case ('rest-day') {
+                <p class="px-4 pb-4 text-[15px] leading-5 text-ink-2">Podés elegir cualquier día si querés entrenar.</p>
+              }
+              @case ('no-schedule-configured') {
+                <div class="flex flex-col gap-3 px-4 pb-4">
+                  <p class="text-[15px] leading-5 text-ink-2">Asigná días a tu rutina para ver tu día sugerido.</p>
+                  <a routerLink="/routines" fg-button variant="accent_soft" size="md">Ir a rutinas</a>
+                </div>
+              }
+            }
+          }
+        </fg-card>
+
+        <!-- OTROS DÍAS -->
+        <section data-days-list class="flex flex-col gap-1.5">
+          <h2 class="text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase text-ink-2">{{ daysListTitle() }}</h2>
+          <fg-card [padding]="0">
+            @for (day of listedDays(); track day.id; let last = $last) {
               <button
                 type="button"
                 (click)="startSession(day)"
                 [disabled]="loading()"
                 [attr.aria-label]="'Empezar sesión de ' + day.name"
-                class="aspect-square flex flex-col justify-between p-4 rounded-2xl bg-forge-900 ring-1 ring-inset text-left transition-transform active:scale-[0.97] disabled:opacity-50"
-                [class]="suggestedDay()?.day?.id === day.id ? 'ring-accent-500/60' : 'ring-white/5'"
+                class="w-full grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 items-center text-left px-3.5 py-2 min-h-12 disabled:opacity-50"
+                [class.border-b]="!last"
+                [class.border-line-soft]="!last"
               >
-                <div class="flex items-center justify-between w-full">
-                  <fg-icon name="dumbbell" [size]="22" class="text-forge-400"></fg-icon>
-                  @if (suggestedDay()?.day?.id === day.id) {
-                    <span class="t-micro text-accent-300 tracking-widest uppercase">HOY</span>
-                  }
-                </div>
-                <div class="flex flex-col gap-0.5">
-                  <span class="t-h3 text-forge-50">{{ day.name }}</span>
-                  @if (day.label) {
-                    <span class="t-body-sm text-accent-300">{{ day.label }}</span>
-                  }
-                  <span class="t-caption text-forge-400">
-                    {{ day.exercises.length }} {{ day.exercises.length === 1 ? 'ejercicio' : 'ejercicios' }}
+                <span class="flex flex-col min-w-0">
+                  <span class="text-[15px] leading-5 font-medium text-ink truncate">{{ day.name }}</span>
+                  <span class="font-mono tabular-nums text-xs leading-4 text-ink-2">
+                    @if (day.label) { {{ day.label }} · }{{ day.exercises.length }} {{ day.exercises.length === 1 ? 'ejercicio' : 'ejercicios' }}
                   </span>
-                </div>
+                </span>
+                <fg-icon name="play" [size]="16" class="text-accent-ink"></fg-icon>
               </button>
             } @empty {
-              <fg-card [padding]="16">
-                <p class="t-body text-forge-400">Sin días configurados. Agregá días en tu rutina.</p>
-              </fg-card>
+              <p class="px-3.5 py-3 text-[15px] leading-5 text-ink-2">
+                {{ trainingDays().length === 0 ? 'Sin días configurados. Agregá días en tu rutina.' : 'No hay otros días en tu rutina.' }}
+              </p>
             }
+          </fg-card>
+        </section>
+
+        <!-- DIARIO -->
+        <section data-journal class="flex flex-col gap-1.5">
+          <div class="flex items-baseline justify-between">
+            <h2 class="text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase text-ink-2">Diario</h2>
+            <a routerLink="/progress" class="text-[13px] font-medium text-accent-ink py-1.5">Ver todo</a>
           </div>
+          <fg-card [padding]="0">
+            @for (row of journal(); track row.id; let last = $last) {
+              <div
+                data-journal-row
+                class="grid grid-cols-[52px_minmax(0,1fr)_auto] gap-x-2.5 items-center px-3.5 py-2 min-h-11"
+                [class.border-b]="!last"
+                [class.border-line-soft]="!last"
+              >
+                <div class="flex flex-col">
+                  <span class="text-[11px] leading-[14px] font-semibold tracking-[0.04em] uppercase text-ink-2">{{ row.dow }}</span>
+                  <span class="font-mono text-[15px] leading-5 font-medium text-ink">{{ row.date }}</span>
+                </div>
+                <div class="flex flex-col min-w-0">
+                  <span class="text-[15px] leading-5 font-medium text-ink truncate">{{ row.day }}</span>
+                  <span class="font-mono tabular-nums text-xs leading-4 text-ink-2">{{ row.stats }}</span>
+                </div>
+                @if (row.prLabel) {
+                  <span class="font-mono text-[11px] leading-[14px] font-medium text-accent-ink border border-accent rounded px-[5px] py-0.5">{{ row.prLabel }}</span>
+                }
+              </div>
+            } @empty {
+              <p class="px-3.5 py-3 text-[15px] leading-5 text-ink-2">Todavía no terminaste ninguna sesión.</p>
+            }
+          </fg-card>
         </section>
 
       } @else {
@@ -251,8 +396,8 @@ const DOW_LABELS: Record<DayOfWeek, string> = {
         <section data-empty-state>
           <fg-card [padding]="20">
             <div class="flex flex-col gap-3">
-              <h2 class="t-h3 text-forge-50">Sin rutina activa</h2>
-              <p class="t-body text-forge-300">Creá o activá una rutina para empezar.</p>
+              <h2 class="text-[22px] leading-7 font-semibold tracking-[-0.02em] text-ink">Sin rutina activa</h2>
+              <p class="text-[15px] leading-5 text-ink-2">Creá o activá una rutina para empezar.</p>
               <a routerLink="/routines" fg-button variant="primary" size="lg" class="w-full">Configurar rutinas</a>
             </div>
           </fg-card>
@@ -260,7 +405,7 @@ const DOW_LABELS: Record<DayOfWeek, string> = {
       }
 
       @if (errorMessage()) {
-        <p class="text-destructive" role="alert">{{ errorMessage() }}</p>
+        <p class="text-danger" role="alert">{{ errorMessage() }}</p>
       }
     </section>
   `,
@@ -275,6 +420,11 @@ export class TrainingHomePage implements OnInit {
   private readonly store = inject(TrainingSessionStore);
   private readonly router = inject(Router);
   private readonly toast = inject(ToastService);
+  private readonly sessionRepo = inject(SessionRepository);
+  private readonly exerciseRepo = inject(ExerciseRepository);
+  private readonly getLastSetUseCase = inject(GetLastWorkedSetForExerciseUseCase);
+  private readonly userPrefs = inject(UserPreferencesService);
+  private readonly weightPipe = new DisplayWeightPipe();
 
   readonly activeRoutine = signal<Routine | null>(null);
   readonly trainingDays = signal<TrainingDay[]>([]);
@@ -293,23 +443,80 @@ export class TrainingHomePage implements OnInit {
   readonly confirmingCancelFromHome = signal(false);
   readonly cancellingFromHome = signal(false);
 
-  /** Computed week strip — 7 cells always, derived from trainingDays + schedule + local Date. ADR-34. */
+  /** Completed sessions, newest first. Feeds the week strip and "Diario". */
+  private readonly completedSessions = signal<Session[]>([]);
+  private readonly exerciseNameById = signal<ReadonlyMap<string, string>>(new Map());
+  private readonly lastSetByExerciseId = signal<ReadonlyMap<string, WorkedSet>>(new Map());
+
+  /** "Martes 27 de octubre" */
+  readonly todayLabel = computed(() => formatLongDate(new Date()));
+
+  /** Computed week strip — 7 cells always, derived from trainingDays + schedule + sessions + local Date. ADR-34. */
   readonly weekCells = computed<WeekCell[]>(() => {
     const routine = this.activeRoutine();
     const days = this.trainingDays();
-    const todayDow = dateToDayOfWeek(new Date());
+    const today = new Date();
+    const todayDow = dateToDayOfWeek(today);
+    const doneKeys = new Set(this.completedSessions().map((s) => s.date));
 
-    return DAYS_OF_WEEK.map(dow => {
+    return DAYS_OF_WEEK.map((dow, i) => {
+      const date = dateOfWeekDay(today, i);
       const dayId = routine?.schedule?.[dow];
       const day = dayId ? days.find(d => d.id === dayId) : undefined;
+      const isToday = dow === todayDow;
+      const state: WeekCellState = doneKeys.has(toLocalDateKey(date))
+        ? 'done'
+        : isToday
+          ? 'today'
+          : day
+            ? 'planned'
+            : 'rest';
       return {
         dow,
         label: DOW_LABELS[dow],
+        num: String(date.getDate()),
         dayLabel: day?.label ?? null,
-        isToday: dow === todayDow,
+        isToday,
+        state,
       };
     });
   });
+
+  /** Exercises of today's suggested day, with target and last time. */
+  readonly planRows = computed<PlanRow[]>(() => {
+    const day = this.suggestedDay()?.day;
+    if (!day) return [];
+    const names = this.exerciseNameById();
+    const lasts = this.lastSetByExerciseId();
+    const unit = this.userPrefs.unit();
+    return [...day.exercises]
+      .sort((a, b) => a.order - b.order)
+      .map((ex, i) => {
+        const last = lasts.get(ex.exerciseId);
+        return {
+          exerciseId: ex.exerciseId,
+          n: String(i + 1).padStart(2, '0'),
+          name: names.get(ex.exerciseId) ?? '—',
+          target: formatTarget(ex.targetSets),
+          last: last ? this.formatLast(last, unit) : '—',
+        };
+      });
+  });
+
+  readonly totalSets = computed(() =>
+    (this.suggestedDay()?.day?.exercises ?? []).reduce((acc, ex) => acc + ex.targetSets.length, 0),
+  );
+
+  /** Days under "Otros días": every day of the routine except today's suggestion. */
+  readonly listedDays = computed(() => {
+    const todayId = this.suggestedDay()?.day?.id;
+    return this.trainingDays().filter((d) => d.id !== todayId);
+  });
+
+  readonly daysListTitle = computed(() => (this.suggestedDay()?.day ? 'Otros días' : 'Días de la rutina'));
+
+  private readonly journalRows = signal<JournalRow[]>([]);
+  readonly journal = this.journalRows.asReadonly();
 
   ngOnInit(): void {
     void this.init();
@@ -335,6 +542,91 @@ export class TrainingHomePage implements OnInit {
       ]);
       this.trainingDays.set(days);
       this.suggestedDay.set(suggested);
+
+      // Las secciones de apoyo nunca bloquean ni rompen la home.
+      await Promise.all([this.loadPlanContext(suggested), this.loadJournal()]);
+    }
+  }
+
+  /** Exercise names and last logged set for the exercises of today's day. */
+  private async loadPlanContext(suggested: SuggestedDayResult): Promise<void> {
+    const day = suggested.day;
+    if (!day) return;
+    try {
+      void this.userPrefs.loadOnce();
+      const [exercises, lastSets] = await Promise.all([
+        this.exerciseRepo.getAll(),
+        Promise.all(day.exercises.map((ex) => this.getLastSetUseCase.execute(ex.exerciseId))),
+      ]);
+      this.exerciseNameById.set(new Map(exercises.map((e) => [e.id, e.name])));
+      const byId = new Map<string, WorkedSet>();
+      day.exercises.forEach((ex, i) => {
+        const set = lastSets[i];
+        if (set) byId.set(ex.exerciseId, set);
+      });
+      this.lastSetByExerciseId.set(byId);
+    } catch {
+      // Sin nombres ni "última vez": la tabla muestra "—".
+    }
+  }
+
+  /** Latest completed sessions with duration, volume, sets and PR count. */
+  private async loadJournal(): Promise<void> {
+    try {
+      const all = await this.sessionRepo.getAllSessions();
+      const completed = all
+        .filter((s) => s.status === 'completed')
+        .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
+      this.completedSessions.set(completed);
+
+      const latest = completed.slice(0, JOURNAL_SIZE);
+      const [setsPerSession, dayPerSession] = await Promise.all([
+        Promise.all(latest.map((s) => this.sessionRepo.getSetsForSession(s.id))),
+        Promise.all(latest.map((s) => this.trainingDayRepo.getById(s.dayId))),
+      ]);
+      this.journalRows.set(
+        latest.map((session, i) => this.toJournalRow(session, setsPerSession[i] ?? [], dayPerSession[i] ?? null)),
+      );
+    } catch {
+      this.journalRows.set([]);
+    }
+  }
+
+  private toJournalRow(session: Session, sets: readonly WorkedSet[], day: TrainingDay | null): JournalRow {
+    const volumeKg = sets.reduce(
+      (acc, s) => (s.type === 'weight-reps' ? acc + s.weight.value * s.reps.value : acc),
+      0,
+    );
+    const prs = sets.filter((s) => s.isPR).length;
+    const minutes = session.endedAt
+      ? Math.max(1, Math.round((session.endedAt.getTime() - session.startedAt.getTime()) / 60_000))
+      : null;
+    const parts = [
+      minutes !== null ? `${minutes} min` : null,
+      volumeKg > 0 ? `${formatThousands(volumeKg)} kg` : null,
+      `${sets.length} ${sets.length === 1 ? 'serie' : 'series'}`,
+    ].filter((p): p is string => p !== null);
+
+    return {
+      id: session.id,
+      dow: WEEKDAYS_SHORT_ES[session.startedAt.getDay()] ?? '',
+      date: String(session.startedAt.getDate()),
+      day: day?.name ?? 'Sesión',
+      stats: parts.join(' · '),
+      prLabel: prs === 0 ? null : prs === 1 ? 'PR' : `PR ×${prs}`,
+    };
+  }
+
+  private formatLast(set: WorkedSet, unit: 'kg' | 'lb'): string {
+    switch (set.type) {
+      case 'weight-reps':
+        return `${this.weightPipe.transform(set.weight.value, unit)} × ${set.reps.value}`;
+      case 'bodyweight-reps':
+        return `${set.reps.value} reps`;
+      case 'time':
+        return `${set.durationSec} s`;
+      case 'distance-time':
+        return `${set.distanceKm} km`;
     }
   }
 

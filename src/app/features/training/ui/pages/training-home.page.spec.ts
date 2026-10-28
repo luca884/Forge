@@ -18,7 +18,13 @@ import { StartSessionUseCase } from '../../domain/use-cases/start-session.use-ca
 import { GetActiveSessionUseCase } from '../../domain/use-cases/get-active-session.use-case';
 import { GetSuggestedDayForTodayUseCase } from '../../domain/use-cases/get-suggested-day-for-today.use-case';
 import { CancelSessionUseCase } from '../../domain/use-cases/cancel-session.use-case';
+import { GetLastWorkedSetForExerciseUseCase } from '../../domain/use-cases/get-last-worked-set-for-exercise.use-case';
 import { TrainingSessionStore } from '../services/training-session.store';
+import { SessionRepository } from '../../domain/session.repository';
+import { ExerciseRepository } from '../../../exercises/domain/exercise.repository';
+import { UserPreferencesService } from '@core/profile/user-preferences.service';
+import type { Session } from '../../domain/session.entity';
+import type { WorkedSet } from '../../domain/worked-set';
 import type { Routine } from '../../../routines/domain/routine.entity';
 import type { TrainingDay } from '../../../routines/domain/training-day.entity';
 
@@ -38,10 +44,88 @@ const mockDay: TrainingDay = {
   routineId: 'r-1',
   name: 'Piernas',
   label: 'A',
-  exercises: [],
+  exercises: [
+    {
+      exerciseId: 'ex-1',
+      order: 0,
+      targetSets: [
+        { type: 'weight-reps', reps: 6, weightKg: 100 },
+        { type: 'weight-reps', reps: 8, weightKg: 100 },
+        { type: 'weight-reps', reps: 8, weightKg: 100 },
+        { type: 'weight-reps', reps: 8, weightKg: 100 },
+      ],
+    },
+    {
+      exerciseId: 'ex-2',
+      order: 1,
+      targetSets: [
+        { type: 'weight-reps', reps: 5, weightKg: 140 },
+        { type: 'weight-reps', reps: 5, weightKg: 140 },
+        { type: 'weight-reps', reps: 5, weightKg: 140 },
+      ],
+    },
+  ],
   createdAt: new Date('2026-01-01'),
   updatedAt: new Date('2026-01-01'),
 };
+
+const otherDay: TrainingDay = {
+  id: 'd-2',
+  routineId: 'r-1',
+  name: 'Torso',
+  label: 'B',
+  exercises: [
+    { exerciseId: 'ex-1', order: 0, targetSets: [{ type: 'weight-reps', reps: 8, weightKg: 60 }] },
+  ],
+  createdAt: new Date('2026-01-01'),
+  updatedAt: new Date('2026-01-01'),
+};
+
+const exercises = [
+  { id: 'ex-1', name: 'Sentadilla' },
+  { id: 'ex-2', name: 'Peso muerto' },
+];
+
+function lastSet(exerciseId: string, kg: number, reps: number): WorkedSet {
+  return {
+    id: `ws-${exerciseId}`,
+    sessionId: 's-prev',
+    exerciseId,
+    type: 'weight-reps',
+    reps: { value: reps } as any,
+    weight: { value: kg } as any,
+    isPR: false,
+    createdAt: new Date('2026-10-20'),
+  } as WorkedSet;
+}
+
+function completedSession(id: string, date: string, dayId: string, minutes = 52): Session {
+  const startedAt = new Date(`${date}T12:00:00`);
+  return {
+    id,
+    routineId: 'r-1',
+    dayId,
+    date,
+    status: 'completed',
+    startedAt,
+    endedAt: new Date(startedAt.getTime() + minutes * 60_000),
+    createdAt: startedAt,
+    updatedAt: startedAt,
+  };
+}
+
+function weightSet(id: string, sessionId: string, kg: number, reps: number, isPR = false): WorkedSet {
+  return {
+    id,
+    sessionId,
+    exerciseId: 'ex-1',
+    type: 'weight-reps',
+    reps: { value: reps } as any,
+    weight: { value: kg } as any,
+    isPR,
+    createdAt: new Date('2026-10-26'),
+  } as WorkedSet;
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -62,29 +146,46 @@ describe('TrainingHomePage', () => {
   let suggestedUCMock: { execute: jest.Mock };
   let storeMock: { loadActive: jest.Mock; activeSession: ReturnType<typeof signal<null>>; clear: jest.Mock };
   let cancelUCMock: { execute: jest.Mock };
+  let lastSetUCMock: { execute: jest.Mock };
+  let sessionRepoMock: { getAllSessions: jest.Mock; getSetsForSession: jest.Mock };
 
   async function setup(overrides: {
     routine?: Routine | null;
     days?: TrainingDay[];
     suggestedDay?: { day: TrainingDay | null; reason: string } | null;
     activeSession?: object | null;
+    sessions?: Session[];
+    setsBySession?: Record<string, WorkedSet[]>;
   } = {}): Promise<void> {
     const {
       routine = mockRoutine,
       days = [mockDay],
       suggestedDay = { day: mockDay, reason: 'scheduled' },
       activeSession = null,
+      sessions = [],
+      setsBySession = {},
     } = overrides;
 
     routineRepoMock = { getActive: jest.fn().mockResolvedValue(routine) };
     trainingDayRepoMock = {
       getByRoutineId: jest.fn().mockResolvedValue(days),
-      getById: jest.fn().mockResolvedValue(mockDay),
+      getById: jest.fn().mockImplementation(async (id: string) =>
+        [mockDay, otherDay].find((d) => d.id === id) ?? mockDay,
+      ),
     };
     startUCMock = { execute: jest.fn().mockResolvedValue(undefined) };
     activeSessionUCMock = { execute: jest.fn().mockResolvedValue(activeSession) };
     suggestedUCMock = { execute: jest.fn().mockResolvedValue(suggestedDay) };
     cancelUCMock = { execute: jest.fn().mockResolvedValue(undefined) };
+    lastSetUCMock = {
+      execute: jest.fn().mockImplementation(async (exerciseId: string) =>
+        exerciseId === 'ex-1' ? lastSet('ex-1', 100, 7) : null,
+      ),
+    };
+    sessionRepoMock = {
+      getAllSessions: jest.fn().mockResolvedValue(sessions),
+      getSetsForSession: jest.fn().mockImplementation(async (id: string) => setsBySession[id] ?? []),
+    };
     storeMock = { loadActive: jest.fn().mockResolvedValue(undefined), activeSession: signal(null), clear: jest.fn() };
 
     await TestBed.configureTestingModule({
@@ -93,6 +194,9 @@ describe('TrainingHomePage', () => {
         { provide: RoutineRepository, useValue: routineRepoMock },
         { provide: TrainingDayRepository, useValue: trainingDayRepoMock },
         { provide: TrainingSessionStore, useValue: storeMock },
+        { provide: SessionRepository, useValue: sessionRepoMock },
+        { provide: ExerciseRepository, useValue: { getAll: jest.fn().mockResolvedValue(exercises) } },
+        { provide: UserPreferencesService, useValue: { unit: signal('kg'), loadOnce: jest.fn().mockResolvedValue(undefined) } },
       ],
     })
       .overrideComponent(TrainingHomePage, {
@@ -102,6 +206,7 @@ describe('TrainingHomePage', () => {
             { provide: GetActiveSessionUseCase, useValue: activeSessionUCMock },
             { provide: GetSuggestedDayForTodayUseCase, useValue: suggestedUCMock },
             { provide: CancelSessionUseCase, useValue: cancelUCMock },
+            { provide: GetLastWorkedSetForExerciseUseCase, useValue: lastSetUCMock },
           ],
         },
       })
@@ -113,8 +218,12 @@ describe('TrainingHomePage', () => {
     fixture = TestBed.createComponent(TrainingHomePage);
     fixture.detectChanges();
     await fixture.whenStable();
-    await flushMicrotasks();
+    for (let i = 0; i < 10; i++) await flushMicrotasks();
     fixture.detectChanges();
+  }
+
+  function root(): HTMLElement {
+    return fixture.nativeElement as HTMLElement;
   }
 
   // ── V-D1-Spec-2 ────────────────────────────────────────────────────────────
@@ -125,11 +234,12 @@ describe('TrainingHomePage', () => {
   });
 
   // ── V-D1-Spec-3 ────────────────────────────────────────────────────────────
-  it('renders button[fg-button][leadingIcon=zap] with text "Empezar sesión" when scheduled', async () => {
+  it('renders the start button with the canvas text "Empezá" and the accessible name "Empezar sesión de Piernas"', async () => {
     await setup({ suggestedDay: { day: mockDay, reason: 'scheduled' } });
     const btn = (fixture.nativeElement as HTMLElement).querySelector('button[fg-button]');
     expect(btn).not.toBeNull();
-    expect(btn!.textContent).toContain('Empezar sesión');
+    expect(btn!.textContent).toContain('Empezá');
+    expect(btn!.getAttribute('aria-label')).toBe('Empezar sesión de Piernas');
   });
 
   // ── V-D1-Spec-4 branch 1: scheduled ───────────────────────────────────────
@@ -289,5 +399,162 @@ describe('TrainingHomePage', () => {
     expect(cancelUCMock.execute).toHaveBeenCalledWith({ sessionId: 's-1' });
     expect(storeMock.clear).toHaveBeenCalled();
     expect(fixture.componentInstance.activeSessionDay()).toBeNull();
+  });
+
+  // ── T5 — lenguaje Cuaderno ─────────────────────────────────────────────────
+
+  describe('lenguaje Cuaderno (T5)', () => {
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    function freezeDate(iso: string): void {
+      // Solo Date: los timers y microtasks reales siguen corriendo.
+      jest.useFakeTimers({
+        now: new Date(iso),
+        doNotFake: [
+          'nextTick', 'setImmediate', 'clearImmediate', 'setInterval', 'clearInterval',
+          'setTimeout', 'clearTimeout', 'queueMicrotask', 'requestAnimationFrame',
+          'cancelAnimationFrame', 'requestIdleCallback', 'cancelIdleCallback', 'performance',
+          'hrtime',
+        ],
+      });
+    }
+
+    it('titles the page "Hoy" instead of "Entrenar"', async () => {
+      await setup();
+      const h1 = root().querySelector('h1');
+      expect(h1?.textContent?.trim()).toBe('Hoy');
+      expect(root().textContent).not.toContain('Entrenar');
+    });
+
+    it('shows the current date above the title in Spanish ("Martes 27 de octubre")', async () => {
+      freezeDate('2026-10-27T10:00:00');
+      await setup();
+      expect(root().querySelector('[data-today-date]')?.textContent?.trim()).toBe('Martes 27 de octubre');
+    });
+
+    it('week strip shows the day number of every cell and marks today with aria-current', async () => {
+      freezeDate('2026-10-27T10:00:00');
+      await setup();
+      const cells = Array.from(root().querySelectorAll<HTMLElement>('[data-week-cell]'));
+      expect(cells.map((c) => c.querySelector('[data-week-num]')?.textContent?.trim())).toEqual([
+        '26', '27', '28', '29', '30', '31', '1',
+      ]);
+      const current = root().querySelector('[data-week-cell] [aria-current="date"]');
+      expect(current?.closest('[data-week-cell]')?.getAttribute('data-week-cell')).toBe('tuesday');
+    });
+
+    it('week strip marks a day with a completed session as done', async () => {
+      freezeDate('2026-10-27T10:00:00');
+      await setup({ sessions: [completedSession('s-mon', '2026-10-26', 'd-1')] });
+      const monday = root().querySelector('[data-week-cell="monday"]');
+      expect(monday?.getAttribute('data-week-state')).toBe('done');
+      const tuesday = root().querySelector('[data-week-cell="tuesday"]');
+      expect(tuesday?.getAttribute('data-week-state')).toBe('today');
+    });
+
+    it('shows "Hoy toca", the day name and the routine name in the hero card', async () => {
+      await setup({ suggestedDay: { day: mockDay, reason: 'scheduled' } });
+      const hero = root().querySelector('[data-hero]')!;
+      expect(hero.textContent).toContain('Hoy toca');
+      expect(hero.querySelector('h2')?.textContent).toContain('Piernas');
+      expect(root().querySelector('[data-routine-card]')?.textContent).toContain('Fuerza total');
+    });
+
+    it('lists the exercises of the day with target and last time', async () => {
+      await setup({ suggestedDay: { day: mockDay, reason: 'scheduled' } });
+      const rows = Array.from(root().querySelectorAll<HTMLElement>('[data-plan-row]'));
+      expect(rows).toHaveLength(2);
+      expect(rows[0].textContent).toContain('Sentadilla');
+      expect(rows[0].textContent).toContain('4 × 6–8');
+      expect(rows[0].textContent).toContain('100 kg × 7');
+      expect(rows[1].textContent).toContain('Peso muerto');
+      expect(rows[1].textContent).toContain('3 × 5');
+      expect(rows[1].textContent).toContain('—');
+    });
+
+    it('summarises the day in the hero footer ("7 series")', async () => {
+      await setup({ suggestedDay: { day: mockDay, reason: 'scheduled' } });
+      expect(root().querySelector('[data-hero]')?.textContent).toContain('7 series');
+    });
+
+    it('"Otros días" lists the other days of the routine, without today\'s day', async () => {
+      await setup({ days: [mockDay, otherDay], suggestedDay: { day: mockDay, reason: 'scheduled' } });
+      const list = root().querySelector('[data-days-list]')!;
+      expect(list.textContent).toContain('Otros días');
+      const buttons = Array.from(list.querySelectorAll('button')).map((b) => b.getAttribute('aria-label'));
+      expect(buttons).toEqual(['Empezar sesión de Torso']);
+    });
+
+    it('lists every day under "Días de la rutina" when there is no day for today', async () => {
+      await setup({ days: [mockDay, otherDay], suggestedDay: { day: null, reason: 'rest-day' } });
+      const list = root().querySelector('[data-days-list]')!;
+      expect(list.textContent).toContain('Días de la rutina');
+      const buttons = Array.from(list.querySelectorAll('button')).map((b) => b.getAttribute('aria-label'));
+      expect(buttons).toEqual(['Empezar sesión de Piernas', 'Empezar sesión de Torso']);
+    });
+
+    it('starts the session of another day from "Otros días"', async () => {
+      await setup({ days: [mockDay, otherDay], suggestedDay: { day: mockDay, reason: 'scheduled' } });
+      const btn = root().querySelector<HTMLButtonElement>('[data-days-list] button[aria-label="Empezar sesión de Torso"]')!;
+      btn.click();
+      await fixture.whenStable();
+      await flushMicrotasks();
+      expect(startUCMock.execute).toHaveBeenCalledWith({ routineId: 'r-1', dayId: 'd-2' });
+      expect(navigateSpy).toHaveBeenCalledWith(['/training/session']);
+    });
+
+    it('"Diario" lists the latest completed sessions with stats and a PR tag', async () => {
+      await setup({
+        sessions: [
+          completedSession('s-old', '2026-10-20', 'd-1', 57),
+          completedSession('s-new', '2026-10-26', 'd-2', 52),
+        ],
+        setsBySession: {
+          's-new': [weightSet('a', 's-new', 100, 10, true), weightSet('b', 's-new', 100, 10, true), weightSet('c', 's-new', 50, 10)],
+          's-old': [weightSet('d', 's-old', 100, 5)],
+        },
+      });
+      const rows = Array.from(root().querySelectorAll<HTMLElement>('[data-journal-row]'));
+      expect(rows).toHaveLength(2);
+      // Más reciente primero
+      expect(rows[0].textContent).toContain('Torso');
+      expect(rows[0].textContent).toContain('52 min · 2.500 kg · 3 series');
+      expect(rows[0].textContent).toContain('PR ×2');
+      expect(rows[1].textContent).toContain('Piernas');
+      expect(rows[1].textContent).toContain('57 min · 500 kg · 1 serie');
+      expect(rows[1].textContent).not.toContain('PR');
+    });
+
+    it('"Diario" ignores sessions that are not completed', async () => {
+      const inProgress: Session = { ...completedSession('s-x', '2026-10-26', 'd-1'), status: 'in-progress', endedAt: undefined };
+      await setup({ sessions: [inProgress] });
+      expect(root().querySelectorAll('[data-journal-row]')).toHaveLength(0);
+    });
+
+    it('"Ver todo" links to /progress', async () => {
+      await setup();
+      const link = Array.from(root().querySelectorAll('a')).find((a) => a.textContent?.trim() === 'Ver todo');
+      expect(link).toBeDefined();
+      expect(link!.getAttribute('href')).toBe('/progress');
+    });
+
+    it('does not render the empty state nor "Diario" when there is no active routine', async () => {
+      await setup({ routine: null, days: [], suggestedDay: null });
+      expect(root().querySelector('[data-empty-state]')).not.toBeNull();
+      expect(root().querySelector('[data-journal]')).toBeNull();
+    });
+
+    it('uses only semantic tokens: no forge-*, accent-<n>, destructive-* nor raw hex', async () => {
+      await setup({ days: [mockDay, otherDay] });
+      fixture.componentInstance.activeSessionDay.set(mockDay);
+      fixture.detectChanges();
+      const html = root().innerHTML;
+      expect(html).not.toMatch(/\bforge-\d/);
+      expect(html).not.toMatch(/\baccent-\d/);
+      expect(html).not.toMatch(/destructive-\d|text-destructive/);
+      expect(html).not.toMatch(/#[0-9a-fA-F]{6}\b/);
+    });
   });
 });
