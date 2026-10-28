@@ -62,6 +62,8 @@ const SCREENS: readonly Screen[] = [
       await page.goto('/routines');
       await expect(page.getByRole('button', { name: /Abrir rutina Torso \/ Pierna/ })).toBeVisible();
       await expect(page.getByRole('button', { name: /Abrir rutina Full body/ })).toBeVisible();
+      // La tabla de días de la activa se carga aparte: esperarla evita capturar la tarjeta a medias.
+      await expect(page.getByRole('button', { name: 'Editar día Pierna B' })).toBeVisible();
     },
   },
   {
@@ -71,6 +73,8 @@ const SCREENS: readonly Screen[] = [
       await expect(page.getByRole('heading', { name: 'Editar día' })).toBeVisible();
       await expect(page.getByText('Sentadilla', { exact: true })).toBeVisible();
       await expect(page.getByText('Prensa de piernas', { exact: true })).toBeVisible();
+      // El nombre de la rutina en el botón de volver se carga aparte.
+      await expect(page.getByRole('button', { name: 'Volver' })).toContainText('Torso / Pierna');
     },
   },
   {

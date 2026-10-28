@@ -15,34 +15,19 @@ type SetField = 'reps' | 'weightKg' | 'extraWeightKg' | 'durationSec' | 'distanc
   standalone: true,
   imports: [FgButtonComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // Solo el reset del spinner nativo: color y tipografía viven en las clases semánticas.
   styles: [`
-    .target-num {
-      width: 100%;
-      appearance: none;
-      -webkit-appearance: none;
-      background: transparent;
-      border: none;
-      outline: none;
-      text-align: center;
-      color: rgb(var(--forge-50));
-      font-weight: 600;
-      font-size: 22px;
-      line-height: 1.2;
-      letter-spacing: -0.02em;
-      font-variant-numeric: tabular-nums;
-      font-feature-settings: "tnum";
-    }
     .target-num::-webkit-outer-spin-button,
     .target-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   `],
   template: `
     <div class="space-y-2">
       <div class="flex items-center justify-between">
-        <h3 class="t-body-sm font-medium text-forge-100">Series objetivo</h3>
+        <h3 class="text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase text-ink-2">Series objetivo</h3>
         <button
           type="button"
           fg-button
-          variant="ghost"
+          variant="secondary"
           size="sm"
           leadingIcon="plus"
           (click)="addSet()"
@@ -52,26 +37,35 @@ type SetField = 'reps' | 'weightKg' | 'extraWeightKg' | 'durationSec' | 'distanc
       </div>
 
       @for (set of targetSets(); track $index; let i = $index) {
-        <div class="bg-forge-900 rounded-xl py-2.5 px-3 ring-1 ring-inset ring-white/5 space-y-2">
+        <div class="bg-surface rounded-lg py-2 px-3 border border-line space-y-2">
+          <div class="flex items-center justify-between">
+            <span data-set-number class="font-mono text-[12px] text-ink-2">Serie {{ i + 1 }}</span>
+            <button
+              type="button"
+              class="h-8 px-1 text-[13px] font-semibold text-danger"
+              [attr.aria-label]="'Quitar serie ' + (i + 1)"
+              (click)="removeSet(i)"
+            >Quitar</button>
+          </div>
           @switch (trackingType()) {
             @case ('weight-reps') {
               <div class="grid grid-cols-2 gap-2">
                 <label class="flex flex-col items-center gap-1">
-                  <span class="t-caption text-forge-500">Reps</span>
+                  <span class="text-[11px] leading-3 font-semibold tracking-[0.06em] uppercase text-ink-2">Reps</span>
                   <div class="flex items-baseline gap-1 w-full justify-center">
                     <input
                       [id]="'set-' + i + '-reps'"
                       type="number"
                       inputmode="numeric"
                       min="0"
-                      class="target-num"
+                      class="target-num w-full h-8 bg-transparent border-0 border-b border-line focus:border-accent outline-none text-center font-mono text-[17px] text-ink tabular-nums"
                       [value]="getSetField(i, 'reps')"
                       (change)="updateSetField(i, 'reps', $event)"
                     />
                   </div>
                 </label>
                 <label class="flex flex-col items-center gap-1">
-                  <span class="t-caption text-forge-500">Peso</span>
+                  <span class="text-[11px] leading-3 font-semibold tracking-[0.06em] uppercase text-ink-2">Peso</span>
                   <div class="flex items-baseline gap-1 w-full justify-center">
                     <input
                       [id]="'set-' + i + '-weightKg'"
@@ -79,11 +73,11 @@ type SetField = 'reps' | 'weightKg' | 'extraWeightKg' | 'durationSec' | 'distanc
                       inputmode="decimal"
                       min="0"
                       step="0.25"
-                      class="target-num"
+                      class="target-num w-full h-8 bg-transparent border-0 border-b border-line focus:border-accent outline-none text-center font-mono text-[17px] text-ink tabular-nums"
                       [value]="getSetField(i, 'weightKg')"
                       (change)="updateSetField(i, 'weightKg', $event)"
                     />
-                    <span class="t-caption text-forge-600">kg</span>
+                    <span class="text-[12px] text-ink-2">kg</span>
                   </div>
                 </label>
               </div>
@@ -91,21 +85,21 @@ type SetField = 'reps' | 'weightKg' | 'extraWeightKg' | 'durationSec' | 'distanc
             @case ('bodyweight-reps') {
               <div class="grid grid-cols-2 gap-2">
                 <label class="flex flex-col items-center gap-1">
-                  <span class="t-caption text-forge-500">Reps</span>
+                  <span class="text-[11px] leading-3 font-semibold tracking-[0.06em] uppercase text-ink-2">Reps</span>
                   <div class="flex items-baseline gap-1 w-full justify-center">
                     <input
                       [id]="'set-' + i + '-reps'"
                       type="number"
                       inputmode="numeric"
                       min="0"
-                      class="target-num"
+                      class="target-num w-full h-8 bg-transparent border-0 border-b border-line focus:border-accent outline-none text-center font-mono text-[17px] text-ink tabular-nums"
                       [value]="getSetField(i, 'reps')"
                       (change)="updateSetField(i, 'reps', $event)"
                     />
                   </div>
                 </label>
                 <label class="flex flex-col items-center gap-1">
-                  <span class="t-caption text-forge-500">Peso extra</span>
+                  <span class="text-[11px] leading-3 font-semibold tracking-[0.06em] uppercase text-ink-2">Peso extra</span>
                   <div class="flex items-baseline gap-1 w-full justify-center">
                     <input
                       [id]="'set-' + i + '-extraWeightKg'"
@@ -113,11 +107,11 @@ type SetField = 'reps' | 'weightKg' | 'extraWeightKg' | 'durationSec' | 'distanc
                       inputmode="decimal"
                       min="0"
                       step="0.25"
-                      class="target-num"
+                      class="target-num w-full h-8 bg-transparent border-0 border-b border-line focus:border-accent outline-none text-center font-mono text-[17px] text-ink tabular-nums"
                       [value]="getSetField(i, 'extraWeightKg') ?? ''"
                       (change)="updateSetField(i, 'extraWeightKg', $event)"
                     />
-                    <span class="t-caption text-forge-600">kg</span>
+                    <span class="text-[12px] text-ink-2">kg</span>
                   </div>
                 </label>
               </div>
@@ -125,18 +119,18 @@ type SetField = 'reps' | 'weightKg' | 'extraWeightKg' | 'durationSec' | 'distanc
             @case ('time') {
               <div class="grid grid-cols-1 gap-2">
                 <label class="flex flex-col items-center gap-1">
-                  <span class="t-caption text-forge-500">Duración</span>
+                  <span class="text-[11px] leading-3 font-semibold tracking-[0.06em] uppercase text-ink-2">Duración</span>
                   <div class="flex items-baseline gap-1 w-full justify-center">
                     <input
                       [id]="'set-' + i + '-durationSec'"
                       type="number"
                       inputmode="numeric"
                       min="0"
-                      class="target-num"
+                      class="target-num w-full h-8 bg-transparent border-0 border-b border-line focus:border-accent outline-none text-center font-mono text-[17px] text-ink tabular-nums"
                       [value]="getSetField(i, 'durationSec')"
                       (change)="updateSetField(i, 'durationSec', $event)"
                     />
-                    <span class="t-caption text-forge-600">seg</span>
+                    <span class="text-[12px] text-ink-2">seg</span>
                   </div>
                 </label>
               </div>
@@ -144,7 +138,7 @@ type SetField = 'reps' | 'weightKg' | 'extraWeightKg' | 'durationSec' | 'distanc
             @case ('distance-time') {
               <div class="grid grid-cols-2 gap-2">
                 <label class="flex flex-col items-center gap-1">
-                  <span class="t-caption text-forge-500">Distancia</span>
+                  <span class="text-[11px] leading-3 font-semibold tracking-[0.06em] uppercase text-ink-2">Distancia</span>
                   <div class="flex items-baseline gap-1 w-full justify-center">
                     <input
                       [id]="'set-' + i + '-distanceKm'"
@@ -152,43 +146,31 @@ type SetField = 'reps' | 'weightKg' | 'extraWeightKg' | 'durationSec' | 'distanc
                       inputmode="decimal"
                       min="0"
                       step="0.1"
-                      class="target-num"
+                      class="target-num w-full h-8 bg-transparent border-0 border-b border-line focus:border-accent outline-none text-center font-mono text-[17px] text-ink tabular-nums"
                       [value]="getSetField(i, 'distanceKm')"
                       (change)="updateSetField(i, 'distanceKm', $event)"
                     />
-                    <span class="t-caption text-forge-600">km</span>
+                    <span class="text-[12px] text-ink-2">km</span>
                   </div>
                 </label>
                 <label class="flex flex-col items-center gap-1">
-                  <span class="t-caption text-forge-500">Duración</span>
+                  <span class="text-[11px] leading-3 font-semibold tracking-[0.06em] uppercase text-ink-2">Duración</span>
                   <div class="flex items-baseline gap-1 w-full justify-center">
                     <input
                       [id]="'set-' + i + '-durationSec'"
                       type="number"
                       inputmode="numeric"
                       min="0"
-                      class="target-num"
+                      class="target-num w-full h-8 bg-transparent border-0 border-b border-line focus:border-accent outline-none text-center font-mono text-[17px] text-ink tabular-nums"
                       [value]="getSetField(i, 'durationSec')"
                       (change)="updateSetField(i, 'durationSec', $event)"
                     />
-                    <span class="t-caption text-forge-600">seg</span>
+                    <span class="text-[12px] text-ink-2">seg</span>
                   </div>
                 </label>
               </div>
             }
           }
-          <div class="flex justify-end">
-            <button
-              type="button"
-              fg-button
-              variant="destructive"
-              size="sm"
-              leadingIcon="trash"
-              (click)="removeSet(i)"
-            >
-              Quitar
-            </button>
-          </div>
         </div>
       }
     </div>

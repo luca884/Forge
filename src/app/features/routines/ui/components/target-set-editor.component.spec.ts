@@ -75,6 +75,24 @@ describe('TargetSetEditorComponent (signals migration)', () => {
     });
   });
 
+  describe('numeración', () => {
+    it('rotula cada serie como "Serie N" y el botón de quitar con su número', () => {
+      const { fixture } = makeFixture({
+        trackingType: 'weight-reps',
+        targetSets: [
+          { type: 'weight-reps', reps: 8, weightKg: 80 },
+          { type: 'weight-reps', reps: 10, weightKg: 60 },
+        ],
+      });
+
+      const tags = fixture.debugElement
+        .queryAll(By.css('[data-set-number]'))
+        .map((t) => (t.nativeElement as HTMLElement).textContent?.trim());
+      expect(tags).toEqual(['Serie 1', 'Serie 2']);
+      expect(fixture.debugElement.query(By.css('button[aria-label="Quitar serie 2"]'))).toBeTruthy();
+    });
+  });
+
   describe('outputs', () => {
     it('emits updated targetSets array via targetSetsChange on field change', () => {
       const { fixture } = makeFixture({

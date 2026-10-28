@@ -59,7 +59,7 @@ import { ToastService } from '@core/shared/ui/toast/toast.service';
       (leadingClick)="back()"
     ></fg-page-header>
 
-    <div class="px-4 pt-3 pb-6 flex flex-col gap-6">
+    <div class="px-4 pt-3 pb-6 flex flex-col gap-6 bg-page text-ink">
       @if (loading()) {
         <fg-card>
           <fg-skeleton [height]="44"></fg-skeleton>
@@ -74,18 +74,18 @@ import { ToastService } from '@core/shared/ui/toast/toast.service';
           ></fg-input>
 
           <label class="flex flex-col gap-1.5">
-            <span class="t-caption text-forge-300">Descripción</span>
+            <span class="t-caption text-ink-2">Descripción</span>
             <textarea
               formControlName="description"
               rows="3"
               placeholder="Notas opcionales sobre esta rutina"
-              class="min-h-[80px] rounded-md bg-forge-900 px-3 py-2 text-forge-50 text-[15px] ring-1 ring-inset ring-forge-800 outline-none focus:ring-accent-500 resize-y"
+              class="min-h-[80px] rounded-[10px] bg-surface px-3.5 py-2.5 text-ink text-[15px] border border-line outline-none focus:border-accent placeholder:text-ink-2 resize-y"
             ></textarea>
           </label>
         </form>
 
         @if (routineId()) {
-          <div class="flex flex-col gap-1.5 mt-2">
+          <div class="flex flex-col gap-1.5">
             <button
               fg-button
               [variant]="isActive() ? 'accent_soft' : 'secondary'"
@@ -98,22 +98,23 @@ import { ToastService } from '@core/shared/ui/toast/toast.service';
               {{ isActive() ? 'Rutina activa' : 'Marcar como activa' }}
             </button>
             @if (isActive()) {
-              <span class="t-caption text-forge-400">Es la rutina activa: define el día sugerido de hoy.</span>
+              <span class="t-caption text-ink-2">Es la rutina activa: define el día sugerido de hoy.</span>
             }
           </div>
 
-          <section class="mt-2 flex flex-col gap-3">
-            <h2 class="t-h3 text-forge-100">Días</h2>
-
-            <button
-              fg-button
-              variant="ghost"
-              [leadingIcon]="'calendar'"
-              (click)="goToSchedule()"
-              class="self-start"
-            >
-              Programa semanal
-            </button>
+          <section class="flex flex-col gap-1.5">
+            <div class="flex items-center justify-between gap-2">
+              <h2 class="text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase text-ink-2">Días</h2>
+              <button
+                fg-button
+                variant="secondary"
+                size="sm"
+                [leadingIcon]="'calendar'"
+                (click)="goToSchedule()"
+              >
+                Programa semanal
+              </button>
+            </div>
 
             @if (trainingDays().length === 0) {
               <fg-empty-state
@@ -122,16 +123,19 @@ import { ToastService } from '@core/shared/ui/toast/toast.service';
                 body="Agregá tu primer día de entrenamiento."
               ></fg-empty-state>
             } @else {
-              @for (day of trainingDays(); track day.id) {
-                <fg-card>
-                  <div class="flex items-center justify-between">
-                    <span class="t-body text-forge-100">{{ day.name }}</span>
-                    <div class="flex items-center gap-2">
+              <fg-card [padding]="0">
+                @for (day of trainingDays(); track day.id) {
+                  <div
+                    data-day-row
+                    class="flex items-center justify-between gap-2 min-h-[48px] pl-4 pr-1 border-b border-line-soft last:border-b-0"
+                  >
+                    <span class="text-[15px] font-medium text-ink truncate">{{ day.name }}</span>
+                    <div class="flex items-center">
                       <button
                         type="button"
                         (click)="editDay(day)"
                         [attr.aria-label]="'Editar día ' + day.name"
-                        class="w-9 h-9 inline-flex items-center justify-center rounded-md text-forge-200 hover:bg-forge-850"
+                        class="w-11 h-11 inline-flex items-center justify-center text-ink-2"
                       >
                         <fg-icon name="edit" [size]="18"></fg-icon>
                       </button>
@@ -139,28 +143,28 @@ import { ToastService } from '@core/shared/ui/toast/toast.service';
                         type="button"
                         (click)="removeDay(day.id)"
                         [attr.aria-label]="'Eliminar día ' + day.name"
-                        class="w-9 h-9 inline-flex items-center justify-center rounded-md text-destructive-500 hover:bg-forge-850"
+                        class="w-11 h-11 inline-flex items-center justify-center text-danger"
                       >
                         <fg-icon name="trash" [size]="18"></fg-icon>
                       </button>
                     </div>
                   </div>
-                </fg-card>
-              }
+                }
+              </fg-card>
             }
 
             <button
               fg-button
-              variant="ghost"
+              variant="secondary"
               [leadingIcon]="'plus'"
               (click)="addDay()"
-              class="self-end"
+              class="w-full !border-dashed !border-dash"
             >
               Agregar día
             </button>
           </section>
 
-          <section class="mt-4 pt-4 border-t border-forge-800">
+          <section class="pt-4 border-t border-line">
             @if (!confirmingDelete()) {
               <button
                 type="button"
@@ -174,7 +178,7 @@ import { ToastService } from '@core/shared/ui/toast/toast.service';
               </button>
             } @else {
               <div class="flex flex-col gap-2">
-                <span class="t-body-sm text-forge-300">¿Eliminar esta rutina y sus días? No se puede deshacer.</span>
+                <span class="t-body-sm text-ink-2">¿Eliminar esta rutina y sus días? No se puede deshacer.</span>
                 <div class="flex gap-2">
                   <button
                     type="button"
@@ -187,7 +191,7 @@ import { ToastService } from '@core/shared/ui/toast/toast.service';
                   <button
                     type="button"
                     fg-button
-                    variant="ghost"
+                    variant="secondary"
                     class="flex-1"
                     [disabled]="deleting()"
                     (click)="confirmingDelete.set(false)"

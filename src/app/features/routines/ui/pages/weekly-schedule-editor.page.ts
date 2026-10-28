@@ -44,37 +44,39 @@ const DOW_LABELS: Record<DayOfWeek, string> = {
       (leadingClick)="cancel()"
     ></fg-page-header>
 
-    <div class="px-4 pt-3 pb-6">
+    <div class="px-4 pt-3 pb-6 bg-page text-ink">
       @if (loading()) {
         <fg-card>
           <fg-skeleton [height]="44"></fg-skeleton>
         </fg-card>
       } @else {
         <form [formGroup]="form" class="flex flex-col gap-3">
-          @for (dow of daysOfWeek; track dow) {
-            <div class="flex items-center gap-3">
-              <label [for]="'schedule-' + dow" class="t-body-sm text-forge-300 w-28 flex-shrink-0">
-                {{ dowLabel(dow) }}
-              </label>
-              <select
-                [id]="'schedule-' + dow"
-                [formControlName]="dow"
-                class="h-11 flex-1 rounded-md bg-forge-900 px-3 text-forge-50 text-[15px] ring-1 ring-inset ring-forge-800 outline-none focus:ring-accent-500"
-              >
-                <option [value]="''">— Día de descanso —</option>
-                @for (day of trainingDays(); track day.id) {
-                  <option [value]="day.id">{{ day.name }}{{ day.label ? ' — ' + day.label : '' }}</option>
-                }
-              </select>
-            </div>
-          }
+          <fg-card [padding]="0">
+            @for (dow of daysOfWeek; track dow) {
+              <div class="flex items-center gap-3 min-h-[56px] px-4 py-2 border-b border-line-soft last:border-b-0">
+                <label [for]="'schedule-' + dow" class="text-[15px] font-medium text-ink w-28 flex-shrink-0">
+                  {{ dowLabel(dow) }}
+                </label>
+                <select
+                  [id]="'schedule-' + dow"
+                  [formControlName]="dow"
+                  class="h-11 flex-1 min-w-0 rounded-[10px] bg-page px-3 text-ink text-[15px] border border-line outline-none focus:border-accent"
+                >
+                  <option [value]="''">— Día de descanso —</option>
+                  @for (day of trainingDays(); track day.id) {
+                    <option [value]="day.id">{{ day.name }}{{ day.label ? ' — ' + day.label : '' }}</option>
+                  }
+                </select>
+              </div>
+            }
+          </fg-card>
 
           @if (errorMessage()) {
-            <p role="alert" class="t-body-sm text-destructive-500">{{ errorMessage() }}</p>
+            <p role="alert" class="t-body-sm text-danger">{{ errorMessage() }}</p>
           }
 
           @if (successMessage()) {
-            <p role="status" class="t-body-sm text-accent-300">{{ successMessage() }}</p>
+            <p role="status" class="t-body-sm text-accent-ink">{{ successMessage() }}</p>
           }
         </form>
       }
