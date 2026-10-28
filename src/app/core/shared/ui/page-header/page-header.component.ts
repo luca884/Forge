@@ -51,9 +51,9 @@ export interface PageHeaderAction {
         }
       </div>
       <div class="fg-page-header__titles">
-        <h1 class="t-h1 text-forge-50">{{ title() }}</h1>
+        <h1 class="t-h1 text-ink">{{ title() }}</h1>
         @if (subtitle(); as s) {
-          <div class="t-body-sm text-forge-500 mt-0.5">{{ s }}</div>
+          <div class="t-body-sm text-ink-2 mt-0.5">{{ s }}</div>
         }
       </div>
     </header>
@@ -65,28 +65,28 @@ export interface PageHeaderAction {
       top: 0;
       z-index: var(--z-page-header);
       padding: 4px 20px 12px;
-      background: rgba(12, 10, 9, 0.92);
+      background: rgb(var(--color-page) / 0.92);
       -webkit-backdrop-filter: blur(20px);
       backdrop-filter: blur(20px);
-      border-bottom: 1px solid rgb(var(--forge-800));
+      border-bottom: 1px solid rgb(var(--color-line));
     }
     .fg-page-header__row {
       display: flex;
       align-items: center;
-      min-height: 36px;
+      min-height: 44px;
     }
     .fg-page-header__slot,
     .fg-page-header__icon-btn {
-      width: 36px;
-      height: 36px;
+      width: 44px;
+      height: 44px;
     }
+    /* Botón ícono del lenguaje C: 44x44, radio 10px, borde line, fondo surface. */
     .fg-page-header__icon-btn {
-      border: none;
-      border-radius: 9999px;
+      border: 1px solid rgb(var(--color-line));
+      border-radius: 10px;
       cursor: pointer;
-      background: rgb(var(--forge-900));
-      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-      color: rgb(var(--forge-200));
+      background: rgb(var(--color-surface));
+      color: rgb(var(--color-ink));
       display: inline-flex;
       align-items: center;
       justify-content: center;

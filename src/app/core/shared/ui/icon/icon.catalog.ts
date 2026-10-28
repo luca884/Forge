@@ -6,8 +6,9 @@
  * Multi-path icons use space-separated `M` commands in a single string.
  * The component splits them via /(?=M)/ — see FgIconComponent.
  *
- * Source of truth: Design/Forge/icons.jsx — 36 icons total.
- * DO NOT edit values here without updating the source design file.
+ * Source of truth: Design/Forge/icons.jsx — 36 icons, más 4 de la barra inferior
+ * del canvas C Cuaderno (clock, list, bars, person), copiados del tablero C-Hoy.
+ * DO NOT edit the first 36 values without updating the source design file.
  */
 export const ICONS = {
   /* ── Nav ─────────────────────────────────────────────────────────── */
@@ -51,6 +52,12 @@ export const ICONS = {
   pause:    'M6 4h4v16H6V4z M14 4h4v16h-4V4z',
   play:     'M5 3l14 9-14 9V3z',
   dot:      'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+
+  /* ── Cuaderno nav (canvas C, barra inferior) ─────────────────────── */
+  clock:    'M12 20.5a8.5 8.5 0 1 0 0-17 8.5 8.5 0 0 0 0 17z M12 7.5V12l3 2',
+  list:     'M9 6h11 M9 12h11 M9 18h11 M4 6h.01 M4 12h.01 M4 18h.01',
+  bars:     'M4 20V10 M10 20V4 M16 20v-7 M22 20H2',
+  person:   'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6',
 } as const;
 
 export type IconName = keyof typeof ICONS;

@@ -16,8 +16,9 @@ export class FgCardComponent {
 
   readonly hostClasses = computed(() =>
     [
-      'block bg-forge-900 rounded-lg',
-      this.raised() ? 'shadow-[inset_0_0_0_1px_rgba(255,255,255,.05)]' : '',
+      // Lenguaje C: surface, borde de 1px line, radio 12px, sin sombra.
+      'block bg-surface rounded-lg',
+      this.raised() ? 'border border-line' : '',
     ]
       .filter(Boolean)
       .join(' '),

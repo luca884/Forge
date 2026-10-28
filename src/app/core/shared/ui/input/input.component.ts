@@ -31,12 +31,12 @@ const SIZE_TEXT: Record<InputSize, string> = {
   template: `
     <label class="flex flex-col gap-1.5">
       @if (label()) {
-        <span class="t-caption text-forge-300">{{ label() }}</span>
+        <span class="t-caption text-ink-2">{{ label() }}</span>
       }
-      <div class="flex items-center rounded-md bg-forge-900 px-3.5 gap-2 ring-1 ring-inset"
+      <div class="flex items-center rounded-[10px] bg-surface px-3.5 gap-2 border"
            [class]="fieldClasses()">
         @if (prefix()) {
-          <span class="t-body-sm text-forge-400">{{ prefix() }}</span>
+          <span class="t-body-sm text-ink-2">{{ prefix() }}</span>
         }
         <input
           [attr.id]="id()"
@@ -47,17 +47,17 @@ const SIZE_TEXT: Record<InputSize, string> = {
           [value]="value()"
           (input)="onInput($event)"
           (blur)="onBlur()"
-          class="flex-1 min-w-0 h-full bg-transparent outline-none border-0 text-forge-50 font-sans"
+          class="flex-1 min-w-0 h-full bg-transparent outline-none border-0 text-ink placeholder:text-ink-2 font-sans"
           [class]="inputClasses()"
         />
         @if (suffix()) {
-          <span class="t-body-sm text-forge-400">{{ suffix() }}</span>
+          <span class="t-body-sm text-ink-2">{{ suffix() }}</span>
         }
       </div>
       @if (error()) {
-        <span class="t-body-sm text-destructive-500">{{ error() }}</span>
+        <span class="t-body-sm text-danger">{{ error() }}</span>
       } @else if (helper()) {
-        <span class="t-body-sm text-forge-400">{{ helper() }}</span>
+        <span class="t-body-sm text-ink-2">{{ helper() }}</span>
       }
     </label>
   `,
@@ -80,7 +80,7 @@ export class FgInputComponent implements ControlValueAccessor {
 
   readonly fieldClasses = computed(() => [
     SIZE_HEIGHT[this.size()],
-    this.error() ? 'ring-destructive-500/50' : 'ring-forge-800',
+    this.error() ? 'border-danger' : 'border-line focus-within:border-accent',
   ].join(' '));
 
   readonly inputClasses = computed(() => [

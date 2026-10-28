@@ -65,14 +65,14 @@ export const WHEEL_ITEM_HEIGHT = 40;
       font-feature-settings: "tnum";
       font-size: 20px;
       line-height: 1;
-      color: rgb(var(--forge-600));
+      color: rgb(var(--color-ink-2) / 0.55);
       transition: color .12s, font-size .12s;
     }
     .wheel-item.is-selected {
       font-size: 32px;
       font-weight: 600;
       letter-spacing: -0.025em;
-      color: rgb(var(--forge-50));
+      color: rgb(var(--color-ink));
     }
   `,
   ],

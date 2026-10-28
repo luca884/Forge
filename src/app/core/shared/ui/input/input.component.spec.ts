@@ -113,7 +113,7 @@ describe('FgInputComponent', () => {
     it('error set → span con texto destructivo aparece', () => {
       setup({ error: 'Campo requerido' });
       const root = hostFixture.nativeElement as HTMLElement;
-      const errorSpan = root.querySelector<HTMLSpanElement>('.text-destructive-500');
+      const errorSpan = root.querySelector<HTMLSpanElement>('.text-danger');
       expect(errorSpan).toBeTruthy();
       expect(errorSpan!.textContent).toContain('Campo requerido');
     });
@@ -126,7 +126,7 @@ describe('FgInputComponent', () => {
     it('con error y helper → solo error visible, helper oculto', () => {
       setup({ error: 'Error', helper: 'Helper' });
       const root = hostFixture.nativeElement as HTMLElement;
-      const errorSpan = root.querySelector<HTMLSpanElement>('.text-destructive-500');
+      const errorSpan = root.querySelector<HTMLSpanElement>('.text-danger');
       expect(errorSpan).toBeTruthy();
       expect(root.textContent).not.toContain('Helper');
     });
@@ -159,19 +159,19 @@ describe('FgInputComponent', () => {
   describe('size input', () => {
     it('size=sm aplica h-9 al field wrapper', () => {
       setup({ size: 'sm' });
-      const wrapper = (hostFixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.flex.items-center.rounded-md');
+      const wrapper = (hostFixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.flex.items-center.bg-surface');
       expect(wrapper?.className).toContain('h-9');
     });
 
     it('size=md (default) aplica h-11 al field wrapper', () => {
       setup({ size: 'md' });
-      const wrapper = (hostFixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.flex.items-center.rounded-md');
+      const wrapper = (hostFixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.flex.items-center.bg-surface');
       expect(wrapper?.className).toContain('h-11');
     });
 
     it('size=lg aplica h-14 al field wrapper', () => {
       setup({ size: 'lg' });
-      const wrapper = (hostFixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.flex.items-center.rounded-md');
+      const wrapper = (hostFixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.flex.items-center.bg-surface');
       expect(wrapper?.className).toContain('h-14');
     });
   });

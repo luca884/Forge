@@ -38,6 +38,14 @@ describe('FgPageHeaderComponent', () => {
     expect(titleEl?.textContent?.trim()).toBe('Progreso');
   });
 
+  // Lenguaje C: título en ink, subtítulo en ink-2 (sin rampa forge-*)
+  it('pinta el título con text-ink y el subtítulo con text-ink-2', async () => {
+    await create({ title: 'Progreso', subtitle: '42 PRs' });
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.t-h1')?.className).toContain('text-ink');
+    expect(el.querySelector('.t-body-sm')?.className).toContain('text-ink-2');
+  });
+
   // V-D1-2: Subtitle renders when provided
   it('renders subtitle when subtitle is provided', async () => {
     await create({ title: 'Progreso', subtitle: '42 PRs' });
