@@ -82,7 +82,8 @@ Requisitos:
     - En el formulario del ejercicio, con unidad "Placas (máquina)", aparece un campo opcional para el peso de cada placa en kg. Vacío vale 5 kg. Se guarda en `plateWeightKg`, opcional y sin índice, sin versión nueva de Dexie. Los ejercicios guardados antes valen 5 kg.
     - Las series en placas se muestran como "N placas" en todas las pantallas y nunca se convierten a lb (D4).
     - Todo volumen cuenta una serie en placas como placas × peso por placa × reps, en kg, y lo convierte a lb si esa es la unidad preferida.
-    - Supuesto: el 1RM estimado de un ejercicio en placas también usa el peso por placa, como el volumen. Confirmar o descartar al cierre de T18.
+    - El 1RM estimado de un ejercicio en placas también usa el peso por placa, como el volumen (confirmado en L28: "dale lo dejamos asi").
+    - El peso por placa es de cada ejercicio, porque cada máquina tiene el suyo (L28).
     - El editor del día pide "Placas" en esos ejercicios, no "Peso … kg".
   - Checks: Jest de cada superficie; e2e con un ejercicio propio en placas de 10 kg por placa, de la sesión al Resumen.
 
@@ -441,3 +442,7 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
     - La seed visual no tiene ejercicios en placas.
   - Pendiente: confirmar el supuesto del 1RM de S11. Siguen sin aplicar las correcciones menores de L23.
   - Próximo paso: confirmar el supuesto del 1RM y seguir con T13 (preguntar D1).
+- L28 (2026-10-28) Supuesto del 1RM de S11 confirmado. Respuesta del usuario, textual:
+  > dale lo dejamos asi, pero el peso de la placa de cada ejercicio se debe poder cambiar, no es el ismo peso que tiene la placa de espalda que la de brazo
+  - Ya funciona así desde T18a: `plateWeightKg` es un campo de cada ejercicio (`exercise.entity.ts:41`). Se carga y se guarda en el formulario de ese ejercicio (`exercise-form.page.ts:256`, `:274`), y J15 lo verifica. No hizo falta cambiar código.
+  - Próximo paso: T13, preguntar D1.
