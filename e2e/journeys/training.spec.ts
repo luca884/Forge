@@ -2,6 +2,7 @@ import { test, expect } from '../fixtures/db-reset';
 import {
   daysAgo,
   seedExercises,
+  seedProfile,
   seedRoutines,
   seedSessions,
   seedTrainingDays,
@@ -211,10 +212,107 @@ test.describe('J8 — Finalizar sesión y summary', () => {
     await expect(totals.getByText('Volumen', { exact: true })).toBeVisible();
     await expect(totals.getByText('Series', { exact: true })).toBeVisible();
     await expect(totals.getByText('Reps', { exact: true })).toBeVisible();
+    // T17 · A2: el volumen (60 kg × 5 reps) sale en la unidad preferida, sin separador de miles.
+    await expect(totals.locator('[data-total-value]').nth(1)).toHaveText('300');
+    await expect(totals.locator('[data-total-unit]')).toHaveText('kg');
     await expect(page.getByText('Ejercicio por ejercicio')).toBeVisible();
+    // T17 · A5: debajo del nombre del ejercicio va el total de sus reps (1 serie de 5).
+    await expect(page.locator('[data-exercise-row]').first()).toContainText('5 reps');
     // Bug #585 fix: exercise name must appear, not raw UUID
     await expect(page.getByText('Sentadilla').first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Guardar sesión' })).toBeVisible();
+  });
+
+  test('J8.2 — los totales entran en su celda con volumen grande en lb y más de una hora', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    const now = new Date();
+    const startedAt = new Date(now.getTime() - (65 * 60 + 23) * 1000);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+    await seedProfile(page, { id: 'me', name: '', preferredUnit: 'lb', createdAt: now, updatedAt: now });
+    await seedExercises(page, [
+      {
+        id: 'ex-1',
+        name: 'Sentadilla',
+        muscleGroup: 'legs',
+        trackingType: 'weight-reps',
+        isCustom: false,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+    await seedRoutines(page, [
+      { id: 'rt-1', name: 'Rutina test', isActive: true, schedule: null, createdAt: now, updatedAt: now },
+    ]);
+    await seedTrainingDays(page, [
+      {
+        id: 'day-1',
+        routineId: 'rt-1',
+        name: 'Día 1',
+        exercises: [
+          {
+            exerciseId: 'ex-1',
+            order: 0,
+            targetSets: Array.from({ length: 10 }, () => ({
+              type: 'weight-reps' as const,
+              reps: 10,
+              weightKg: 200,
+            })),
+          },
+        ],
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+    await seedSessions(page, [
+      {
+        id: 'ses-1',
+        routineId: 'rt-1',
+        dayId: 'day-1',
+        date: today,
+        startedAt,
+        status: 'in-progress',
+        createdAt: startedAt,
+        updatedAt: startedAt,
+      },
+    ]);
+    // 10 × 200 kg × 10 reps = 20000 kg = 44092.4 lb: siete caracteres más la unidad.
+    await seedWorkedSets(
+      page,
+      Array.from({ length: 10 }, (_, i) => ({
+        id: `ws-${i}`,
+        sessionId: 'ses-1',
+        exerciseId: 'ex-1',
+        type: 'weight-reps' as const,
+        targetSetIndex: i,
+        reps: 10,
+        weightKg: 200,
+        isPR: false,
+        createdAt: startedAt,
+      })),
+    );
+
+    await page.goto('/training/session');
+    await expect(page.getByText(/10 de 10 series/)).toBeVisible();
+    await page.getByRole('button', { name: 'Terminar sesión' }).click();
+    await expect(page).toHaveURL(/\/training\/session\/summary$/);
+
+    const totals = page.getByRole('region', { name: 'Totales' });
+    await expect(totals.locator('[data-total-value]').nth(1)).toHaveText('44092.4');
+    await expect(totals.locator('[data-total-unit]')).toHaveText('lb');
+
+    // Ninguna celda se desborda ni pisa a la de al lado.
+    const overflowing = await totals.evaluate((section) =>
+      Array.from(section.children)
+        .filter((cell) => cell.scrollWidth > cell.clientWidth)
+        .map((cell) => cell.textContent?.trim()),
+    );
+    expect(overflowing).toEqual([]);
   });
 });
 

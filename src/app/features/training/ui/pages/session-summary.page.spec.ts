@@ -209,12 +209,44 @@ describe('SessionSummaryPage', () => {
     );
     expect(values.map((e) => e.textContent?.trim())).toEqual([
       '58:12',
-      // Intl.NumberFormat sin locale (como antes de T5): el separador depende del entorno.
-      expect.stringMatching(/^2[.,]000$/),
+      // A2: pasa por DisplayWeightPipe, así que no lleva separador de miles (ni "2.000" ni "2,000").
+      '2000',
       '2',
       '20',
     ]);
     expect(values.every((e) => e.classList.contains('font-mono'))).toBe(true);
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-total-unit]')?.textContent?.trim()).toBe('kg');
+  });
+
+  it('A2: the volume total is converted to the preferred unit, with decimal point and no thousands separator', async () => {
+    // 2 × (100 kg × 10) = 2000 kg = 4409.2 lb
+    await setup([makeWeightRepsSet('ws-1', 'ex-1', 100, 10), makeWeightRepsSet('ws-2', 'ex-1', 100, 10)]);
+    unitSignal.set('lb');
+
+    fixture = TestBed.createComponent(SessionSummaryPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    fixture.detectChanges();
+
+    const totals = (fixture.nativeElement as HTMLElement).querySelector('[aria-label="Totales"]')!;
+    expect(totals.querySelectorAll('[data-total-value]')[1]?.textContent?.trim()).toBe('4409.2');
+    expect(totals.querySelector('[data-total-unit]')?.textContent?.trim()).toBe('lb');
+    expect(totals.textContent).not.toContain('kg');
+  });
+
+  it('A2: float noise never reaches the volume total (32.2 kg × 3 reps = 96.6 kg)', async () => {
+    // 32.2 × 3 = 96.60000000000001 en coma flotante.
+    await setup([makeWeightRepsSet('ws-1', 'ex-1', 32.2, 3)]);
+
+    fixture = TestBed.createComponent(SessionSummaryPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    fixture.detectChanges();
+
+    const totals = (fixture.nativeElement as HTMLElement).querySelector('[aria-label="Totales"]')!;
+    expect(totals.querySelectorAll('[data-total-value]')[1]?.textContent?.trim()).toBe('96.6');
   });
 
   // --- Cuaderno header ---
@@ -393,6 +425,46 @@ describe('SessionSummaryPage', () => {
     expect(rows[1].querySelector('[data-row-delta]')?.textContent?.trim()).toBe('igual');
     // Sin sesión previa: no hay con qué comparar.
     expect(rows[2].querySelector('[data-row-delta]')?.textContent?.trim()).toBe('—');
+  });
+
+  it('A5: shows the total reps of each exercise under its name, only for exercises with reps', async () => {
+    const plank = {
+      id: 'ws-5', sessionId: 's-1', exerciseId: 'ex-3', type: 'time',
+      durationSec: 60, isPR: false, createdAt: new Date('2026-01-01'),
+    } as WorkedSet;
+    await setup(
+      [
+        makeWeightRepsSet('ws-1', 'ex-1', 100, 5),
+        makeWeightRepsSet('ws-2', 'ex-1', 102.5, 7),
+        makeBodyweightSet('ws-3', 'ex-2', 15),
+        makeBodyweightSet('ws-4', 'ex-2', 12),
+        plank,
+      ],
+      completedSession,
+      {
+        exercises: [
+          { id: 'ex-1', name: 'Sentadilla' },
+          { id: 'ex-2', name: 'Dominadas' },
+          { id: 'ex-3', name: 'Plancha' },
+        ],
+      },
+    );
+
+    fixture = TestBed.createComponent(SessionSummaryPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    fixture.detectChanges();
+
+    const rows = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('[data-exercise-row]'));
+    expect(rows).toHaveLength(3);
+    const reps = rows.map((row) => row.querySelector('[data-row-reps]'));
+    expect(reps[0]?.textContent?.trim()).toBe('12 reps');
+    expect(reps[1]?.textContent?.trim()).toBe('27 reps');
+    // La línea secundaria va justo debajo del nombre del ejercicio.
+    expect(reps[0]?.previousElementSibling?.textContent?.trim()).toBe('Sentadilla');
+    // Un ejercicio por tiempo no tiene reps: no lleva la línea.
+    expect(reps[2]).toBeNull();
   });
 
   it('shows "No se registraron series." when the session has no sets', async () => {

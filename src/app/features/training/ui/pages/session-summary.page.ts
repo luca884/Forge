@@ -36,6 +36,8 @@ interface ExerciseRow {
   exerciseId: string;
   name: string;
   sets: number;
+  /** Total reps of the exercise in the session; null when its sets have no reps (time, distance). */
+  reps: number | null;
   /** Best set of the session, e.g. "102,5×7". */
   best: string;
   /** Change of the best weight versus the previous session: "+2,5 kg", "igual", "—". */
@@ -82,7 +84,8 @@ interface PrRow {
         </header>
 
         <!-- Totales -->
-        <section aria-label="Totales" class="grid grid-cols-4 bg-surface border border-line rounded-lg">
+        <!-- 1fr (min auto), not grid-cols-4 (min 0): a long volume widens its column instead of overflowing it. -->
+        <section aria-label="Totales" class="grid grid-cols-[repeat(4,1fr)] bg-surface border border-line rounded-lg">
           <div class="flex flex-col gap-1 px-2.5 py-3 border-r border-line-soft">
             <span data-total-label class="text-[10px] leading-3 font-semibold tracking-[0.08em] uppercase text-ink-2">Duración</span>
             <span data-total-value class="font-mono tabular-nums text-[17px] font-medium text-ink">{{ duration() ?? '—' }}</span>
@@ -90,9 +93,9 @@ interface PrRow {
           <div class="flex flex-col gap-1 px-2.5 py-3 border-r border-line-soft">
             <span data-total-label class="text-[10px] leading-3 font-semibold tracking-[0.08em] uppercase text-ink-2">Volumen</span>
             <span class="flex items-baseline gap-1">
-              <span data-total-value class="font-mono tabular-nums text-[17px] font-medium text-ink">{{ hasVolume() ? volumeValue() : '—' }}</span>
+              <span data-total-value class="font-mono tabular-nums text-[17px] font-medium text-ink">{{ hasVolume() ? volumeDisplay().value : '—' }}</span>
               @if (hasVolume()) {
-                <span class="font-mono text-[11px] text-ink-2">kg</span>
+                <span data-total-unit class="font-mono text-[11px] text-ink-2">{{ volumeDisplay().unit }}</span>
               }
             </span>
           </div>
@@ -139,7 +142,12 @@ interface PrRow {
                  class="grid grid-cols-[minmax(0,1fr)_36px_92px_64px] gap-x-2 items-center min-h-11 px-3.5"
                  [class.border-b]="!last"
                  [class.border-line-soft]="!last">
-              <span class="text-[15px] leading-5 font-medium text-ink truncate">{{ row.name || row.exerciseId }}</span>
+              <div class="flex flex-col min-w-0 py-1.5">
+                <span class="text-[15px] leading-5 font-medium text-ink truncate">{{ row.name || row.exerciseId }}</span>
+                @if (row.reps !== null) {
+                  <span data-row-reps class="font-mono tabular-nums text-xs leading-4 text-ink-2">{{ row.reps }} reps</span>
+                }
+              </div>
               <span data-row-sets class="font-mono text-[13px] text-ink-2">{{ row.sets }}</span>
               <span data-row-best class="font-mono tabular-nums text-[13px] text-ink whitespace-nowrap">{{ row.best }}</span>
               <span data-row-delta class="font-mono text-xs text-right whitespace-nowrap"
@@ -226,10 +234,14 @@ export class SessionSummaryPage implements OnInit {
 
   readonly hasVolume = computed(() => this.volumeKg() > 0);
 
-  readonly volumeValue = computed(() => {
-    const v = Math.round(this.volumeKg());
-    // Use Intl.NumberFormat without locale to avoid jsdom issues; tests assert 'toContain' number only
-    return new Intl.NumberFormat().format(v);
+  /**
+   * The volume in the preferred unit, through DisplayWeightPipe like every weight on the page,
+   * split into number and unit so the totals tile can set the unit small ("2000" + "kg").
+   */
+  readonly volumeDisplay = computed(() => {
+    const text = this.formatWeight(this.volumeKg());
+    const cut = text.lastIndexOf(' ');
+    return { value: text.slice(0, cut), unit: text.slice(cut + 1) };
   });
 
   // ---------------------------------------------------------------------------
@@ -282,10 +294,12 @@ export class SessionSummaryPage implements OnInit {
       const bestKg = this.bestWeightKg(sets);
       const previousKg = previous.get(exerciseId);
       const diff = bestKg !== null && previousKg !== undefined ? bestKg - previousKg : null;
+      const reps = sets.flatMap(s => (s.type === 'weight-reps' || s.type === 'bodyweight-reps' ? [s.reps.value] : []));
       return {
         exerciseId,
         name: this.exerciseNameById().get(exerciseId) ?? '',
         sets: sets.length,
+        reps: reps.length === 0 ? null : reps.reduce((acc, value) => acc + value, 0),
         best: this.formatBest(sets),
         delta: diff === null ? '—' : diff === 0 ? 'igual' : `${diff > 0 ? '+' : '-'}${this.formatWeight(Math.abs(diff))}`,
         deltaPositive: diff !== null && diff > 0,
