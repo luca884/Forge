@@ -513,3 +513,8 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
   - Antes de borrarlos se verificó que no tuvieran cambios sin commitear. También se verificó que cada commit WIP (`bd87b54`, `c327d46`, `86f2293`) estuviera contenido en su commit integrado (`3b55fc4`, `80187d1`, `a4c027c`): los mismos archivos, más las correcciones de revisión, los e2e y las capturas.
   - Se borraron los worktrees `.claude/worktrees/wf_4b271193-2d2-{1,2,3}` y las ramas `worktree-wf_4b271193-2d2-{1,2,3}`.
   - Para terminar falta solo la entrega (`single-pr`): push de `feat/rediseno-cuaderno` y PR a `main`. Queda esperando la autorización del usuario.
+- L36 (2026-10-28) Entrega autorizada. Respuesta del usuario, textual:
+  > dale
+  - Push de `feat/rediseno-cuaderno` a `origin`: fast-forward de `02de86c` a `2b533ff`.
+  - PR abierto: https://github.com/luca884/Forge/pull/1. El repo no tiene CI.
+  - El merge no está autorizado: lo hace el usuario o lo pide.
