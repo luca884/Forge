@@ -81,6 +81,10 @@ Requisitos:
 Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implementar):
 - D1 (T13): ejercicios, series y repeticiones de cada plantilla, tomados del catálogo de 42 ejercicios.
 - D2 (T12), resuelta en L20: columnas `fecha, rutina, dia, ejercicio, serie, tipo, peso, unidad, reps, tiempo_s, distancia_km, pr`. Una fila por serie, solo de sesiones terminadas. `peso` va en la unidad preferida y `unidad` dice cuál es. Las celdas que no aplican al tipo de serie quedan vacías. La distancia va en km porque así se guarda (`DistanceTimeSet.distanceKm`).
+- D4 (T17), abierta: en los ejercicios con unidad "Placas (máquina)", ¿el número guardado es la cantidad de placas o kg? Hoy cada parte lo trata distinto:
+  - el editor del día lo pide como "Peso … kg";
+  - Sesión lo muestra como "N placas";
+  - Hoy, Resumen y Progreso lo tratan como kg y, con lb, lo convierten.
 - D3 (T10), resuelta en L16: entran "Descanso por defecto" (hoy es la constante `DEFAULT_REST_SECONDS = 90` en `src/app/features/training/ui/services/rest-timer.service.ts:8`; el descanso propio de cada ejercicio sigue mandando) y "Aviso al terminar el descanso" (switch para el beep y la notificación que hoy siempre se disparan). Las dos son preferencias del dispositivo en `localStorage`, sin tocar Dexie.
 
 ## Tasks
@@ -110,6 +114,12 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
   - Chequeo diferencial en scratch: la build de `081e4d3` escribe datos con su propia UI y la build nueva los muestra en el mismo origen.
   - Corregir lo que se haya perdido sin decisión del usuario.
   - Aceptación: S10 · Evidencia: — · Risk: none (verificación de solo lectura; si hay correcciones, se reevalúa)
+- [ ] T17 · S10 · ruta: delegada (Writer trigger: 3 unidades con superficies disjuntas, en paralelo, cada una en su worktree, Sonnet) · Correcciones de la auditoría de T16 según las decisiones de L22:
+  - Unidad A: Hoy y Resumen (`src/app/features/training/ui`).
+  - Unidad B: Rutinas (`src/app/features/routines/ui`).
+  - Unidad C: Progreso (`src/app/features/progress/ui`).
+  - Los hallazgos de placas esperan D4.
+  - Aceptación: cada hallazgo confirmado tiene su test RED→GREEN; `npm test`, `npm run e2e` y `npm run e2e:visual` verdes; capturas revisadas · Evidencia: — · Risk: item 6 (cambios visuales en varias pantallas)
 - [ ] T15 · S1–S10 · ruta: delegada (Verification trigger: items 4, 5 y 6 en T1, T4–T9, T11, T14) · Cierre: `npm test`, `npm run lint`, `npm run build`, `npm run e2e`, `npm run e2e:pwa` (fuentes offline), y un `odd-verifier` (opus) sobre toda la feature desde `081e4d3` · Aceptación: todo verde o un único **Needs your decision** · Evidencia: — · Risk: —
 
 ## Log
@@ -299,3 +309,48 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
   - Sin series: toast "Todavía no hay series para exportar." y no se descarga nada. Si falla: toast "No se pudo exportar el historial". El botón queda deshabilitado mientras exporta.
   - J13.4 siembra una sesión de hace 400 días y una abierta: cubre S5 y la parte de S10 que corresponde al CSV.
   - Próximo paso: revisar la auditoría de T16 cuando termine; después, el chequeo diferencial de actualización.
+- L22 (2026-10-28) Auditoría de T16 (workflow `wf_20f26eae-8cb`): 5 auditores y 5 verificadores adversariales, sin errores, con 185 entradas de inventario. Resultado:
+  - Persistencia igual: Dexie v3, 8 tablas e índices idénticos, sin `upgrade()`, repositorios y mappers sin cambios. Al actualizar no se pisa ni se borra ninguna fila. Nombre y avatar se conservan (L17).
+  - Datos que dejaron de verse, confirmados y sin decisión del usuario:
+    - la etiqueta del día de hoy en Hoy;
+    - la descripción de la rutina activa;
+    - las reps por ejercicio en Resumen;
+    - el mejor peso y las reps máximas del historial (ahora "Mejor serie" sale de la tabla de PR);
+    - el valor de cada punto del gráfico del historial;
+    - el valor exacto por semana en Progreso;
+    - que el historial muestra solo 10 sesiones: ya no se avisa.
+  - Bugs nuevos de la rama:
+    - la tira semanal marca el día siguiente para las sesiones de noche;
+    - volumen en kg fijo en Resumen y en el Diario;
+    - "NaN–NaN" o "undefined s" en Objetivo;
+    - el resumen de tiempo y distancia toma solo la primera serie;
+    - el descanso sugerido sigue en 90 aunque en Perfil se haya cambiado;
+    - siglas de días repetidas;
+    - la cantidad de sesiones por semana cuenta días borrados;
+    - el gráfico del historial queda en blanco después de pasar por un rango sin datos;
+    - el tooltip muestra una unidad que no corresponde al valor;
+    - "Récords personales" repite ejercicios y su "Mejor" no siempre es el mejor;
+    - el gráfico dice "Peso máx." pero tiene un punto por serie.
+  - Placas: cuatro hallazgos dependen de qué significa el número guardado, así que esperan D4 (entrenamiento F3 y M-1, progreso F5 y M-1).
+  - Correcciones de T17 (el id entre corchetes es el hallazgo de la auditoría):
+    - Unidad A, Hoy y Resumen:
+      - A1 [entrenamiento F1]: la tira decide "hecho" con la fecha local de `startedAt`, igual que el Diario y Constancia. No con `Session.date`, que se guarda en UTC. No cambia cómo se guarda.
+      - A2 [entrenamiento F2]: el volumen de Totales en Resumen y el del Diario pasan por `DisplayWeightPipe` con la unidad preferida. Llevan punto decimal y no llevan separador de miles.
+      - A3 [entrenamiento F4]: "Hoy toca" vuelve a mostrar "Nombre · Etiqueta" cuando el día tiene etiqueta.
+      - A4 [entrenamiento F5]: Hoy vuelve a mostrar la descripción de la rutina activa en una línea secundaria, si la tiene.
+      - A5 [entrenamiento F6]: Resumen vuelve a mostrar el total de reps de cada ejercicio en una línea secundaria debajo del nombre, en los ejercicios con reps.
+    - Unidad B, Rutinas:
+      - B1 [rutinas H1]: "Objetivo" ignora los valores vacíos o inválidos; si no queda ninguno, muestra "N series".
+      - B2 [rutinas H2]: en tiempo y distancia muestra el rango cuando las series difieren ("3 × 30–60 s").
+      - B3 [rutinas H3]: el placeholder del descanso usa `RestPreferencesService.defaultSeconds()`.
+      - B4 [rutinas H4]: las siglas son únicas dentro de cada rutina y se desambiguan siempre de la misma forma.
+      - B5 [rutinas H5]: "M sesiones por semana" cuenta solo los días que existen. No se tocan los datos.
+    - Unidad C, Progreso:
+      - C1 [progreso F1]: el gráfico del historial se vuelve a dibujar después de un rango vacío.
+      - C2 [progreso F2]: "Mejor serie" se calcula con las series registradas (más peso y, en empate, más reps), como en `081e4d3`. También vuelven las reps máximas, sin cortar el texto a 390 px.
+      - C3 [progreso F3]: cualquier punto del historial se consulta con un toque (interacción por índice o nearest, con radio amplio), sin cambiar el dibujo.
+      - C4 [progreso F4]: cada barra semanal se puede elegir (`aria-pressed`), arranca elegida la semana en curso, y una línea muestra "Semana del {d mmm}: {valor}".
+      - C5 [progreso F6]: el tooltip y las etiquetas usan la unidad preferida.
+      - C6 [progreso F7]: "Récords personales" muestra un ejercicio por fila con su mejor marca, ordenados por el récord más reciente, hasta 5. El botón del gráfico vuelve a decir "Peso", porque sigue habiendo un punto por serie.
+      - C7 [progreso M-2]: el Historial avisa "Últimas 10 de N" y tiene "Ver todas".
+  - Próximo paso: lanzar las tres unidades de T17. Cuando termine el chequeo diferencial, sumar sus hallazgos. Al final, preguntar D4.
