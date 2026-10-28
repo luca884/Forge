@@ -109,7 +109,9 @@ const SCREENS: readonly Screen[] = [
     name: 'perfil',
     open: async (page) => {
       await page.goto('/profile');
-      await expect(page.getByLabel('Nombre')).toHaveValue('Luca');
+      await expect(
+        page.getByRole('radiogroup', { name: 'Unidad de peso' }).getByRole('radio', { name: 'kg' }),
+      ).toHaveAttribute('aria-checked', 'true');
     },
   },
 ];

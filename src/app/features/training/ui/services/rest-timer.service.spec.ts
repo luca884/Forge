@@ -32,6 +32,7 @@ jest.mock('./rest-timer-worker.factory', () => ({
 }));
 
 import { RestTimerService } from './rest-timer.service';
+import { RestPreferencesService } from '@core/rest-preferences/rest-preferences.service';
 
 // ---------------------------------------------------------------------------
 // Stubs
@@ -323,6 +324,81 @@ describe('RestTimerService (Worker-based)', () => {
       eventBus.emit('WorkedSetLogged', makeEvent('ex-a'));
 
       expect(service.remaining()).toBe(30);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Rest preferences from Perfil (D3): "Descanso por defecto" and
+  // "Aviso al terminar el descanso"
+  // -------------------------------------------------------------------------
+  describe('rest preferences', () => {
+    const makeEvent = (exerciseId: string) => ({
+      name: 'WorkedSetLogged' as const,
+      occurredAt: new Date(),
+      sessionId: 'session-1',
+      workedSet: { id: 'set-1', exerciseId },
+    });
+
+    let preferences: RestPreferencesService;
+    let play: jest.SpyInstance;
+
+    beforeEach(() => {
+      localStorage.clear();
+      preferences = TestBed.inject(RestPreferencesService);
+      play = jest.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+    });
+
+    afterEach(() => {
+      play.mockRestore();
+      localStorage.clear();
+    });
+
+    it('uses the saved default rest when the exercise has no rest of its own', () => {
+      preferences.setDefaultSeconds(150);
+      service.setRestPlan(new Map([['ex-bench', 120]]));
+
+      eventBus.emit('WorkedSetLogged', makeEvent('ex-squat'));
+
+      expect(service.remaining()).toBe(150);
+    });
+
+    it('keeps the exercise rest over the saved default', () => {
+      preferences.setDefaultSeconds(150);
+      service.setRestPlan(new Map([['ex-bench', 120]]));
+
+      eventBus.emit('WorkedSetLogged', makeEvent('ex-bench'));
+
+      expect(service.remaining()).toBe(120);
+    });
+
+    it('does not start the timer when the saved default is 0 and the exercise has no rest', () => {
+      preferences.setDefaultSeconds(0);
+
+      eventBus.emit('WorkedSetLogged', makeEvent('ex-squat'));
+
+      expect(service.isRunning()).toBe(false);
+      expect(service.remaining()).toBeNull();
+    });
+
+    it('plays the sound and shows the notification on done when the alert is on', () => {
+      service.start(60);
+
+      MockWorker.instances[0]!.simulateMessage({ type: 'done' });
+
+      expect(notifService.showTimerDoneNotification).toHaveBeenCalledTimes(1);
+      expect(play).toHaveBeenCalledTimes(1);
+    });
+
+    it('stays silent on done when the alert is off, and still ends the timer', () => {
+      preferences.setAlertOnEnd(false);
+      service.start(60);
+
+      MockWorker.instances[0]!.simulateMessage({ type: 'done' });
+
+      expect(notifService.showTimerDoneNotification).not.toHaveBeenCalled();
+      expect(play).not.toHaveBeenCalled();
+      expect(service.isRunning()).toBe(false);
+      expect(service.remaining()).toBeNull();
     });
   });
 });

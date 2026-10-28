@@ -1,16 +1,16 @@
 import { Injectable, OnDestroy, inject, signal } from '@angular/core';
 import { EventBus } from '@core/shared/events/event-bus';
 import { NotificationPermissionService } from '@core/notifications/notification-permission.service';
+import { RestPreferencesService } from '@core/rest-preferences/rest-preferences.service';
 import { WorkedSetLoggedEvent } from '../../domain/events/worked-set-logged.event';
 import type { WorkerInboundMessage, WorkerOutboundMessage } from './rest-timer.helpers';
 import { createRestTimerWorker } from './rest-timer-worker.factory';
-
-export const DEFAULT_REST_SECONDS = 90;
 
 @Injectable()
 export class RestTimerService implements OnDestroy {
   private readonly eventBus = inject(EventBus);
   private readonly notificationService = inject(NotificationPermissionService);
+  private readonly restPreferences = inject(RestPreferencesService);
 
   readonly remaining = signal<number | null>(null);
   readonly isRunning = signal<boolean>(false);
@@ -21,7 +21,7 @@ export class RestTimerService implements OnDestroy {
 
   constructor() {
     this.eventBus.subscribe<WorkedSetLoggedEvent>('WorkedSetLogged', (event) => {
-      const seconds = this.restPlan.get(event.workedSet.exerciseId) ?? DEFAULT_REST_SECONDS;
+      const seconds = this.restPlan.get(event.workedSet.exerciseId) ?? this.restPreferences.defaultSeconds();
       // restSeconds = 0 means no rest for this exercise — do not start the timer.
       if (seconds === 0) return;
       this.start(seconds);
@@ -80,6 +80,7 @@ export class RestTimerService implements OnDestroy {
     } else if (msg.type === 'done') {
       this.remaining.set(null);
       this.isRunning.set(false);
+      if (!this.restPreferences.alertOnEnd()) return;
       this.notificationService.showTimerDoneNotification();
       this.playSound();
     }
