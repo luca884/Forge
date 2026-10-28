@@ -62,7 +62,7 @@ const TRACKING_TYPES: TrackingType[] = ['weight-reps', 'bodyweight-reps', 'time'
 
     <div class="px-4 pt-3 pb-6 flex flex-col gap-4">
       @if (isLoading()) {
-        <p class="t-body text-forge-400">Cargando...</p>
+        <p class="t-body text-ink-2">Cargando...</p>
       } @else {
         <fg-card>
           <form [formGroup]="exerciseForm" (ngSubmit)="onSubmit()" class="flex flex-col gap-4">
@@ -73,18 +73,18 @@ const TRACKING_TYPES: TrackingType[] = ['weight-reps', 'bodyweight-reps', 'time'
                 formControlName="name"
               ></fg-input>
               @if (exerciseForm.get('name')?.invalid && exerciseForm.get('name')?.touched) {
-                <span class="t-caption text-destructive">El nombre es requerido</span>
+                <span class="t-caption text-danger">El nombre es requerido</span>
               }
               @if (nameError()) {
-                <span class="t-caption text-destructive">{{ nameError() }}</span>
+                <span class="t-caption text-danger">{{ nameError() }}</span>
               }
             </div>
 
             <label class="flex flex-col gap-1.5">
-              <span class="t-caption text-forge-300">Grupo muscular</span>
+              <span class="t-caption text-ink-2">Grupo muscular</span>
               <select
                 formControlName="muscleGroup"
-                class="h-11 px-3 rounded-md bg-forge-900 border border-forge-700 text-forge-100 t-body outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+                class="h-11 px-3 rounded-[10px] bg-surface border border-line text-ink t-body outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
               >
                 @for (group of muscleGroups; track group) {
                   <option [value]="group">{{ muscleGroupLabel(group) }}</option>
@@ -93,10 +93,10 @@ const TRACKING_TYPES: TrackingType[] = ['weight-reps', 'bodyweight-reps', 'time'
             </label>
 
             <label class="flex flex-col gap-1.5">
-              <span class="t-caption text-forge-300">Tipo de seguimiento</span>
+              <span class="t-caption text-ink-2">Tipo de seguimiento</span>
               <select
                 formControlName="trackingType"
-                class="h-11 px-3 rounded-md bg-forge-900 border border-forge-700 text-forge-100 t-body outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+                class="h-11 px-3 rounded-[10px] bg-surface border border-line text-ink t-body outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
               >
                 @for (type of trackingTypes; track type) {
                   <option [value]="type">{{ trackingTypeLabel(type) }}</option>
@@ -106,10 +106,10 @@ const TRACKING_TYPES: TrackingType[] = ['weight-reps', 'bodyweight-reps', 'time'
 
             @if (exerciseForm.get('trackingType')?.value === 'weight-reps') {
               <label class="flex flex-col gap-1.5">
-                <span class="t-caption text-forge-300">Unidad de peso</span>
+                <span class="t-caption text-ink-2">Unidad de peso</span>
                 <select
                   formControlName="weightUnit"
-                  class="h-11 px-3 rounded-md bg-forge-900 border border-forge-700 text-forge-100 t-body outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+                  class="h-11 px-3 rounded-[10px] bg-surface border border-line text-ink t-body outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   @for (opt of weightUnitOptions; track opt.value) {
                     <option [value]="opt.value">{{ opt.label }}</option>
@@ -119,10 +119,10 @@ const TRACKING_TYPES: TrackingType[] = ['weight-reps', 'bodyweight-reps', 'time'
             }
 
             <label class="flex flex-col gap-1.5">
-              <span class="t-caption text-forge-300">Equipamiento (opcional)</span>
+              <span class="t-caption text-ink-2">Equipamiento (opcional)</span>
               <select
                 formControlName="equipment"
-                class="h-11 px-3 rounded-md bg-forge-900 border border-forge-700 text-forge-100 t-body outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+                class="h-11 px-3 rounded-[10px] bg-surface border border-line text-ink t-body outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent"
               >
                 <option value="">Sin equipamiento especificado</option>
                 @for (eq of equipmentOptions; track eq) {
@@ -159,7 +159,7 @@ const TRACKING_TYPES: TrackingType[] = ['weight-reps', 'bodyweight-reps', 'time'
         }
 
         @if (formError()) {
-          <p class="t-body-sm text-destructive" role="alert">{{ formError() }}</p>
+          <p class="t-body-sm text-danger" role="alert">{{ formError() }}</p>
         }
       }
     </div>

@@ -13,7 +13,7 @@ import { FgIconComponent } from '@core/shared/ui';
   imports: [FgIconComponent],
   template: `
     <div
-      class="h-11 w-11 shrink-0 rounded-md bg-forge-850 flex items-center justify-center"
+      class="h-11 w-11 shrink-0 rounded-[10px] bg-empty text-ink-2 flex items-center justify-center"
       [attr.aria-label]="name()"
     >
       <fg-icon name="dumbbell" [size]="20" />

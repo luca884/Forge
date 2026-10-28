@@ -173,6 +173,42 @@ test.describe('J4 — Pick exercise (full UI)', () => {
     // Validates ADR-40: exerciseName from GetTrainingDayWithExercisesUseCase view-model, NOT UUID
     await expect(page.getByText('Sentadilla', { exact: true })).toBeVisible();
   });
+
+  test('J4.4 — selección múltiple: contador, agrega los elegidos y el picker marca "En el día"', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await seedExercises(page, [
+      { id: 'ex-1', name: 'Sentadilla', muscleGroup: 'legs', trackingType: 'weight-reps', isCustom: false, createdAt: new Date(), updatedAt: new Date() },
+      { id: 'ex-2', name: 'Press de banca', muscleGroup: 'chest', trackingType: 'weight-reps', isCustom: false, createdAt: new Date(), updatedAt: new Date() },
+      { id: 'ex-3', name: 'Peso Muerto', muscleGroup: 'back', trackingType: 'weight-reps', isCustom: false, createdAt: new Date(), updatedAt: new Date() },
+    ]);
+    await seedRoutines(page, [
+      { id: 'r-1', name: 'Rutina test', isActive: true, schedule: null, createdAt: new Date(), updatedAt: new Date() },
+    ]);
+    await seedTrainingDays(page, [
+      { id: 'd-1', routineId: 'r-1', name: 'Día A', exercises: [], createdAt: new Date(), updatedAt: new Date() },
+    ]);
+
+    await page.goto('/routines/r-1/days/d-1/pick-exercise');
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.getByRole('heading', { name: 'Agregar a Día A' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Elegí ejercicios' })).toBeDisabled();
+
+    await page.getByRole('button', { name: 'Seleccionar Sentadilla' }).click();
+    await page.getByRole('button', { name: 'Seleccionar Press de banca' }).click();
+    await page.getByRole('button', { name: 'Agregar 2 ejercicios' }).click();
+
+    await expect(page).toHaveURL(/\/routines\/r-1\/days\/d-1$/);
+    await expect(page.getByText('Sentadilla', { exact: true })).toBeVisible();
+    await expect(page.getByText('Press de banca', { exact: true })).toBeVisible();
+
+    await page.getByRole('button', { name: /Agregar ejercicio/ }).click();
+    await expect(page).toHaveURL(/\/pick-exercise$/);
+    await expect(page.getByRole('button', { name: 'Sentadilla, en el día' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Press de banca, en el día' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Seleccionar Peso Muerto' })).toBeEnabled();
+  });
 });
 
 // ─── J5 — Weekly schedule ─────────────────────────────────────────────────────

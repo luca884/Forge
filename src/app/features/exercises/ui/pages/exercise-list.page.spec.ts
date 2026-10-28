@@ -13,7 +13,6 @@ import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-rec
 import { TrainingDayRepository } from '@features/routines/domain/training-day.repository';
 import { provideRouter } from '@angular/router';
 import { FgEmptyStateComponent, FgSkeletonComponent } from '@core/shared/ui';
-import { FgChipComponent } from '@core/shared/ui';
 
 const makeExercise = (overrides: Partial<Exercise> = {}): Exercise => ({
   id: 'ex-1',
@@ -351,6 +350,13 @@ describe('ExerciseListPage — muscle-group chips rendered (P3-4)', () => {
   let fixture: ComponentFixture<ExerciseListPage>;
   let component: ExerciseListPage;
 
+  const filters = (): HTMLButtonElement[] =>
+    Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>(
+        '[role="group"][aria-label="Filtrar por grupo muscular"] button[aria-pressed]',
+      ),
+    );
+
   beforeEach(async () => {
     const mocks = buildModuleWithMocks({});
     await setupTestBed(mocks);
@@ -361,30 +367,86 @@ describe('ExerciseListPage — muscle-group chips rendered (P3-4)', () => {
     fixture.detectChanges();
   });
 
-  it('renders at least 10 fg-chip elements (Todos + 9 muscle groups)', () => {
-    const chips = fixture.debugElement.queryAll(By.directive(FgChipComponent));
-    expect(chips.length).toBeGreaterThanOrEqual(10);
+  it('renders 10 keyboard-focusable filter buttons (Todos + 9 muscle groups)', () => {
+    expect(filters()).toHaveLength(10);
+    expect(filters().every((b) => b.tabIndex >= 0 && b.type === 'button')).toBe(true);
   });
 
-  it('"Todos" chip is active when muscleGroupFilter is undefined', () => {
-    const chips = fixture.debugElement.queryAll(By.directive(FgChipComponent));
-    const todosChip = chips[0];
-    expect((todosChip.componentInstance as FgChipComponent).active()).toBe(true);
+  it('"Todos" is pressed when muscleGroupFilter is undefined', () => {
+    expect(filters()[0]?.getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('the selected muscle-group chip becomes active after toggleMuscleGroup', () => {
+  it('the selected muscle-group button becomes pressed after toggleMuscleGroup', () => {
     component.toggleMuscleGroup('back');
     fixture.detectChanges();
 
-    const chips = fixture.debugElement.queryAll(By.directive(FgChipComponent));
-    // chips[0] = Todos, chips[1..N] = muscle groups in order
-    // 'back' is index 1 in MUSCLE_GROUPS array (chest=0, back=1)
-    const backChip = chips[2]; // index 0=Todos, 1=chest, 2=back
-    expect((backChip.componentInstance as FgChipComponent).active()).toBe(true);
+    // filters()[0] = Todos, [1] = chest, [2] = back
+    expect(filters()[2]?.getAttribute('aria-pressed')).toBe('true');
+    expect(filters()[0]?.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('clicking a filter button sets the muscle-group filter, clicking it again clears it', () => {
+    filters()[2]?.click();
+    expect(component.muscleGroupFilter()).toBe('back');
+    filters()[2]?.click();
+    expect(component.muscleGroupFilter()).toBeUndefined();
+    filters()[3]?.click();
+    filters()[0]?.click();
+    expect(component.muscleGroupFilter()).toBeUndefined();
   });
 });
 
-// F-2: seed race — first visit must reload after seeding so the catalog appears
+describe('ExerciseListPage — rows in the Cuaderno language', () => {
+  async function render(exercises: Exercise[]): Promise<ComponentFixture<ExerciseListPage>> {
+    const mocks = buildModuleWithMocks({ getExecute: jest.fn().mockResolvedValue(exercises) });
+    await setupTestBed(mocks);
+    const fixture = TestBed.createComponent(ExerciseListPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await Promise.resolve();
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  it('shows the section title with the count: "Todos · 2"', async () => {
+    const fixture = await render([
+      makeExercise({ id: 'ex-1', name: 'Bench Press' }),
+      makeExercise({ id: 'ex-2', name: 'Squat', muscleGroup: 'legs' }),
+    ]);
+
+    const title = (fixture.nativeElement as HTMLElement).querySelector('[data-group-title]');
+    expect(title?.textContent?.trim()).toBe('Todos · 2');
+  });
+
+  it('shows the meta line (group · equipment) and tags custom exercises as "Propio"', async () => {
+    const fixture = await render([
+      makeExercise({ id: 'ex-1', name: 'Hack squat', muscleGroup: 'legs', equipment: 'machine', isCustom: true }),
+      makeExercise({ id: 'ex-2', name: 'Sentadilla', muscleGroup: 'legs', isCustom: false }),
+    ]);
+
+    const rows = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('a[data-exercise-row]'));
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.textContent).toContain('Piernas · Máquina');
+    expect(rows[0]?.textContent).toContain('Propio');
+    expect(rows[1]?.textContent).not.toContain('Propio');
+  });
+
+  it('every row still opens the edit form of that exercise', async () => {
+    const fixture = await render([makeExercise({ id: 'ex-9', name: 'Remo' })]);
+
+    const row = (fixture.nativeElement as HTMLElement).querySelector('a[data-exercise-row]');
+    expect(row?.getAttribute('href')).toBe('/exercises/ex-9/edit');
+  });
+
+  it('the search field is a labelled type=search input', async () => {
+    const fixture = await render([]);
+
+    const input = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('input[type="search"]');
+    expect(input).toBeTruthy();
+    expect(input?.labels?.[0]?.textContent).toContain('Buscar ejercicio');
+  });
+});
+
 describe('ExerciseListPage — seed then reload (F-2 race fix)', () => {
   it('awaits the seed and reloads so the seeded catalog shows on first visit', async () => {
     // First load (constructor effect) sees an empty DB; after the seed runs,
