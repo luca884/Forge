@@ -7,24 +7,24 @@ export type ToastKind = 'info' | 'success' | 'error';
 interface ToastKindStyle {
   icon: IconName;
   iconClass: string;
-  ring: string;
+  border: string;
 }
 
 const KIND_MAP: Record<ToastKind, ToastKindStyle> = {
   info: {
     icon: 'info',
-    iconClass: 'text-forge-300',
-    ring: 'rgba(255,255,255,.08)',
+    iconClass: 'text-ink-2',
+    border: 'border-line',
   },
   success: {
     icon: 'check-circle',
-    iconClass: 'text-accent-300',
-    ring: 'rgb(var(--accent-rgb) / .32)',
+    iconClass: 'text-accent-ink',
+    border: 'border-accent/40',
   },
   error: {
     icon: 'info',
-    iconClass: 'text-destructive-500',
-    ring: 'rgba(209,69,69,.4)',
+    iconClass: 'text-danger',
+    border: 'border-danger/50',
   },
 };
 
@@ -40,16 +40,16 @@ const KIND_MAP: Record<ToastKind, ToastKindStyle> = {
       [class]="kindStyle().iconClass + ' mt-0.5'"
     />
     <div class="flex-1 min-w-0">
-      <div class="t-body font-semibold text-forge-100">{{ title() }}</div>
+      <div class="t-body font-semibold text-ink">{{ title() }}</div>
       @if (body()) {
-        <div class="t-body-sm text-forge-300 mt-0.5">{{ body() }}</div>
+        <div class="t-body-sm text-ink-2 mt-0.5">{{ body() }}</div>
       }
     </div>
     @if (action(); as a) {
       <button
         type="button"
         data-testid="action"
-        class="t-body-sm font-semibold text-accent-300 hover:text-accent-200 cursor-pointer bg-transparent border-0 p-0 flex-shrink-0 self-center"
+        class="t-body-sm font-semibold text-accent-ink cursor-pointer bg-transparent border-0 p-0 flex-shrink-0 self-center"
         (click)="actionClick.emit()"
       >
         {{ a.label }}
@@ -58,15 +58,15 @@ const KIND_MAP: Record<ToastKind, ToastKindStyle> = {
     <button
       type="button"
       aria-label="Cerrar"
-      class="text-forge-500 hover:text-forge-300 cursor-pointer bg-transparent border-0 p-0 flex-shrink-0"
+      class="text-ink-2 hover:text-ink cursor-pointer bg-transparent border-0 p-0 flex-shrink-0"
       (click)="dismiss.emit()"
     >
       <fg-icon name="x" [size]="16" />
     </button>
   `,
   host: {
-    class: 'flex gap-3 items-start max-w-[360px] bg-forge-850 rounded-lg px-3.5 py-3',
-    '[style.box-shadow]': '"inset 0 0 0 1px " + kindStyle().ring + ", 0 12px 32px rgba(0,0,0,.5)"',
+    '[class]': 'hostClasses()',
+    '[style.box-shadow]': '"0 12px 32px var(--color-shadow)"',
   },
 })
 export class FgToastComponent {
@@ -79,4 +79,9 @@ export class FgToastComponent {
   readonly actionClick = output<void>();
 
   readonly kindStyle = computed(() => KIND_MAP[this.kind()]);
+
+  // Lenguaje C: surface + borde de 1px (color según el tipo) + sombra del tema.
+  readonly hostClasses = computed(
+    () => `flex gap-3 items-start max-w-[360px] bg-surface border rounded-lg px-3.5 py-3 ${this.kindStyle().border}`,
+  );
 }

@@ -9,15 +9,14 @@ import { FgIconComponent, type IconName } from '../icon';
   template: `
     <div class="text-center px-6 py-10">
       <div
-        class="w-14 h-14 rounded-xl mx-auto mb-4 bg-forge-900
-               shadow-[inset_0_0_0_1px_rgba(255,255,255,.06)]
-               flex items-center justify-center text-forge-600"
+        class="w-14 h-14 rounded-xl mx-auto mb-4 bg-empty
+               flex items-center justify-center text-ink-2"
       >
         <fg-icon [name]="icon()" [size]="24" />
       </div>
-      <div class="t-h3 text-forge-100">{{ title() }}</div>
+      <div class="t-h3 text-ink">{{ title() }}</div>
       @if (body(); as b) {
-        <div class="t-body-sm text-forge-400 mt-1.5 max-w-[280px] mx-auto">{{ b }}</div>
+        <div class="t-body-sm text-ink-2 mt-1.5 max-w-[280px] mx-auto">{{ b }}</div>
       }
       <div class="mt-4">
         <ng-content select="[fgEmptyAction]" />

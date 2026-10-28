@@ -20,6 +20,8 @@ import { FgToastOutletComponent } from '@core/shared/ui';
   `,
   styles: `
     .app-layout {
+      background: rgb(var(--color-page));
+      color: rgb(var(--color-ink));
       display: flex;
       flex-direction: column;
       height: 100dvh;

@@ -13,11 +13,12 @@ interface NavTab {
   standalone: true,
   imports: [RouterLink, RouterLinkActive, FgIconComponent],
   template: `
-    <nav class="bottom-nav">
+    <nav class="bottom-nav" aria-label="Principal">
       @for (tab of tabs; track tab.route) {
         <a
           [routerLink]="tab.route"
           routerLinkActive="active"
+          ariaCurrentWhenActive="page"
           class="bottom-nav__tab"
           [attr.aria-label]="tab.label"
         >
@@ -27,41 +28,44 @@ interface NavTab {
       }
     </nav>
   `,
+  // Lenguaje C "Cuaderno": superficie con borde superior line; pestaña activa en
+  // accent-ink 600, inactivas en ink-2 500. Solo tokens, sin hex.
   styles: `
     .bottom-nav {
-      display: flex;
-      justify-content: space-around;
-      align-items: center;
-      background: rgb(var(--forge-900));
-      border-top: 1px solid rgb(var(--forge-800));
-      padding: 0.5rem 0;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      background: rgb(var(--color-surface));
+      border-top: 1px solid rgb(var(--color-line));
+      padding: 6px 8px max(18px, env(safe-area-inset-bottom));
     }
 
     .bottom-nav__tab {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 0.25rem;
-      padding: 0.25rem 0.5rem;
-      /* F-7: inactive icons were #888 on #1a1a1a — barely visible.
-         Tokenized + bumped to forge-300 (text secondary) so they read clearly. */
-      color: rgb(var(--forge-300));
+      justify-content: center;
+      gap: 3px;
+      min-height: 48px;
+      color: rgb(var(--color-ink-2));
+      font-size: 11px;
+      line-height: 14px;
+      font-weight: 500;
       text-decoration: none;
-      font-size: 0.75rem;
       transition: color 0.2s;
     }
 
     .bottom-nav__tab.active {
-      color: #e8ff8b;
+      color: rgb(var(--color-accent-ink));
+      font-weight: 600;
     }
   `,
 })
 export class BottomNavComponent {
   readonly tabs: NavTab[] = [
-    { label: 'Entrenar', route: '/training', icon: 'dumbbell' },
-    { label: 'Rutinas', route: '/routines', icon: 'calendar' },
-    { label: 'Ejercicios', route: '/exercises', icon: 'weight' },
-    { label: 'Progreso', route: '/progress', icon: 'trending' },
-    { label: 'Perfil', route: '/profile', icon: 'user' },
+    { label: 'Hoy', route: '/training', icon: 'clock' },
+    { label: 'Rutinas', route: '/routines', icon: 'list' },
+    { label: 'Ejercicios', route: '/exercises', icon: 'dumbbell' },
+    { label: 'Progreso', route: '/progress', icon: 'bars' },
+    { label: 'Perfil', route: '/profile', icon: 'person' },
   ];
 }

@@ -36,14 +36,18 @@ describe('FgButtonComponent', () => {
   });
 
   describe('variant input', () => {
-    it('variant=primary (default) aplica bg-accent-700', () => {
+    it('variant=primary (default) aplica bg-accent y text-accent-on', () => {
       create({ variant: 'primary' });
-      expect((fixture.nativeElement as HTMLElement).className).toContain('bg-accent-700');
+      const className = (fixture.nativeElement as HTMLElement).className;
+      expect(className).toMatch(/(^|\s)bg-accent(\s|$)/);
+      expect(className).toContain('text-accent-on');
     });
 
-    it('variant=secondary aplica bg-forge-850', () => {
+    it('variant=secondary aplica bg-surface con borde border-line', () => {
       create({ variant: 'secondary' });
-      expect((fixture.nativeElement as HTMLElement).className).toContain('bg-forge-850');
+      const className = (fixture.nativeElement as HTMLElement).className;
+      expect(className).toContain('bg-surface');
+      expect(className).toContain('border-line');
     });
 
     it('variant=ghost aplica bg-transparent', () => {
@@ -51,16 +55,17 @@ describe('FgButtonComponent', () => {
       expect((fixture.nativeElement as HTMLElement).className).toContain('bg-transparent');
     });
 
-    it('variant=destructive aplica clases destructive', () => {
+    it('variant=destructive aplica text-danger', () => {
       create({ variant: 'destructive' });
       const className = (fixture.nativeElement as HTMLElement).className;
-      expect(className).toMatch(/destructive/);
+      expect(className).toContain('text-danger');
     });
 
-    it('variant=accent_soft aplica clases accent_soft', () => {
+    it('variant=accent_soft aplica bg-accent-soft y text-accent-ink', () => {
       create({ variant: 'accent_soft' });
       const className = (fixture.nativeElement as HTMLElement).className;
-      expect(className).toMatch(/accent/);
+      expect(className).toContain('bg-accent-soft');
+      expect(className).toContain('text-accent-ink');
     });
   });
 
@@ -184,7 +189,7 @@ describe('FgButtonComponent', () => {
       hostFixture.detectChanges();
       const btn = (hostFixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('button')!;
       expect(btn.className).toContain('custom-extra');
-      expect(btn.className).toContain('bg-accent-700');
+      expect(btn.className).toMatch(/(^|\s)bg-accent(\s|$)/);
     });
   });
 
@@ -200,8 +205,8 @@ describe('FgButtonComponent', () => {
       const hostFixture = TestBed.createComponent(HostComponent);
       hostFixture.detectChanges();
       const anchor = (hostFixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('a')!;
-      expect(anchor.className).toContain('bg-accent-700');
-      expect(anchor.className).toContain('rounded-md');
+      expect(anchor.className).toMatch(/(^|\s)bg-accent(\s|$)/);
+      expect(anchor.className).toContain('rounded-[10px]');
     });
   });
 });

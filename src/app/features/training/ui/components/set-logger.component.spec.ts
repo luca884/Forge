@@ -102,8 +102,8 @@ describe('SetLoggerComponent', () => {
     // The button host has Tailwind classes from VARIANT_CLASSES['accent_soft']
     const btn = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('button[fg-button]');
     expect(btn).toBeTruthy();
-    // accent_soft variant applies bg-accent-500/12 class
-    expect(btn!.className).toContain('bg-accent-500/12');
+    // accent_soft variant applies the semantic bg-accent-soft class
+    expect(btn!.className).toContain('bg-accent-soft');
   });
 
   it('weight-reps usa input numérico de peso (no steppers) y actualiza weightKg al tipear', () => {

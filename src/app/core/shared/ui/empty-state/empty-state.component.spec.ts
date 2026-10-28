@@ -47,6 +47,18 @@ describe('FgEmptyStateComponent', () => {
     });
   });
 
+  describe('lenguaje C', () => {
+    it('el recuadro del ícono usa bg-empty y text-ink-2; el título usa text-ink', () => {
+      create({ title: 'Sin rutinas', body: 'Agregá una' });
+      const el = fixture.nativeElement as HTMLElement;
+      const tile = fixture.debugElement.query(By.css('fg-icon')).nativeElement.parentElement as HTMLElement;
+      expect(tile.className).toContain('bg-empty');
+      expect(tile.className).toContain('text-ink-2');
+      expect(el.querySelector('.t-h3')?.className).toContain('text-ink');
+      expect(el.querySelector('.t-body-sm')?.className).toContain('text-ink-2');
+    });
+  });
+
   describe('title input (required)', () => {
     it('renderiza el título en el DOM', () => {
       create({ title: 'No hay rutinas' });

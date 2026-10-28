@@ -26,17 +26,20 @@ describe('FgChipComponent', () => {
   });
 
   describe('active input', () => {
-    it('active=false (default) aplica clases neutrales con bg-forge-850', () => {
+    it('active=false (default) aplica bg-surface con border-line y text-ink-2', () => {
       create({ active: false });
       const className = (fixture.nativeElement as HTMLElement).className;
-      expect(className).toContain('bg-forge-850');
+      expect(className).toContain('bg-surface');
+      expect(className).toContain('border-line');
+      expect(className).toContain('text-ink-2');
     });
 
-    it('active=true aplica clases accent con rgba', () => {
+    it('active=true aplica bg-accent-soft con border-accent y text-accent-ink', () => {
       create({ active: true });
       const className = (fixture.nativeElement as HTMLElement).className;
-      // Verifica algún indicador de accent activo
-      expect(className).toMatch(/accent|rgba.*accent/i);
+      expect(className).toContain('bg-accent-soft');
+      expect(className).toContain('border-accent');
+      expect(className).toContain('text-accent-ink');
     });
   });
 

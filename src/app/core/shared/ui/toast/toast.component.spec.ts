@@ -38,10 +38,10 @@ describe('FgToastComponent', () => {
       expect((mainIcon.componentInstance as { name: () => string }).name()).toBe('info');
     });
 
-    it('aplica tint text-forge-300 al icono principal', () => {
+    it('aplica tint text-ink-2 al icono principal', () => {
       create({ kind: 'info' });
       const mainIcon = fixture.debugElement.queryAll(By.css('fg-icon'))[0]!;
-      expect((mainIcon.nativeElement as HTMLElement).className).toContain('text-forge-300');
+      expect((mainIcon.nativeElement as HTMLElement).className).toContain('text-ink-2');
     });
   });
 
@@ -52,10 +52,10 @@ describe('FgToastComponent', () => {
       expect((mainIcon.componentInstance as { name: () => string }).name()).toBe('check-circle');
     });
 
-    it('aplica tint accent al icono principal', () => {
+    it('aplica tint text-accent-ink al icono principal', () => {
       create({ kind: 'success' });
       const mainIcon = fixture.debugElement.queryAll(By.css('fg-icon'))[0]!;
-      expect((mainIcon.nativeElement as HTMLElement).className).toMatch(/accent/);
+      expect((mainIcon.nativeElement as HTMLElement).className).toContain('text-accent-ink');
     });
   });
 
@@ -66,10 +66,10 @@ describe('FgToastComponent', () => {
       expect((mainIcon.componentInstance as { name: () => string }).name()).toBe('info');
     });
 
-    it('aplica tint destructive al icono principal', () => {
+    it('aplica tint text-danger al icono principal', () => {
       create({ kind: 'error' });
       const mainIcon = fixture.debugElement.queryAll(By.css('fg-icon'))[0]!;
-      expect((mainIcon.nativeElement as HTMLElement).className).toMatch(/destructive/);
+      expect((mainIcon.nativeElement as HTMLElement).className).toContain('text-danger');
     });
   });
 

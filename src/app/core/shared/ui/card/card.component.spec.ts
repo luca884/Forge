@@ -38,27 +38,25 @@ describe('FgCardComponent', () => {
   });
 
   describe('raised', () => {
-    it('raised=true (default) aplica clase de ring/shadow inset', () => {
+    it('raised=true (default) aplica el borde de 1px border-line del lenguaje C', () => {
       create();
       const className = (fixture.nativeElement as HTMLElement).className;
-      // El shadow-[inset...] usa ring via shadow o clase shadow-[inset...]
-      // El design usa shadow-[inset_0_0_0_1px_rgba(255,255,255,.05)]
-      // Verificamos alguna de las posibles representaciones
-      expect(className).toMatch(/ring-1|shadow-\[inset/);
+      expect(className).toContain('border-line');
+      expect(className).not.toMatch(/shadow-/);
     });
 
-    it('raised=false no aplica clase de ring/shadow inset', () => {
+    it('raised=false no aplica borde', () => {
       create({ raised: false });
       const className = (fixture.nativeElement as HTMLElement).className;
-      expect(className).not.toMatch(/ring-1|shadow-\[inset/);
+      expect(className).not.toContain('border-line');
     });
   });
 
   describe('host classes base', () => {
-    it('aplica bg-forge-900 y rounded-lg en el host', () => {
+    it('aplica bg-surface y rounded-lg en el host', () => {
       create();
       const className = (fixture.nativeElement as HTMLElement).className;
-      expect(className).toContain('bg-forge-900');
+      expect(className).toContain('bg-surface');
       expect(className).toContain('rounded-lg');
     });
   });

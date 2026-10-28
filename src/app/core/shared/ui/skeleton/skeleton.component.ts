@@ -16,9 +16,9 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
     :host.fg-skeleton {
       background: linear-gradient(
         90deg,
-        rgb(var(--forge-850)) 0%,
-        rgb(var(--forge-800)) 50%,
-        rgb(var(--forge-850)) 100%
+        rgb(var(--color-empty)) 0%,
+        rgb(var(--color-line-soft)) 50%,
+        rgb(var(--color-empty)) 100%
       );
       background-size: 200% 100%;
       animation: forge-shimmer 1.6s ease-in-out infinite;

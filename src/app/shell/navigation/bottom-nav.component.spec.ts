@@ -1,8 +1,12 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { RouterTestingModule } from '@angular/router/testing';
 import { By } from '@angular/platform-browser';
-import { DebugElement } from '@angular/core';
+import { Component, DebugElement } from '@angular/core';
+import { Router, provideRouter } from '@angular/router';
 import { BottomNavComponent } from './bottom-nav.component';
+
+@Component({ standalone: true, template: '' })
+class BlankPage {}
 
 describe('BottomNavComponent', () => {
   let fixture: ComponentFixture<BottomNavComponent>;
@@ -75,5 +79,57 @@ describe('BottomNavComponent', () => {
     tabs.forEach((tab) => {
       expect(tab.query(By.css('fg-icon'))).toBeTruthy();
     });
+  });
+
+  it('las etiquetas son Hoy, Rutinas, Ejercicios, Progreso y Perfil (L9)', () => {
+    const labels = getTabs().map((tab) =>
+      (tab.query(By.css('.bottom-nav__label')).nativeElement as HTMLElement).textContent?.trim(),
+    );
+    expect(labels).toEqual(['Hoy', 'Rutinas', 'Ejercicios', 'Progreso', 'Perfil']);
+  });
+
+  it('cada tab usa el ícono del canvas C (Ejercicios conserva uno del catálogo)', () => {
+    const names = getTabs().map(
+      (tab) => (tab.query(By.css('fg-icon')).componentInstance as { name: () => string }).name(),
+    );
+    expect(names).toEqual(['clock', 'list', 'dumbbell', 'bars', 'person']);
+  });
+
+  it('los íconos miden 22px', () => {
+    getTabs().forEach((tab) => {
+      const icon = tab.query(By.css('fg-icon')).componentInstance as { size: () => number };
+      expect(icon.size()).toBe(22);
+    });
+  });
+});
+
+describe('BottomNavComponent · pestaña activa', () => {
+  let fixture: ComponentFixture<BottomNavComponent>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [BottomNavComponent],
+      providers: [
+        provideRouter([
+          { path: 'training', component: BlankPage },
+          { path: 'routines', component: BlankPage },
+          { path: 'exercises', component: BlankPage },
+          { path: 'progress', component: BlankPage },
+          { path: 'profile', component: BlankPage },
+        ]),
+      ],
+    }).compileComponents();
+    fixture = TestBed.createComponent(BottomNavComponent);
+    fixture.detectChanges();
+  });
+
+  it('marca solo la pestaña de la ruta actual con aria-current="page"', async () => {
+    await TestBed.inject(Router).navigateByUrl('/routines');
+    fixture.detectChanges();
+    const tabs = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLAnchorElement>('a.bottom-nav__tab'),
+    );
+    expect(tabs.map((t) => t.getAttribute('aria-current'))).toEqual([null, 'page', null, null, null]);
+    expect(tabs[1]!.classList.contains('active')).toBe(true);
   });
 });
