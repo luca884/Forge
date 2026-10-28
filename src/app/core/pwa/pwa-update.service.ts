@@ -38,7 +38,7 @@ export class PwaUpdateService {
       body: 'Actualizá para usar la última versión.',
       kind: 'info',
       duration: 0,
-      action: { label: 'Actualizar', handler: () => this.applyUpdate() },
+      action: { label: 'Actualizar', handler: () => void this.applyUpdate() },
     });
   }
 

@@ -103,7 +103,7 @@ describe('SeedExercisesUseCase', () => {
     const all = await repo.getAll();
     const groups = new Set(all.map((e) => e.muscleGroup));
 
-    const expected: ReadonlyArray<Exercise['muscleGroup']> = [
+    const expected: readonly Exercise['muscleGroup'][] = [
       'chest', 'back', 'shoulders', 'biceps', 'triceps',
       'legs', 'glutes', 'core', 'full-body',
     ];

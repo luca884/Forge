@@ -231,7 +231,7 @@ describe('CancelSessionUseCase', () => {
       callOrder.push('prs');
       prRepo.records = prRepo.records.filter(r => !ids.has(r.workedSetId));
     });
-    jest.spyOn(sessionRepo, 'deleteSetsBySessionId').mockImplementation(async (sId) => {
+    jest.spyOn(sessionRepo, 'deleteSetsBySessionId').mockImplementation(async (_sId) => {
       callOrder.push('sets');
       return [];
     });
