@@ -92,6 +92,7 @@ const SCREENS: readonly Screen[] = [
     name: 'progreso',
     open: async (page) => {
       await page.goto('/progress');
+      await expect(page.getByRole('heading', { name: 'Récords personales' })).toBeVisible();
       await expect(page.getByText('Sentadilla').first()).toBeVisible();
     },
   },
@@ -99,9 +100,9 @@ const SCREENS: readonly Screen[] = [
     name: 'historial-ejercicio',
     open: async (page) => {
       await page.goto('/progress/exercise/ex-sentadilla');
-      await expect(page.getByRole('heading', { name: 'Historial' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Sentadilla' })).toBeVisible();
       await expect(page.locator('fg-exercise-history-chart canvas')).toBeVisible();
-      await expect(page.getByText('ÚLTIMOS SETS')).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Historial' })).toBeVisible();
     },
   },
   {

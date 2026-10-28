@@ -3,8 +3,11 @@
  * TDD strict — RED before redesign implementation.
  * Covers V-D2-Spec-1 through V-D2-Spec-7 + navigation per spec.
  */
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ProgressHomePage } from './progress-home.page';
+import { UserPreferencesService } from '@core/profile/user-preferences.service';
+import type { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
 import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-record.repository';
 import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
 import { Router } from '@angular/router';
@@ -60,13 +63,18 @@ const mockSessionRepo = {
 describe('ProgressHomePage', () => {
   let fixture: ComponentFixture<ProgressHomePage>;
   let navigateSpy: jest.Mock;
+  let unitSignal: ReturnType<typeof signal<PreferredUnit>>;
+  let loadOnceSpy: jest.Mock;
 
   beforeEach(async () => {
     navigateSpy = jest.fn().mockResolvedValue(true);
+    unitSignal = signal<PreferredUnit>('kg');
+    loadOnceSpy = jest.fn().mockResolvedValue(undefined);
 
     await TestBed.configureTestingModule({
       imports: [ProgressHomePage],
       providers: [
+        { provide: UserPreferencesService, useValue: { unit: unitSignal, loadOnce: loadOnceSpy } },
         {
           provide: PersonalRecordRepository,
           useValue: {
@@ -99,7 +107,8 @@ describe('ProgressHomePage', () => {
     fixture = TestBed.createComponent(ProgressHomePage);
     fixture.detectChanges();
     await fixture.whenStable();
-    await Promise.resolve();
+    // init() awaits six use cases in parallel: let every continuation run.
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
     fixture.detectChanges();
   }
 
@@ -115,14 +124,17 @@ describe('ProgressHomePage', () => {
     expect(sessRepo.getAllSessions).toHaveBeenCalled();
   });
 
-  // V-D2-Spec-2: renders fg-page-header with title="Progreso"
-  it('renders <fg-page-header> with title="Progreso"', async () => {
+  // V-D2-Spec-2: Cuaderno header — an h1 "Progreso" (no fg-page-header)
+  it('renders an h1 "Progreso" in its own Cuaderno header', async () => {
     await init();
     const el = fixture.nativeElement as HTMLElement;
-    const header = el.querySelector('fg-page-header');
-    expect(header).toBeTruthy();
-    // title is passed as input — check text content of rendered title
-    expect(el.textContent).toContain('Progreso');
+    expect(el.querySelector('h1')?.textContent?.trim()).toBe('Progreso');
+    expect(el.querySelector('fg-page-header')).toBeNull();
+  });
+
+  it('loads the preferred unit on init', async () => {
+    await init();
+    expect(loadOnceSpy).toHaveBeenCalled();
   });
 
   // V-D2-Spec-3: renders non-undefined headerSubtitle() when PRs > 0
@@ -130,19 +142,27 @@ describe('ProgressHomePage', () => {
     await init();
     const el = fixture.nativeElement as HTMLElement;
     // subtitle should contain PR count info
-    expect(el.textContent).toMatch(/PR/);
+    expect(el.textContent).toMatch(/1 PR · \d+ esta semana/);
   });
 
-  // V-D2-Spec-4: renders fg-session-heatmap inside fg-card with label "ÚLTIMAS 12 SEMANAS"
-  it('renders <fg-session-heatmap> nested inside <fg-card> with label ÚLTIMAS 12 SEMANAS', async () => {
+  // V-D2-Spec-4: the heatmap lives in a card titled "Constancia" with the session total
+  it('renders <fg-session-heatmap> nested inside <fg-card> under the "Constancia" heading', async () => {
     await init();
     const el = fixture.nativeElement as HTMLElement;
     const heatmap = el.querySelector('fg-session-heatmap');
     expect(heatmap).toBeTruthy();
-    expect(el.textContent).toContain('ÚLTIMAS 12 SEMANAS');
-    // heatmap should be inside a fg-card
+    const heading = Array.from(el.querySelectorAll('h2')).find((h) => h.textContent?.trim() === 'Constancia');
+    expect(heading).toBeTruthy();
     const card = heatmap?.closest('fg-card');
     expect(card).toBeTruthy();
+    expect(card?.contains(heading!)).toBe(true);
+  });
+
+  it('shows how many sessions the heatmap holds', async () => {
+    await init();
+    fixture.componentInstance.heatmapData.set(new Map([['2026-10-01', 2], ['2026-10-03', 1]]));
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('3 sesiones');
   });
 
   it('renders dashboard overview, weekly trend and exercise progress sections', async () => {
@@ -152,9 +172,8 @@ describe('ProgressHomePage', () => {
     expect(el.querySelector('fg-dashboard-overview')).toBeTruthy();
     expect(el.querySelector('fg-weekly-trend-chart')).toBeTruthy();
     expect(el.querySelector('fg-exercise-progress-list')).toBeTruthy();
-    expect(el.textContent).toContain('ÚLTIMOS 30 DÍAS');
-    expect(el.textContent).toContain('VOLUMEN SEMANAL');
-    expect(el.textContent).toContain('PROGRESO POR EJERCICIO');
+    const headings = Array.from(el.querySelectorAll('h2')).map((h) => h.textContent?.trim());
+    expect(headings).toEqual(expect.arrayContaining(['Últimos 30 días', 'Progreso por ejercicio']));
   });
 
   // V-D2-Spec-5: renders 2 stat fg-card tiles with totalPRs() and prsThisWeek() values
@@ -197,21 +216,62 @@ describe('ProgressHomePage', () => {
   });
 
   // V-D2-Spec-7: click on PR row navigates to /progress/exercise/:id
-  it('navigates to /progress/exercise/:id when PR row is clicked', async () => {
+  it('navigates to /progress/exercise/:id when a PR row is clicked', async () => {
     await init();
     const el = fixture.nativeElement as HTMLElement;
-    // PR row should be a button or clickable element
-    const prRow = el.querySelector<HTMLButtonElement>('[data-testid="pr-row"], button.pr-row, button[class*="pr"]') ??
-      el.querySelector<HTMLButtonElement>('fg-card button');
-    if (prRow) {
-      prRow.click();
+    const row = el.querySelector<HTMLButtonElement>('[data-testid="pr-row"]');
+    expect(row).toBeTruthy();
+    row!.click();
+    expect(navigateSpy).toHaveBeenCalledWith(['/progress/exercise', 'ex-1']);
+  });
+
+  // ── Récords personales table (C-Progress) ──────────────────────────────────
+  describe('récords personales', () => {
+    it('is titled "Récords personales" and has Ejercicio / Mejor / 1RM columns', async () => {
+      await init();
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).toContain('Récords personales');
+      expect(text).toContain('Ejercicio');
+      expect(text).toContain('Mejor');
+      expect(text).toContain('1RM');
+    });
+
+    it('lists the exercise, the best set and the estimated 1RM, in kg by default', async () => {
+      await init();
+      const row = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="pr-row"]')!;
+      expect(row.textContent).toContain('Sentadilla');
+      expect(row.textContent).toContain('100 kg × 5');
+      // Epley: 100 × (1 + 5/30) ≈ 116.7
+      expect(row.textContent).toMatch(/116\.\d+ kg/);
+    });
+
+    it('shows weights in lb when the preferred unit is lb (no fixed "kg")', async () => {
+      unitSignal.set('lb');
+      await init();
+      const row = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="pr-row"]')!;
+      expect(row.textContent).toContain('220.5 lb × 5');
+      expect(row.textContent).not.toContain('kg');
+    });
+
+    it('offers "Ver todos" with a single PR and navigates to /progress/prs', async () => {
+      await init();
+      const btn = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('Ver todos'),
+      );
+      expect(btn).toBeTruthy();
+      btn!.click();
+      expect(navigateSpy).toHaveBeenCalledWith(['/progress/prs']);
+    });
+
+    it('offers "Ver los N" when there are several PRs', async () => {
+      await init();
+      fixture.componentInstance.allPRs.set([mockPR, { ...mockPR, id: 'pr-2' }, { ...mockPR, id: 'pr-3' }]);
       fixture.detectChanges();
-      expect(navigateSpy).toHaveBeenCalledWith(['/progress/exercise', 'ex-1']);
-    } else {
-      // fallback: call navigateToExercise directly
-      fixture.componentInstance.navigateToExercise('ex-1');
-      expect(navigateSpy).toHaveBeenCalledWith(['/progress/exercise', 'ex-1']);
-    }
+      const btn = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('Ver los 3'),
+      );
+      expect(btn).toBeTruthy();
+    });
   });
 
   // P3-3: toast.error shown when init() fails
@@ -228,23 +288,5 @@ describe('ProgressHomePage', () => {
     await Promise.resolve();
 
     expect(errorSpy).toHaveBeenCalledWith('No se pudo cargar el progreso', 'Intentá de nuevo');
-  });
-
-  // V-D2-Spec-8: click on "Ver todos los PRs" button navigates to /progress/prs
-  it('navigates to /progress/prs when "Ver todos los PRs" button is clicked', async () => {
-    await init();
-    const el = fixture.nativeElement as HTMLElement;
-    // Find the "Ver todos los PRs" button
-    const allBtns = Array.from(el.querySelectorAll('button'));
-    const verTodosBtn = allBtns.find(btn => btn.textContent?.includes('Ver todos'));
-    if (verTodosBtn) {
-      verTodosBtn.click();
-      fixture.detectChanges();
-      expect(navigateSpy).toHaveBeenCalledWith(['/progress/prs']);
-    } else {
-      // fallback: call method directly
-      fixture.componentInstance.navigateToPRList();
-      expect(navigateSpy).toHaveBeenCalledWith(['/progress/prs']);
-    }
   });
 });

@@ -5,8 +5,9 @@
  * Tooltip on hover/tap shows date + count. No navigation (OQ-spec-3).
  * CC-26: No injected repositories or use cases.
  *
- * R15: Uses rgb(var(--accent-rgb) / alpha) for count>0 cells (no bg-green-*).
- *      count=0 cells use ring-zero class (bg-forge-850 + inset ring).
+ * R15: Uses rgb(var(--color-accent) / alpha) for count>0 cells (no bg-green-*).
+ *      count=0 cells use ring-zero class (the `empty` token of the Cuaderno system).
+ * Layout: one column per week, seven rows per column, oldest week on the left.
  */
 import { Component, computed, input } from '@angular/core';
 
@@ -34,15 +35,16 @@ export interface HeatmapCell {
         }
       </div>
       <div class="heatmap__footer">
-        <span class="t-caption text-forge-500">hace 12 semanas</span>
+        <span class="text-[11px] leading-[14px] text-ink-2">hace 12 semanas</span>
         <div class="heatmap__legend">
-          <span class="t-caption text-forge-500">menos</span>
+          <span class="text-[11px] leading-[14px] text-ink-2">menos</span>
+          <div class="heatmap__legend-swatch ring-zero"></div>
           @for (a of legendAlphas; track a) {
             <div class="heatmap__legend-swatch" [style.background]="legendBg(a)"></div>
           }
-          <span class="t-caption text-forge-500">más</span>
+          <span class="text-[11px] leading-[14px] text-ink-2">más</span>
         </div>
-        <span class="t-caption text-forge-500">hoy</span>
+        <span class="text-[11px] leading-[14px] text-ink-2">hoy</span>
       </div>
     </div>
   `,
@@ -55,19 +57,17 @@ export interface HeatmapCell {
     }
     .heatmap__grid {
       display: grid;
-      grid-template-columns: repeat(12, 1fr);
-      grid-auto-rows: 1fr;
+      grid-auto-flow: column;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      grid-template-rows: repeat(7, 14px);
       gap: 3px;
     }
     .heatmap__cell {
-      width: 16px;
-      height: 16px;
       border-radius: 3px;
       cursor: default;
     }
-    .heatmap__cell.ring-zero {
-      background: rgb(var(--forge-850));
-      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    .ring-zero {
+      background: rgb(var(--color-empty));
     }
     .heatmap__footer {
       display: flex;
@@ -80,8 +80,8 @@ export interface HeatmapCell {
       gap: 4px;
     }
     .heatmap__legend-swatch {
-      width: 10px;
-      height: 10px;
+      width: 8px;
+      height: 8px;
       border-radius: 2px;
     }
   `,
@@ -89,7 +89,7 @@ export interface HeatmapCell {
 export class SessionHeatmapComponent {
   readonly heatmapData = input<Map<string, number>>(new Map());
 
-  readonly legendAlphas = [0.15, 0.4, 0.65, 1] as const;
+  readonly legendAlphas = [0.3, 0.6, 1] as const;
 
   private readonly maxCount = computed<number>(() => {
     let max = 1;
@@ -123,17 +123,17 @@ export class SessionHeatmapComponent {
   /**
    * Returns the inline background style for a cell.
    * count=0 → undefined (CSS .ring-zero class handles styling).
-   * count>0 → rgb(var(--accent-rgb) / alpha) with alpha = 0.18 + (intensity * 0.82).
+   * count>0 → rgb(var(--color-accent) / alpha) with alpha = 0.18 + (intensity * 0.82).
    */
   cellBg(count: number): string | undefined {
     if (count === 0) return undefined;
     const intensity = count / this.maxCount();
     const alpha = 0.18 + intensity * 0.82;
-    return `rgb(var(--accent-rgb) / ${alpha.toFixed(2)})`;
+    return `rgb(var(--color-accent) / ${alpha.toFixed(2)})`;
   }
 
   legendBg(alpha: number): string {
-    return `rgb(var(--accent-rgb) / ${alpha})`;
+    return `rgb(var(--color-accent) / ${alpha})`;
   }
 
   tooltip(cell: HeatmapCell): string {

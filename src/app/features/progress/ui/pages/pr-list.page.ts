@@ -1,6 +1,6 @@
 /**
- * PRListPage — /progress/prs (D-28, D-2 redesign).
- * Full list of all PRs, with filter chips Todos/Recientes-30d.
+ * PRListPage — /progress/prs (D-28, D-2 redesign, Cuaderno language).
+ * Full list of all PRs, with filters Todos/Recientes-30d.
  * Click a PR → /progress/exercise/:exerciseId.
  */
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
@@ -13,9 +13,7 @@ import { formatTrackingValue } from '../helpers/format-tracking-value';
 import { muscleGroupLabel } from '../helpers/muscle-group-label';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import {
-  FgPageHeaderComponent,
   FgCardComponent,
-  FgChipComponent,
   FgIconComponent,
   FgSkeletonComponent,
   FgEmptyStateComponent,
@@ -28,27 +26,45 @@ type PRFilter = 'all' | 'recent-30d';
   selector: 'fg-pr-list-page',
   standalone: true,
   imports: [
-    FgPageHeaderComponent,
     FgCardComponent,
-    FgChipComponent,
     FgIconComponent,
     FgSkeletonComponent,
     FgEmptyStateComponent,
   ],
   providers: [GetAllPersonalRecordsUseCase, GetExercisesMapUseCase],
   template: `
-    <fg-page-header
-      title="Records personales"
-      [subtitle]="headerSubtitle()"
-      leadingIcon="chevron-left"
-      (leadingClick)="goBack()"
-    ></fg-page-header>
+    <section class="bg-page text-ink flex flex-col gap-3 px-4 pt-1 pb-6">
+      <button
+        type="button"
+        aria-label="Volver"
+        class="self-start -ml-2 h-11 px-2 flex items-center gap-0.5 text-[15px] font-medium text-ink"
+        (click)="goBack()"
+      >
+        <fg-icon name="chevron-left" [size]="20"></fg-icon>
+        <span>Progreso</span>
+      </button>
 
-    <div class="px-4 pt-3 pb-6 flex flex-col gap-3">
-      <!-- Filter chips -->
-      <div class="flex gap-1.5">
-        <fg-chip [active]="activeFilter() === 'all'" (tap)="setFilter('all')">Todos</fg-chip>
-        <fg-chip [active]="activeFilter() === 'recent-30d'" (tap)="setFilter('recent-30d')">Recientes</fg-chip>
+      <header class="flex flex-col gap-0.5">
+        @if (headerSubtitle(); as subtitle) {
+          <span class="text-[13px] leading-[18px] font-medium text-ink-2">{{ subtitle }}</span>
+        }
+        <h1 class="text-[30px] leading-9 font-bold tracking-[-0.03em] text-ink">Records personales</h1>
+      </header>
+
+      <!-- Filters -->
+      <div role="group" aria-label="Filtro" class="flex gap-0.5">
+        <button
+          type="button"
+          [class]="filterClass('all')"
+          [attr.aria-pressed]="activeFilter() === 'all'"
+          (click)="setFilter('all')"
+        >Todos</button>
+        <button
+          type="button"
+          [class]="filterClass('recent-30d')"
+          [attr.aria-pressed]="activeFilter() === 'recent-30d'"
+          (click)="setFilter('recent-30d')"
+        >Recientes</button>
       </div>
 
       @if (loading()) {
@@ -69,8 +85,10 @@ type PRFilter = 'all' | 'recent-30d';
             >
               <div
                 class="w-11 h-11 rounded-[10px] shrink-0 flex items-center justify-center"
-                [class.bg-forge-850]="!isRecent(pr)"
-                [class.text-forge-400]="!isRecent(pr)"
+                [class.bg-accent-soft]="isRecent(pr)"
+                [class.text-accent-ink]="isRecent(pr)"
+                [class.bg-empty]="!isRecent(pr)"
+                [class.text-ink-2]="!isRecent(pr)"
               >
                 <fg-icon
                   [name]="isRecent(pr) ? 'flame' : 'trophy'"
@@ -78,19 +96,19 @@ type PRFilter = 'all' | 'recent-30d';
                 ></fg-icon>
               </div>
               <div class="flex-1 min-w-0">
-                <div class="t-body text-forge-100 font-medium truncate">{{ exerciseName(pr.exerciseId) }}</div>
-                <div class="t-body-sm text-forge-500 mt-0.5">
+                <div class="text-[15px] leading-5 text-ink font-medium truncate">{{ exerciseName(pr.exerciseId) }}</div>
+                <div class="text-[13px] leading-[18px] text-ink-2 mt-0.5">
                   {{ muscleLabel(pr.exerciseId) }} · {{ formatRelativeDate(pr.achievedAt) }}
                 </div>
               </div>
-              <div class="t-num text-forge-50 font-semibold tabular-nums">
+              <div class="font-mono text-[13px] text-ink font-medium tabular-nums">
                 {{ formatValue(pr) }}
               </div>
             </button>
           </fg-card>
         }
       }
-    </div>
+    </section>
   `,
 })
 export class PRListPage implements OnInit {
@@ -145,6 +163,12 @@ export class PRListPage implements OnInit {
 
   setFilter(f: PRFilter): void {
     this.activeFilter.set(f);
+  }
+
+  protected filterClass(f: PRFilter): string {
+    return `h-[30px] px-2.5 border-0 rounded-md text-xs cursor-pointer ${
+      this.activeFilter() === f ? 'bg-accent-soft text-accent-ink font-semibold' : 'bg-transparent text-ink-2 font-medium'
+    }`;
   }
 
   goBack(): void {

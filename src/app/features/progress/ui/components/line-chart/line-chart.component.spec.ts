@@ -7,6 +7,8 @@
  * is not available, so we mock it to avoid runtime failures.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Chart } from 'chart.js';
+import { AppearanceService } from '@core/appearance/appearance.service';
 import { LineChartComponent } from './line-chart.component';
 import type { LineChartSeries } from '../../helpers/time-series';
 
@@ -90,5 +92,85 @@ describe('LineChartComponent', () => {
     // This test verifies the pattern at import level.
     // If ng2-charts were imported, the test setup would have failed to resolve it.
     expect(true).toBe(true);
+  });
+
+  // ── Colours come from the Cuaderno CSS variables and follow theme / accent ──
+  describe('theme and accent', () => {
+    let tokens: HTMLStyleElement;
+    let chartOf: (f: ComponentFixture<LineChartComponent>) => Chart;
+
+    beforeEach(() => {
+      // Same selectors as src/styles.css, with values distinct enough to tell apart.
+      tokens = document.createElement('style');
+      tokens.textContent = `
+        :root { --color-ink: 17 17 19; --color-ink-2: 91 91 96; --color-line: 228 228 224;
+                --color-surface: 255 255 255; --color-accent: 43 89 255; --color-accent-ink: 43 89 255; }
+        [data-theme="dark"] { --color-ink: 237 237 234; --color-ink-2: 161 161 168; --color-line: 42 42 47;
+                --color-surface: 24 24 27; --color-accent-ink: 124 152 255; }
+        [data-accent="orange"] { --color-accent: 255 90 31; }
+      `;
+      document.head.appendChild(tokens);
+      localStorage.clear();
+      // The mocked 2d context makes Chart.getChart() useless (chart.canvas is the mock's),
+      // so read the instance the component holds.
+      chartOf = (f) => (f.componentInstance as unknown as { chart: Chart }).chart;
+    });
+
+    afterEach(() => {
+      tokens.remove();
+      document.documentElement.removeAttribute('data-theme');
+      document.documentElement.removeAttribute('data-accent');
+      localStorage.clear();
+    });
+
+    function render(): ComponentFixture<LineChartComponent> {
+      fixture = TestBed.createComponent(LineChartComponent);
+      fixture.componentRef.setInput('series', singleSeries);
+      fixture.componentRef.setInput('yAxisLabel', 'Peso (kg)');
+      fixture.detectChanges();
+      return fixture;
+    }
+
+    it('paints the series with the accent token', () => {
+      render();
+      const dataset = chartOf(fixture).data.datasets[0]!;
+      expect(dataset.borderColor).toBe('rgb(43, 89, 255)');
+    });
+
+    it('paints grid, ticks and axis title with the line and ink-2 tokens, never fixed colours', () => {
+      render();
+      const scales = chartOf(fixture).options.scales as Record<string, any>;
+      expect(scales['y'].grid.color).toBe('rgb(228, 228, 224)');
+      expect(scales['y'].ticks.color).toBe('rgb(91, 91, 96)');
+      expect(scales['y'].title.color).toBe('rgb(91, 91, 96)');
+      expect(scales['x'].ticks.color).toBe('rgb(91, 91, 96)');
+    });
+
+    it('redraws with the dark tokens when the theme changes', () => {
+      render();
+      TestBed.inject(AppearanceService).setTheme('dark');
+      fixture.detectChanges();
+
+      const scales = chartOf(fixture).options.scales as Record<string, any>;
+      expect(scales['y'].grid.color).toBe('rgb(42, 42, 47)');
+      expect(scales['y'].ticks.color).toBe('rgb(161, 161, 168)');
+    });
+
+    it('redraws with the new accent when the accent changes', () => {
+      render();
+      TestBed.inject(AppearanceService).setAccent('orange');
+      fixture.detectChanges();
+
+      expect(chartOf(fixture).data.datasets[0]!.borderColor).toBe('rgb(255, 90, 31)');
+    });
+
+    it('keeps one chart instance while restyling', () => {
+      render();
+      const before = chartOf(fixture);
+      TestBed.inject(AppearanceService).setTheme('dark');
+      fixture.detectChanges();
+
+      expect(chartOf(fixture)).toBe(before);
+    });
   });
 });

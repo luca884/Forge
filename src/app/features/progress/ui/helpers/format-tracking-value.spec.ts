@@ -3,7 +3,7 @@
  * TDD strict — RED before implementation.
  * Tests unit-aware formatting via optional second parameter.
  */
-import { formatTrackingValue } from './format-tracking-value';
+import { formatBestSet, formatTrackingValue } from './format-tracking-value';
 import type { WorkedSet } from '@features/training/domain/worked-set';
 
 const weightRepsSet: WorkedSet = {
@@ -78,5 +78,19 @@ describe('formatTrackingValue', () => {
 
   it('weight-reps with explicit weightUnit="kg" behaves same as default', () => {
     expect(formatTrackingValue(weightRepsSet, 'kg', 'kg')).toBe('100 kg × 5 reps');
+  });
+});
+
+describe('formatBestSet', () => {
+  it('weight-reps shows the weight in the preferred unit and the reps without the "reps" suffix', () => {
+    expect(formatBestSet(weightRepsSet, 'kg')).toBe('100 kg × 5');
+  });
+
+  it('weight-reps converts to lb with the same formatting as DisplayWeightPipe', () => {
+    expect(formatBestSet(weightRepsSet, 'lb')).toBe('220.5 lb × 5');
+  });
+
+  it('other set types fall back to formatTrackingValue', () => {
+    expect(formatBestSet(bodyweightSetWithExtra, 'lb')).toBe(formatTrackingValue(bodyweightSetWithExtra, 'lb'));
   });
 });

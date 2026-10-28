@@ -8,10 +8,27 @@ import type { WorkedSet } from '@features/training/domain/worked-set';
 import { assertNever } from '@core/shared/domain/tracking-type';
 import type { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
 import type { WeightUnit } from '@core/shared/domain/weight-unit';
+import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
 
-/** Inline unit formatter — mirrors DisplayWeightPipe.transform logic. */
+const displayWeight = new DisplayWeightPipe();
+
+/** Single source of truth for weight formatting: the same pipe the templates use. */
 function applyUnit(kg: number, unit: PreferredUnit): string {
-  return unit === 'lb' ? `${(kg * 2.20462).toFixed(1)} lb` : `${kg} kg`;
+  return displayWeight.transform(kg, unit);
+}
+
+/**
+ * Compact "best set" for tables and tiles: "100 kg × 5" (no "reps" suffix).
+ * Non weight-reps sets fall back to formatTrackingValue.
+ */
+export function formatBestSet(
+  set: WorkedSet,
+  unit: PreferredUnit = 'kg',
+  weightUnit: WeightUnit = 'kg',
+): string {
+  if (set.type !== 'weight-reps') return formatTrackingValue(set, unit, weightUnit);
+  const weight = weightUnit === 'plates' ? `${set.weight.value} placas` : applyUnit(set.weight.value, unit);
+  return `${weight} × ${set.reps.value}`;
 }
 
 export function formatTrackingValue(

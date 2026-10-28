@@ -1,7 +1,7 @@
 /**
- * Spec for <fg-exercise-history-chart> (D-6).
- * Verifies: fg-chip metric selectors, active chip state, fg-line-chart presence,
- * empty state, yLabel unit adaptation.
+ * Spec for <fg-exercise-history-chart> (D-6, Cuaderno).
+ * Verifies: metric and range selectors (real buttons with aria-pressed), fg-line-chart
+ * presence, empty state, yLabel unit adaptation, series in the preferred unit.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ExerciseHistoryChartComponent } from './exercise-history-chart.component';
@@ -92,14 +92,13 @@ describe('ExerciseHistoryChartComponent', () => {
     expect(el.querySelector('.empty-state')).not.toBeNull();
   });
 
-  it('no fg-chip rendered in empty state (D-6/S3)', () => {
+  it('no selectors rendered in empty state (D-6/S3)', () => {
     fixture = TestBed.createComponent(ExerciseHistoryChartComponent);
     fixture.componentRef.setInput('sets', []);
     fixture.componentRef.setInput('trackingType', 'weight-reps');
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
-    const chips = el.querySelectorAll('fg-chip');
-    expect(chips.length).toBe(0);
+    expect(el.querySelectorAll('button').length).toBe(0);
   });
 
   it('renders chart with weight-reps sets without crashing (D-30/S1)', () => {
@@ -109,64 +108,122 @@ describe('ExerciseHistoryChartComponent', () => {
     expect(() => fixture.detectChanges()).not.toThrow();
   });
 
-  // ── D-6: metric chips rendered as fg-chip (replaces .metric-toggle button) ──
-  it('shows 4 fg-chip elements for weight-reps exercises (D-6/S1)', () => {
+  // ── Metric selector: real buttons in a labelled group, state in aria-pressed ──
+  function metricButtons(): HTMLButtonElement[] {
+    const group = (fixture.nativeElement as HTMLElement).querySelector('[role="group"][aria-label="Métrica"]');
+    return Array.from(group?.querySelectorAll('button') ?? []);
+  }
+
+  function rangeButtons(): HTMLButtonElement[] {
+    const group = (fixture.nativeElement as HTMLElement).querySelector('[role="group"][aria-label="Rango"]');
+    return Array.from(group?.querySelectorAll('button') ?? []);
+  }
+
+  function render(unit?: 'kg' | 'lb', sets: WorkedSet[] = sampleSets): void {
     fixture = TestBed.createComponent(ExerciseHistoryChartComponent);
-    fixture.componentRef.setInput('sets', sampleSets);
+    fixture.componentRef.setInput('sets', sets);
     fixture.componentRef.setInput('trackingType', 'weight-reps');
+    if (unit) fixture.componentRef.setInput('unit', unit);
     fixture.detectChanges();
-    const el = fixture.nativeElement as HTMLElement;
-    const chips = el.querySelectorAll('fg-chip');
-    expect(chips.length).toBe(4); // weight, reps, volume, 1rm
+  }
+
+  it('shows 4 metric buttons for weight-reps exercises (D-6/S1)', () => {
+    render();
+    expect(metricButtons().length).toBe(4); // weight, reps, volume, 1rm
   });
 
-  it('fg-chip elements contain metric labels (D-6/S1)', () => {
-    fixture = TestBed.createComponent(ExerciseHistoryChartComponent);
-    fixture.componentRef.setInput('sets', sampleSets);
-    fixture.componentRef.setInput('trackingType', 'weight-reps');
-    fixture.detectChanges();
-    const el = fixture.nativeElement as HTMLElement;
-    const text = el.textContent ?? '';
-    expect(text).toContain('Peso');
-    expect(text).toContain('Reps');
-    expect(text).toContain('Volumen');
-    expect(text).toContain('1RM');
+  it('metric buttons carry the Cuaderno labels (D-6/S1)', () => {
+    render();
+    expect(metricButtons().map((b) => b.textContent?.trim())).toEqual(['Peso máx.', 'Reps', 'Volumen', '1RM est.']);
   });
 
-  // ── D-6/S2: active chip reflects selectedMetric ──────────────────────────
-  it('active chip has [active]="true" when metric matches (D-6/S2)', () => {
+  it('shows a single "Reps" button for non weight exercises', () => {
     fixture = TestBed.createComponent(ExerciseHistoryChartComponent);
-    fixture.componentRef.setInput('sets', sampleSets);
-    fixture.componentRef.setInput('trackingType', 'weight-reps');
+    fixture.componentRef.setInput('sets', [
+      { id: 'ws-t1', sessionId: 's-1', exerciseId: 'ex-time', type: 'time', durationSec: 60, isPR: false, createdAt: t1 },
+    ] as WorkedSet[]);
+    fixture.componentRef.setInput('trackingType', 'time');
     fixture.detectChanges();
-
-    // Default metric is 'weight' — first chip should be active
-    const el = fixture.nativeElement as HTMLElement;
-    const chips = el.querySelectorAll<HTMLElement>('fg-chip');
-    expect(chips.length).toBe(4);
-
-    // The active chip has a different visual class applied by FgChipComponent
-    // We verify this by switching the metric and confirming DOM updates
-    fixture.componentInstance.selectedMetric.set('reps');
-    fixture.detectChanges();
-
-    // After switching to reps, the chip for reps should now appear active
-    // FgChipComponent applies class based on [active] input
-    // We verify by checking the component's signal reflects the change
-    expect(fixture.componentInstance.selectedMetric()).toBe('reps');
+    expect(metricButtons().map((b) => b.textContent?.trim())).toEqual(['Reps']);
   });
 
-  it('clicking fg-chip updates selectedMetric signal (D-6/S2)', () => {
-    fixture = TestBed.createComponent(ExerciseHistoryChartComponent);
-    fixture.componentRef.setInput('sets', sampleSets);
-    fixture.componentRef.setInput('trackingType', 'weight-reps');
-    fixture.detectChanges();
+  // ── D-6/S2: aria-pressed reflects selectedMetric ──────────────────────────
+  it('the selected metric is the only button with aria-pressed="true" (D-6/S2)', () => {
+    render();
+    expect(metricButtons().map((b) => b.getAttribute('aria-pressed'))).toEqual(['true', 'false', 'false', 'false']);
+  });
 
-    // Default is 'weight', change to '1rm' via the component method
-    fixture.componentInstance.selectedMetric.set('1rm');
+  it('clicking a metric button selects it and moves aria-pressed (D-6/S2)', () => {
+    render();
+    metricButtons()[3]!.click();
     fixture.detectChanges();
 
     expect(fixture.componentInstance.selectedMetric()).toBe('1rm');
+    expect(metricButtons().map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'false', 'false', 'true']);
+  });
+
+  // ── Range selector (3M / 6M / 1A / Todo) ───────────────────────────────
+  describe('range', () => {
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('offers 3M, 6M, 1A and Todo, with Todo selected so the whole history shows by default', () => {
+      render();
+      expect(rangeButtons().map((b) => b.textContent?.trim())).toEqual(['3M', '6M', '1A', 'Todo']);
+      expect(rangeButtons().map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'false', 'false', 'true']);
+    });
+
+    it('3M drops sets older than three months', () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-08-01T12:00:00Z'));
+      render();
+      rangeButtons()[0]!.click();
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.series()[0]!.points).toEqual([]);
+      expect(rangeButtons()[0]!.getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('6M and 1A keep sets inside their window', () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-08-01T12:00:00Z'));
+      render();
+
+      rangeButtons()[1]!.click(); // 6M → since 2026-02-01, Jan sets are out
+      fixture.detectChanges();
+      expect(fixture.componentInstance.series()[0]!.points.length).toBe(0);
+
+      rangeButtons()[2]!.click(); // 1A → since 2025-08-01, both Jan sets are in
+      fixture.detectChanges();
+      expect(fixture.componentInstance.series()[0]!.points.length).toBe(2);
+    });
+
+    it('Todo keeps the whole history', () => {
+      jest.useFakeTimers().setSystemTime(new Date('2030-01-01T12:00:00Z'));
+      render();
+      expect(fixture.componentInstance.series()[0]!.points.length).toBe(2);
+    });
+  });
+
+  // ── Weight metrics are plotted in the preferred unit ─────────────────────
+  describe('unit', () => {
+    it('plots weight in kg by default', () => {
+      render();
+      expect(fixture.componentInstance.series()[0]!.points.map((p) => p.y)).toEqual([100, 105]);
+    });
+
+    it('plots weight in lb (same conversion as DisplayWeightPipe) when unit="lb"', () => {
+      render('lb');
+      expect(fixture.componentInstance.series()[0]!.points.map((p) => p.y)).toEqual([220.5, 231.5]);
+    });
+
+    it('plots volume in lb too, but never converts reps', () => {
+      render('lb');
+      fixture.componentInstance.selectedMetric.set('volume');
+      expect(fixture.componentInstance.series()[0]!.points.map((p) => p.y)).toEqual([1102.3, 1157.4]);
+
+      fixture.componentInstance.selectedMetric.set('reps');
+      expect(fixture.componentInstance.series()[0]!.points.map((p) => p.y)).toEqual([5, 5]);
+    });
   });
 
   // ── ADR-13: fg-line-chart still present ──────────────────────────────────

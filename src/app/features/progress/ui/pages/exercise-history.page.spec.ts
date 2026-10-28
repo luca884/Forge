@@ -186,7 +186,7 @@ describe('ExerciseHistoryPage', () => {
       getAllWorkedSetsMock = TestBed.inject(SessionRepository).getAllWorkedSetsForExercise as jest.Mock;
     });
 
-    it('renders fg-page-header after init', async () => {
+    async function settle(): Promise<void> {
       fixture = TestBed.createComponent(ExerciseHistoryPage);
       fixture.detectChanges();
       await fixture.whenStable();
@@ -194,22 +194,69 @@ describe('ExerciseHistoryPage', () => {
       await Promise.resolve();
       await Promise.resolve();
       fixture.detectChanges();
-      const header = fixture.debugElement.query(By.css('fg-page-header'));
-      expect(header).toBeTruthy();
-      expect((fixture.nativeElement as HTMLElement).textContent).toContain('Historial');
+    }
+
+    const root = (): HTMLElement => fixture.nativeElement as HTMLElement;
+
+    it('titles the page with the exercise name and a muscle group · unit line (C-Exercise)', async () => {
+      await settle();
+      expect(root().querySelector('h1')?.textContent?.trim()).toBe('Sentadilla');
+      expect(root().querySelector('fg-page-header')).toBeNull();
+      const meta = root().querySelector('[data-exercise-meta]')?.textContent ?? '';
+      expect(meta).toContain('Piernas');
+      expect(meta).toContain('lb');
     });
 
-    it('leadingClick on fg-page-header navigates to /progress', async () => {
-      fixture = TestBed.createComponent(ExerciseHistoryPage);
-      fixture.detectChanges();
-      await fixture.whenStable();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-      fixture.detectChanges();
-      const header = fixture.debugElement.query(By.css('fg-page-header'));
-      header.triggerEventHandler('leadingClick', undefined);
+    it('the back button is labelled "Volver", shows "Progreso" and navigates to /progress', async () => {
+      await settle();
+      const back = root().querySelector<HTMLButtonElement>('button[aria-label="Volver"]');
+      expect(back?.textContent).toContain('Progreso');
+      back!.click();
       expect(routerNavigateSpy).toHaveBeenCalledWith(['/progress']);
+    });
+
+    it('shows the three summary tiles: 1RM est., Mejor serie and Sesiones', async () => {
+      await settle();
+      const tiles = root().querySelector('[aria-label="Resumen del ejercicio"]')!;
+      const text = tiles.textContent ?? '';
+      expect(text).toContain('1RM est.');
+      expect(text).toContain('Mejor serie');
+      expect(text).toContain('Sesiones');
+      // Best set in the preferred unit, sessions counted
+      expect(text).toContain('220.5 lb × 5');
+      expect(tiles.querySelector('[data-stat="sessions"]')?.textContent?.trim()).toBe('1');
+    });
+
+    it('rounds the 1RM tile to one decimal in kg so it fits the tile', async () => {
+      unitSignal.set('kg');
+      await settle();
+      // 100 kg x 5 -> Epley 116.666... kg: must not print a long decimal tail
+      const text = root().querySelector('[data-stat="1rm"]')?.textContent?.trim() ?? '';
+      expect(text).toMatch(/^\d+(\.\d)? kg$/);
+    });
+
+    it('shows "—" in the tiles when there is no weight-reps history', async () => {
+      const pr = TestBed.inject(PersonalRecordRepository) as unknown as { getCurrentForExercise: jest.Mock };
+      pr.getCurrentForExercise.mockResolvedValue(null);
+      getAllWorkedSetsMock.mockResolvedValue([]);
+      await settle();
+      const tiles = root().querySelector('[aria-label="Resumen del ejercicio"]')!;
+      expect(tiles.querySelector('[data-stat="best"]')?.textContent?.trim()).toBe('—');
+      expect(tiles.querySelector('[data-stat="1rm"]')?.textContent?.trim()).toBe('—');
+    });
+
+    it('lists the sessions under an "Historial" heading with the unit in the column header', async () => {
+      await settle();
+      const heading = Array.from(root().querySelectorAll('h2')).find((h) => h.textContent?.trim() === 'Historial');
+      expect(heading).toBeTruthy();
+      expect(root().textContent).toContain('Series (lb × reps)');
+      expect(root().textContent).toContain('Vol.');
+    });
+
+    it('shows each session volume in the preferred unit', async () => {
+      await settle();
+      // 100 kg × 5 reps = 500 kg → 1102 lb
+      expect(root().querySelector('[data-session-volume]')?.textContent?.trim()).toBe('1102');
     });
 
     it('groupedHistory groups sets by sessionId', async () => {

@@ -5,7 +5,6 @@
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal, NO_ERRORS_SCHEMA } from '@angular/core';
-import { By } from '@angular/platform-browser';
 import { PRListPage } from './pr-list.page';
 // GetAllPersonalRecordsUseCase is in component providers — not mocked at TestBed level
 import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
@@ -145,30 +144,45 @@ describe('PRListPage', () => {
       jest.useRealTimers();
     });
 
-    it('renders fg-page-header with "Records personales" title', async () => {
+    async function settle(): Promise<void> {
       fixture = TestBed.createComponent(PRListPage);
       fixture.detectChanges();
       await fixture.whenStable();
       await Promise.resolve();
       fixture.detectChanges();
-      const header = fixture.debugElement.query(By.css('fg-page-header'));
-      expect(header).toBeTruthy();
-      expect((fixture.nativeElement as HTMLElement).textContent).toContain('Records personales');
+    }
+
+    it('renders an h1 "Records personales" in its own Cuaderno header', async () => {
+      await settle();
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelector('h1')?.textContent?.trim()).toBe('Records personales');
+      expect(el.querySelector('fg-page-header')).toBeNull();
     });
 
-    it('tapping Recientes chip sets activeFilter to recent-30d', async () => {
-      fixture = TestBed.createComponent(PRListPage);
+    it('the back button is labelled "Volver", shows "Progreso" and navigates to /progress', async () => {
+      await settle();
+      const back = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('button[aria-label="Volver"]');
+      expect(back?.textContent).toContain('Progreso');
+      back!.click();
+      expect(routerNavigateSpy).toHaveBeenCalledWith(['/progress']);
+    });
+
+    it('filters are real buttons in a group, with Todos pressed by default', async () => {
+      await settle();
+      const group = (fixture.nativeElement as HTMLElement).querySelector('[role="group"][aria-label="Filtro"]');
+      const buttons = Array.from(group?.querySelectorAll('button') ?? []);
+      expect(buttons.map((b) => b.textContent?.trim())).toEqual(['Todos', 'Recientes']);
+      expect(buttons.map((b) => b.getAttribute('aria-pressed'))).toEqual(['true', 'false']);
+    });
+
+    it('tapping Recientes sets activeFilter to recent-30d and moves aria-pressed', async () => {
+      await settle();
+      const group = (fixture.nativeElement as HTMLElement).querySelector('[role="group"][aria-label="Filtro"]')!;
+      const recientes = Array.from(group.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Recientes')!;
+      recientes.click();
       fixture.detectChanges();
-      await fixture.whenStable();
-      await Promise.resolve();
-      fixture.detectChanges();
-      const chips = fixture.debugElement.queryAll(By.css('fg-chip'));
-      const recientesChip = chips.find(
-        (c) => (c.nativeElement as HTMLElement).textContent?.trim() === 'Recientes',
-      );
-      expect(recientesChip).toBeTruthy();
-      recientesChip!.triggerEventHandler('tap', undefined);
       expect(fixture.componentInstance.activeFilter()).toBe('recent-30d');
+      expect(recientes.getAttribute('aria-pressed')).toBe('true');
     });
 
     it('filteredPRs filters to last 30 days when activeFilter is recent-30d', async () => {
