@@ -60,7 +60,7 @@ Restricciones:
 Requisitos:
 - S1: "quieor modifircar basicamente todo visualmente, quieor un nuevo diseno" · "la verdad me gusto mucho mas en general la opcion C de cuaderno" — Aceptación: cada pantalla de la tabla se ve como su tablero C; no queda ninguna clase `forge-*` ni `accent-<número>`, ni la fuente Geist, ni el naranja brasa `#FF6A1F` — Checks: `npm test`, `npm run e2e`, `npm run build`, `rg "(forge|accent)-[0-9]|Geist|FF6A1F|ff6a1f" src public/index.html` sin resultados, capturas de T3.
 - S2: "primero los colores me gustaron mas los de el C, tambien habira que hacer algun modo oscuro para ese" — Aceptación: Perfil tiene Tema Claro / Oscuro / Sistema; el tema se aplica antes del primer pintado, sin destello; persiste tras recargar; "Sistema" sigue a `prefers-color-scheme` en vivo; `<meta name="theme-color">` acompaña al fondo — Checks: Jest del servicio de apariencia, e2e de Perfil, capturas claro y oscuro.
-- S3: "entran en el plan" (plantillas en primer uso) — Aceptación: pantalla Primer uso con los 3 pasos y las plantillas "Torso / Pierna", "Full body" y "Push / Pull / Piernas"; "Usar" crea la rutina con sus días y ejercicios, la deja activa y lleva a Hoy — Checks: Jest del caso de uso, e2e nuevo de primer uso.
+- S3: "entran en el plan" (plantillas en primer uso) — Aceptación: pantalla Primer uso con los 3 pasos y las plantillas "Torso / Pierna", "Full body" y "Push / Pull / Piernas"; "Usar" crea la rutina con sus días y ejercicios, la deja activa y lleva a Hoy. "la idea tambien es que las rutinas que ya tengo cargadas no se borren, verifica eso tambien" (L29): aplicar una plantilla nunca borra ni modifica rutinas, días ni ejercicios existentes — Checks: Jest del caso de uso (incluye que no toca lo existente), e2e nuevo de primer uso, e2e de que con rutinas cargadas no aparece Primer uso y siguen todas.
 - S4: "entran en el plan" (pantalla siempre encendida) — Aceptación: fila "Pantalla siempre encendida · Durante la sesión" en Perfil; con la opción activa y una sesión en curso, la app pide Wake Lock (`navigator.wakeLock.request('screen')`), lo vuelve a pedir al volver a primer plano y lo libera al terminar o abandonar la sesión; sin soporte del navegador, la fila se ve deshabilitada con una explicación — Checks: Jest con `navigator.wakeLock` simulado.
 - S5: "entran en el plan" (exportar CSV) — Aceptación: "Exportar historial (CSV)" en Perfil descarga un `.csv` en UTF-8 con BOM, una fila por serie registrada, columnas según D2 — Checks: Jest del caso de uso que arma el CSV (comillas, comas y saltos de línea escapados), e2e que verifica la descarga.
 - S6: "entran en el plan" (elegir color de acento) — Aceptación: radiogroup "Color de acento" en Perfil con las 4 opciones; cambia el acento al instante sin recargar y persiste — Checks: Jest del servicio de apariencia, e2e de Perfil.
@@ -88,7 +88,21 @@ Requisitos:
   - Checks: Jest de cada superficie; e2e con un ejercicio propio en placas de 10 kg por placa, de la sesión al Resumen.
 
 Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implementar):
-- D1 (T13): ejercicios, series y repeticiones de cada plantilla, tomados del catálogo de 42 ejercicios.
+- D1 (T13), resuelta en L29 ("esta bien"). Ejercicios del catálogo por nombre, sin peso objetivo, con el descanso por defecto. "Usar" crea solo los días; asignarlos a la semana es el paso 3.
+  - Torso / Pierna (4 días):
+    - Torso A: Press de banca 4×6 · Remo con barra 4×8 · Press militar 3×8 · Jalón al pecho 3×10
+    - Pierna A: Sentadilla 4×6 · Peso muerto rumano 3×8 · Prensa de piernas 3×10 · Elevación de gemelos 3×12
+    - Torso B: Press inclinado con barra 3×8 · Dominadas 3×8 · Press de hombros con mancuernas 3×10 · Remo con mancuerna 3×10
+    - Pierna B: Peso muerto 3×5 · Zancadas 3×10 · Curl femoral 3×12 · Hip thrust 3×10
+  - Full body (3 días):
+    - A: Sentadilla 3×8 · Press de banca 3×8 · Remo con barra 3×8 · Plancha 3×45 s
+    - B: Peso muerto 3×5 · Press militar 3×8 · Jalón al pecho 3×10 · Zancadas 3×10
+    - C: Prensa de piernas 3×10 · Press de banca con mancuernas 3×10 · Remo en polea baja 3×10 · Abdominales 3×15
+  - Push / Pull / Piernas (3 días distintos, para hacerlos dos veces por semana):
+    - Push: Press de banca 4×8 · Press militar 3×8 · Elevaciones laterales 3×12 · Extensión de tríceps en polea 3×12
+    - Pull: Dominadas 3×8 · Remo con barra 4×8 · Face pull 3×15 · Curl de bíceps 3×10
+    - Piernas: Sentadilla 4×6 · Peso muerto rumano 3×8 · Extensión de cuádriceps 3×12 · Elevación de gemelos 3×15
+  - Supuesto: si un ejercicio de la plantilla ya no está en la biblioteca con ese nombre (porque se renombró o se borró), se saltea y la rutina se crea igual.
 - D2 (T12), resuelta en L20: columnas `fecha, rutina, dia, ejercicio, serie, tipo, peso, unidad, reps, tiempo_s, distancia_km, pr`. Una fila por serie, solo de sesiones terminadas. `peso` va en la unidad preferida y `unidad` dice cuál es. Las celdas que no aplican al tipo de serie quedan vacías. La distancia va en km porque así se guarda (`DistanceTimeSet.distanceKm`).
 - D4 (T17), resuelta en L25: el número guardado es la cantidad de placas que se le ponen a la máquina; nunca son kg ni se convierten a lb. Antes, cada parte lo trataba distinto:
   - el editor del día lo pide como "Peso … kg";
@@ -116,7 +130,7 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
   - `npm run e2e` 28/28, con J13.4 nuevo. Ese e2e se escribió después de implementar; el RED de esas reglas se vio en Jest.
   - `npm run e2e:visual` 18/18; solo cambiaron `perfil-*`. eslint limpio en lo tocado. Revisé `perfil-dark`.
   - Risk: none (solo lectura; formato nuevo que todavía nadie consume)
-- [ ] T13 · S3, S8 · ruta: inline · Preguntar D1 antes. Feature `onboarding`: pantalla Primer uso según `C-Welcome`, catálogo de plantillas, caso de uso que crea la rutina con los casos de uso de `routines` existentes (respeta "una sola rutina activa", J6a.2). Ajustar el e2e "muestra \"Sin rutina activa\"…" y sumar uno de primer uso · Aceptación: S3 · Evidencia: — · Risk: none (crea registros nuevos con los casos de uso existentes)
+- [ ] T13 · S3, S8 · ruta: delegada (respaldo de contexto de ~150k del parent, un writer Sonnet) · D1 resuelta en L29. Feature `onboarding`: pantalla Primer uso según `C-Welcome`, catálogo de plantillas, caso de uso que crea la rutina con los casos de uso de `routines` existentes (respeta "una sola rutina activa", J6a.2). Ajustar el e2e "muestra \"Sin rutina activa\"…" y sumar uno de primer uso · Aceptación: S3 · Evidencia: — · Risk: none (crea registros nuevos con los casos de uso existentes)
 - [ ] T14 · S1 · ruta: inline · Limpieza: borrar la rampa `forge-*`, `accent-50..700`, `--pr-warm*` si queda sin uso, los bloques viejos `.forge-dark`/`.forge-light`, las Geist y sus `preload`; regenerar todas las baselines. En `public/manifest.webmanifest` cambian solo los colores: `id`, `start_url`, `scope` y `name` quedan igual, así la app instalada sigue siendo la misma (S10) · Aceptación: `rg` de S1 sin resultados; build verde · Evidencia: — · Risk: item 6 (igual que T4)
 - [x] T16 · S10 · ruta: delegada (auditoría en workflow) e inline (chequeo diferencial) · Continuidad de datos:
   - Auditoría de solo lectura de antes (`081e4d3`) y después: capa de persistencia y cada pantalla, con verificación adversarial de cada hallazgo.
@@ -446,3 +460,8 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
   > dale lo dejamos asi, pero el peso de la placa de cada ejercicio se debe poder cambiar, no es el ismo peso que tiene la placa de espalda que la de brazo
   - Ya funciona así desde T18a: `plateWeightKg` es un campo de cada ejercicio (`exercise.entity.ts:41`). Se carga y se guarda en el formulario de ese ejercicio (`exercise-form.page.ts:256`, `:274`), y J15 lo verifica. No hizo falta cambiar código.
   - Próximo paso: T13, preguntar D1.
+- L29 (2026-10-28) D1 aprobada y pedido de no borrar rutinas. Respuesta del usuario, textual:
+  > esta bien, la idea tambien es que las rutinas que ya tengo cargadas no se borren, verifica eso tambien
+  - Verificado en el código: `CreateRoutineUseCase` solo guarda la rutina nueva, y la deja activa solo si no hay otra activa. Ningún caso de uso de creación borra nada. Con S8, Primer uso aparece solo si no hay ninguna rutina.
+  - S3 suma la aceptación de no borrar ni modificar lo existente, con su test.
+  - T13 pasa a un writer: el parent está cerca del respaldo de contexto de ~150k.
