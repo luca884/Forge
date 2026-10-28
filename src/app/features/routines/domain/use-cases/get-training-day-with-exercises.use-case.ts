@@ -3,11 +3,14 @@ import { TrainingDayRepository } from '../training-day.repository';
 import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
 import { ExerciseInDay, TrainingDay } from '../training-day.entity';
 import { TrackingType } from '@core/shared/domain/tracking-type';
+import { WeightUnit } from '@core/shared/domain/weight-unit';
 
 export interface ExerciseInDayView extends ExerciseInDay {
   readonly exerciseName: string;
   /** Tracking type del ejercicio — necesario para editar las series objetivo. */
   readonly trackingType: TrackingType;
+  /** Unidad del peso del ejercicio: en placas, las series objetivo piden placas y no kg (D4). */
+  readonly weightUnit: WeightUnit;
 }
 
 export interface TrainingDayView extends Omit<TrainingDay, 'exercises'> {
@@ -38,6 +41,7 @@ export class GetTrainingDayWithExercisesUseCase {
         ...e,
         exerciseName: ex?.name ?? '[Ejercicio eliminado]',
         trackingType: ex?.trackingType ?? 'weight-reps',
+        weightUnit: ex?.weightUnit ?? 'kg',
       };
     });
 

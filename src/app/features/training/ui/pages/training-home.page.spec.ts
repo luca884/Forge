@@ -82,7 +82,7 @@ const otherDay: TrainingDay = {
   updatedAt: new Date('2026-01-01'),
 };
 
-const exercises = [
+const exercises: { id: string; name: string; weightUnit?: 'kg' | 'plates'; plateWeightKg?: number }[] = [
   { id: 'ex-1', name: 'Sentadilla' },
   { id: 'ex-2', name: 'Peso muerto' },
 ];
@@ -159,6 +159,9 @@ describe('TrainingHomePage', () => {
     activeSession?: object | null;
     sessions?: Session[];
     setsBySession?: Record<string, WorkedSet[]>;
+    exercises?: typeof exercises;
+    /** Last logged set by exerciseId; defaults to 100 kg × 7 for ex-1 and none for the rest. */
+    lastSets?: Record<string, WorkedSet>;
   } = {}): Promise<void> {
     const {
       routine = mockRoutine,
@@ -167,6 +170,8 @@ describe('TrainingHomePage', () => {
       activeSession = null,
       sessions = [],
       setsBySession = {},
+      exercises: exerciseList = exercises,
+      lastSets,
     } = overrides;
 
     routineRepoMock = { getActive: jest.fn().mockResolvedValue(routine) };
@@ -182,7 +187,7 @@ describe('TrainingHomePage', () => {
     cancelUCMock = { execute: jest.fn().mockResolvedValue(undefined) };
     lastSetUCMock = {
       execute: jest.fn().mockImplementation(async (exerciseId: string) =>
-        exerciseId === 'ex-1' ? lastSet('ex-1', 100, 7) : null,
+        lastSets ? (lastSets[exerciseId] ?? null) : exerciseId === 'ex-1' ? lastSet('ex-1', 100, 7) : null,
       ),
     };
     sessionRepoMock = {
@@ -200,7 +205,7 @@ describe('TrainingHomePage', () => {
         { provide: TrainingDayRepository, useValue: trainingDayRepoMock },
         { provide: TrainingSessionStore, useValue: storeMock },
         { provide: SessionRepository, useValue: sessionRepoMock },
-        { provide: ExerciseRepository, useValue: { getAll: jest.fn().mockResolvedValue(exercises) } },
+        { provide: ExerciseRepository, useValue: { getAll: jest.fn().mockResolvedValue(exerciseList) } },
         { provide: UserPreferencesService, useValue: { unit: unitSignal, loadOnce: loadOnceMock } },
       ],
     })
@@ -561,6 +566,65 @@ describe('TrainingHomePage', () => {
       expect(html).not.toMatch(/\baccent-\d/);
       expect(html).not.toMatch(/destructive-\d|text-destructive/);
       expect(html).not.toMatch(/#[0-9a-fA-F]{6}\b/);
+    });
+
+    // ── T18 · D4 / S11: ejercicios en placas ──────────────────────────────────
+
+    describe('placas (D4 · S11)', () => {
+      const platesPress = { id: 'ex-1', name: 'Sentadilla', weightUnit: 'plates' as const, plateWeightKg: 10 };
+      const plateExercises = [platesPress, { id: 'ex-2', name: 'Peso muerto' }];
+      const journalRow = (index: number): string =>
+        Array.from(root().querySelectorAll('[data-journal-row]'))[index]?.textContent ?? '';
+
+      it('"Última vez" reads "N placas × reps" and is never converted to lb', async () => {
+        await setup({
+          exercises: plateExercises,
+          lastSets: { 'ex-1': lastSet('ex-1', 7, 8), 'ex-2': lastSet('ex-2', 140, 5) },
+        });
+        unitSignal.set('lb');
+        fixture.detectChanges();
+        const rows = Array.from(root().querySelectorAll<HTMLElement>('[data-plan-row]'));
+        expect(rows[0].textContent).toContain('7 placas × 8');
+        expect(rows[0].textContent).not.toMatch(/\bkg\b|\blb\b/);
+        // The kg exercise next to it keeps following the preferred unit.
+        expect(rows[1].textContent).toContain('308.6 lb × 5');
+      });
+
+      it('"Última vez" of a single plate reads "1 placa × reps"', async () => {
+        await setup({ exercises: plateExercises, lastSets: { 'ex-1': lastSet('ex-1', 1, 12) } });
+        expect(root().querySelector('[data-plan-row]')?.textContent).toContain('1 placa × 12');
+      });
+
+      it('"Diario" counts plates × plate weight × reps in kg', async () => {
+        // 2 × (7 placas × 10 kg × 10 reps) = 1400 kg; the kg set of ex-2 adds 50 × 10 = 500 kg.
+        await setup({
+          exercises: plateExercises,
+          sessions: [completedSession('s-new', '2026-10-26', 'd-2', 52)],
+          setsBySession: {
+            's-new': [
+              weightSet('a', 's-new', 7, 10),
+              weightSet('b', 's-new', 7, 10),
+              { ...weightSet('c', 's-new', 50, 10), exerciseId: 'ex-2' },
+            ],
+          },
+        });
+        expect(journalRow(0)).toContain('52 min · 1900 kg · 3 series');
+      });
+
+      it('"Diario" converts the plates volume to the preferred unit and counts it on a rest day', async () => {
+        await setup({
+          suggestedDay: { day: null, reason: 'rest-day' },
+          exercises: plateExercises,
+          sessions: [completedSession('s-new', '2026-10-26', 'd-1', 52)],
+          setsBySession: { 's-new': [weightSet('a', 's-new', 7, 10), weightSet('b', 's-new', 7, 10)] },
+        });
+        expect(journalRow(0)).toContain('52 min · 1400 kg · 2 series');
+
+        unitSignal.set('lb');
+        fixture.detectChanges();
+        // 1400 kg = 3086.5 lb
+        expect(journalRow(0)).toContain('52 min · 3086.5 lb · 2 series');
+      });
     });
 
     // ── T17 · unidad A: correcciones de la auditoría de T16 ─────────────────────

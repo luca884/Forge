@@ -159,6 +159,27 @@ describe('GetTrainingDayWithExercisesUseCase', () => {
     expect(ex.note).toBe('Foco en técnica');
   });
 
+  it('exposes the weight unit of each exercise, falling back to kg when it is not in the catalog', async () => {
+    dayRepo.days = [
+      makeDay({
+        exercises: [
+          { exerciseId: 'ex-kg', order: 0, targetSets: [] },
+          { exerciseId: 'ex-plates', order: 1, targetSets: [] },
+          { exerciseId: 'ex-deleted', order: 2, targetSets: [] },
+        ],
+      }),
+    ];
+    exerciseRepo.exercises = [
+      makeExercise('ex-kg', 'Bench Press'),
+      { ...makeExercise('ex-plates', 'Leg Press'), weightUnit: 'plates' },
+    ];
+
+    const result = await useCase.execute({ trainingDayId: 'd-1' });
+
+    const view = result as TrainingDayView;
+    expect(view.exercises.map(e => e.weightUnit)).toEqual(['kg', 'plates', 'kg']);
+  });
+
   it('handles empty exercises array and returns TrainingDayView with empty exercises', async () => {
     dayRepo.days = [makeDay({ exercises: [] })];
     exerciseRepo.exercises = [makeExercise('ex-a', 'Bench Press')];

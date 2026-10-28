@@ -209,6 +209,7 @@ function formatRest(seconds: number): string {
                   <div class="col-span-4 flex flex-col gap-3 px-3 pt-1 pb-3">
                     <fg-target-set-editor
                       [trackingType]="exercise.trackingType"
+                      [weightUnit]="exercise.weightUnit"
                       [targetSets]="exercise.targetSets"
                       (targetSetsChange)="onTargetSetsChange(exercise, $event)"
                     ></fg-target-set-editor>

@@ -7,11 +7,13 @@ import { Session } from '../../domain/session.entity';
 import { GetPreviousSessionSetsUseCase } from '../../domain/use-cases/get-previous-session-sets.use-case';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
+import { loadKg, type WeightUnitInfo } from '@core/shared/domain/weight-unit';
 import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-record.repository';
 import { PersonalRecord } from '@features/progress/domain/entities/personal-record.entity';
 import { FgButtonComponent, FgCardComponent, FgIconComponent, FgSkeletonComponent, ToastService } from '@core/shared/ui';
 import { ExerciseRepository } from '../../../exercises/domain/exercise.repository';
 import { TrainingDayRepository } from '../../../routines/domain/training-day.repository';
+import { formatPlates } from '../format-plates';
 
 /** Format elapsed seconds as MM:SS or H:MM:SS */
 function formatHMS(totalSeconds: number): string {
@@ -38,9 +40,9 @@ interface ExerciseRow {
   sets: number;
   /** Total reps of the exercise in the session; null when its sets have no reps (time, distance). */
   reps: number | null;
-  /** Best set of the session, e.g. "102,5×7". */
+  /** Best set of the session, e.g. "102.5 kg×7" or "7 placas×5". */
   best: string;
-  /** Change of the best weight versus the previous session: "+2,5 kg", "igual", "—". */
+  /** Change of the best weight versus the previous session: "+2.5 kg", "+1 placa", "igual", "—". */
   delta: string;
   deltaPositive: boolean;
 }
@@ -165,7 +167,13 @@ interface PrRow {
           <div class="hidden">
             @switch (set.type) {
               @case ('weight-reps') {
-                <span class="session-summary__set-detail">{{ set.reps.value }} reps × {{ set.weight.value | displayWeight: unit() }}</span>
+                <span class="session-summary__set-detail">{{ set.reps.value }} reps ×
+                  @if (isPlates(set.exerciseId)) {
+                    {{ plates(set.weight.value) }}
+                  } @else {
+                    {{ set.weight.value | displayWeight: unit() }}
+                  }
+                </span>
               }
               @case ('bodyweight-reps') {
                 <span class="session-summary__set-detail">{{ set.reps.value }} reps
@@ -215,8 +223,17 @@ export class SessionSummaryPage implements OnInit {
   /** Name of the TrainingDay the session was done for. */
   readonly dayName = signal('Sesión');
 
-  /** Map of exerciseId → best weight (kg) of the previous session, when there was one. */
-  readonly previousBestKgByExerciseId = signal<ReadonlyMap<string, number>>(new Map());
+  /**
+   * Map of exerciseId → what tells a logged weight apart (`weightUnit`, `plateWeightKg`).
+   * An unknown exercise counts as kg.
+   */
+  private readonly weightInfoByExerciseId = signal<ReadonlyMap<string, WeightUnitInfo>>(new Map());
+
+  /**
+   * Map of exerciseId → best weight of the previous session, when there was one, in the unit the
+   * exercise is logged in (kg, or plates for a plates exercise).
+   */
+  readonly previousBestByExerciseId = signal<ReadonlyMap<string, number>>(new Map());
 
   /** Map of exerciseId → previous PersonalRecord (before this session). */
   readonly previousPRsByExerciseId = signal<Map<string, PersonalRecord>>(new Map());
@@ -225,12 +242,14 @@ export class SessionSummaryPage implements OnInit {
   // Volume computeds
   // ---------------------------------------------------------------------------
 
-  readonly volumeKg = computed(() =>
-    this.workedSets().reduce((acc, s) => {
-      if (s.type === 'weight-reps') return acc + s.weight.value * s.reps.value;
+  /** Volume in kg: a plates set counts plates × plate weight (S11), through `loadKg`. */
+  readonly volumeKg = computed(() => {
+    const info = this.weightInfoByExerciseId();
+    return this.workedSets().reduce((acc, s) => {
+      if (s.type === 'weight-reps') return acc + loadKg(s.weight.value, info.get(s.exerciseId)) * s.reps.value;
       return acc;
-    }, 0)
-  );
+    }, 0);
+  });
 
   readonly hasVolume = computed(() => this.volumeKg() > 0);
 
@@ -289,11 +308,11 @@ export class SessionSummaryPage implements OnInit {
     for (const s of this.workedSets()) {
       byId.set(s.exerciseId, [...(byId.get(s.exerciseId) ?? []), s]);
     }
-    const previous = this.previousBestKgByExerciseId();
+    const previous = this.previousBestByExerciseId();
     return Array.from(byId, ([exerciseId, sets]) => {
-      const bestKg = this.bestWeightKg(sets);
-      const previousKg = previous.get(exerciseId);
-      const diff = bestKg !== null && previousKg !== undefined ? bestKg - previousKg : null;
+      const best = this.bestWeight(sets);
+      const previousBest = previous.get(exerciseId);
+      const diff = best !== null && previousBest !== undefined ? best - previousBest : null;
       const reps = sets.flatMap(s => (s.type === 'weight-reps' || s.type === 'bodyweight-reps' ? [s.reps.value] : []));
       return {
         exerciseId,
@@ -301,7 +320,7 @@ export class SessionSummaryPage implements OnInit {
         sets: sets.length,
         reps: reps.length === 0 ? null : reps.reduce((acc, value) => acc + value, 0),
         best: this.formatBest(sets),
-        delta: diff === null ? '—' : diff === 0 ? 'igual' : `${diff > 0 ? '+' : '-'}${this.formatWeight(Math.abs(diff))}`,
+        delta: diff === null ? '—' : diff === 0 ? 'igual' : `${diff > 0 ? '+' : '-'}${this.formatWeightOf(exerciseId, Math.abs(diff))}`,
         deltaPositive: diff !== null && diff > 0,
       };
     });
@@ -342,6 +361,7 @@ export class SessionSummaryPage implements OnInit {
         ]);
 
         this.exerciseNameById.set(new Map(allExercises.map(e => [e.id, e.name])));
+        this.weightInfoByExerciseId.set(new Map(allExercises.map(e => [e.id, e])));
         this.session.set(completedSession);
 
         // Load its sets
@@ -399,14 +419,14 @@ export class SessionSummaryPage implements OnInit {
       exerciseIds.map(async (id): Promise<[string, number] | null> => {
         try {
           const previous = await this.getPreviousSets.execute(id, session.id);
-          const best = this.bestWeightKg(previous);
+          const best = this.bestWeight(previous);
           return best === null ? null : [id, best];
         } catch {
           return null;
         }
       }),
     );
-    this.previousBestKgByExerciseId.set(
+    this.previousBestByExerciseId.set(
       new Map(entries.filter((e): e is [string, number] => e !== null)),
     );
   }
@@ -421,8 +441,25 @@ export class SessionSummaryPage implements OnInit {
     return this.weightPipe.transform(Math.round(kg * 100) / 100, this.unit());
   }
 
-  /** Heaviest weight-reps set, or null when there is none. */
-  private bestWeightKg(sets: readonly WorkedSet[]): number | null {
+  /** True when the exercise logs its weight in machine plates (D4). */
+  protected isPlates(exerciseId: string): boolean {
+    return this.weightInfoByExerciseId().get(exerciseId)?.weightUnit === 'plates';
+  }
+
+  protected plates(count: number): string {
+    return formatPlates(count);
+  }
+
+  /**
+   * A logged weight of the exercise as text: plates stay plates, never converted (D4); anything
+   * else goes through the preferred unit.
+   */
+  private formatWeightOf(exerciseId: string, value: number): string {
+    return this.isPlates(exerciseId) ? formatPlates(value) : this.formatWeight(value);
+  }
+
+  /** Heaviest weight-reps set, in the exercise's own unit, or null when there is none. */
+  private bestWeight(sets: readonly WorkedSet[]): number | null {
     const weights = sets.flatMap(s => (s.type === 'weight-reps' ? [s.weight.value] : []));
     return weights.length === 0 ? null : Math.max(...weights);
   }
@@ -438,7 +475,7 @@ export class SessionSummaryPage implements OnInit {
           .reduce((a, b) =>
             b.weight.value > a.weight.value || (b.weight.value === a.weight.value && b.reps.value > a.reps.value) ? b : a,
           );
-        return `${this.formatWeight(best.weight.value)}×${best.reps.value}`;
+        return `${this.formatWeightOf(best.exerciseId, best.weight.value)}×${best.reps.value}`;
       }
       case 'bodyweight-reps':
         return `${Math.max(...sets.flatMap(s => (s.type === 'bodyweight-reps' ? [s.reps.value] : [])))} reps`;
@@ -455,7 +492,7 @@ export class SessionSummaryPage implements OnInit {
       case 'weight-reps': {
         const prevW = prev.set.type === 'weight-reps' ? prev.set.weight.value : 0;
         const diff = newSet.weight.value - prevW;
-        return diff > 0 ? `+${this.formatWeight(diff)}` : null;
+        return diff > 0 ? `+${this.formatWeightOf(newSet.exerciseId, diff)}` : null;
       }
       case 'bodyweight-reps': {
         const prevReps = prev.set.type === 'bodyweight-reps' ? prev.set.reps.value : 0;
@@ -470,7 +507,7 @@ export class SessionSummaryPage implements OnInit {
   private formatSetDetail(s: WorkedSet): string {
     switch (s.type) {
       case 'weight-reps':
-        return `${this.formatWeight(s.weight.value)} × ${s.reps.value}`;
+        return `${this.formatWeightOf(s.exerciseId, s.weight.value)} × ${s.reps.value}`;
       case 'bodyweight-reps':
         return `${s.reps.value} reps`;
       case 'time':

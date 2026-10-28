@@ -12,6 +12,7 @@ import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
 import { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
 import { FgChipComponent } from '@core/shared/ui/chip/chip.component';
 import { FgIconComponent } from '@core/shared/ui';
+import { formatPlates } from '../format-plates';
 
 /** Two cells of a sheet row: the first holds the weight/distance/time, the second the reps/time. */
 type RowCells = [string, string];
@@ -364,7 +365,7 @@ export class ExerciseSessionCardComponent {
 
   /** Weight for display: plates stay plates, everything else follows the preferred unit. */
   private weight(value: number): string {
-    if (this.exerciseWeightUnit() === 'plates') return `${value} placas`;
+    if (this.exerciseWeightUnit() === 'plates') return formatPlates(value);
     return this.weightPipe.transform(Math.round(value * 100) / 100, this.unit());
   }
 }

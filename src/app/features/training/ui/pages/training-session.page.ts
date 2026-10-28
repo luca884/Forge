@@ -31,6 +31,8 @@ import { FgButtonComponent, FgCardComponent, FgSkeletonComponent } from '@core/s
 import { FgIconComponent } from '@core/shared/ui';
 import { ToastService } from '@core/shared/ui';
 import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
+import type { WeightUnit } from '@core/shared/domain/weight-unit';
+import { formatPlates } from '../format-plates';
 
 interface ExerciseWithData {
   exercise: Exercise;
@@ -116,6 +118,7 @@ function formatHMS(totalSeconds: number): string {
             [visible]="prVisible()"
             [set]="latestPrSet()"
             [unit]="unit()"
+            [weightUnit]="latestPrWeightUnit()"
             [exerciseName]="latestPrExerciseName()"
             [delta]="latestPrDelta()"
             (dismissed)="dismissPr()">
@@ -256,6 +259,8 @@ export class TrainingSessionPage implements OnInit, OnDestroy {
   readonly latestPrSet = signal<WorkedSet | null>(null);
   readonly latestPrExerciseName = signal('');
   readonly latestPrDelta = signal<string | null>(null);
+  /** Unit of the exercise behind the banner: a plates PR is never shown in kg or lb (D4). */
+  readonly latestPrWeightUnit = signal<WeightUnit>('kg');
   readonly dayLabel = signal('Sesión');
 
   /** Exercise the user is currently focused on (step-by-step). Null → falls back to first incomplete. */
@@ -417,10 +422,12 @@ export class TrainingSessionPage implements OnInit, OnDestroy {
       if (set.isPR) {
         this.latestPrSet.set(set);
 
-        const exerciseName = this.exercisesWithData()
-          .find(e => e.exercise.id === input.exerciseId)?.exercise.name ?? '';
-        this.latestPrExerciseName.set(exerciseName);
-        this.latestPrDelta.set(this.formatDelta(set, previousPR));
+        const prExercise = this.exercisesWithData()
+          .find(e => e.exercise.id === input.exerciseId)?.exercise;
+        const weightUnit = prExercise?.weightUnit ?? 'kg';
+        this.latestPrExerciseName.set(prExercise?.name ?? '');
+        this.latestPrWeightUnit.set(weightUnit);
+        this.latestPrDelta.set(this.formatDelta(set, previousPR, weightUnit));
         this.prVisible.set(true);
       }
     } catch (err) {
@@ -490,6 +497,7 @@ export class TrainingSessionPage implements OnInit, OnDestroy {
     this.latestPrSet.set(null);
     this.latestPrExerciseName.set('');
     this.latestPrDelta.set(null);
+    this.latestPrWeightUnit.set('kg');
   }
 
   goBack(): void {
@@ -537,16 +545,18 @@ export class TrainingSessionPage implements OnInit, OnDestroy {
   }
 
   /** Format the PR delta as a human-readable string. Returns null for first-ever PR. */
-  private formatDelta(newSet: WorkedSet, prev: PersonalRecord | null): string | null {
+  private formatDelta(newSet: WorkedSet, prev: PersonalRecord | null, weightUnit: WeightUnit): string | null {
     if (!prev) return null;
     switch (newSet.type) {
       case 'weight-reps': {
         const prevW = prev.set.type === 'weight-reps' ? prev.set.weight.value : 0;
         const diff = newSet.weight.value - prevW;
-        // Same shape as the summary page: the preferred unit, rounded to kill float noise.
-        return diff > 0
-          ? `+${this.weightPipe.transform(Math.round(diff * 100) / 100, this.unit())}`
-          : null;
+        if (diff <= 0) return null;
+        // Plates stay plates (D4). Otherwise, same shape as the summary page: the preferred
+        // unit, rounded to kill float noise.
+        return weightUnit === 'plates'
+          ? `+${formatPlates(diff)}`
+          : `+${this.weightPipe.transform(Math.round(diff * 100) / 100, this.unit())}`;
       }
       case 'bodyweight-reps': {
         const prevReps = prev.set.type === 'bodyweight-reps' ? prev.set.reps.value : 0;

@@ -76,7 +76,7 @@ describe('SessionSummaryPage', () => {
   let mockPreviousSets: { execute: jest.Mock };
 
   interface SetupOptions {
-    exercises?: { id: string; name: string }[];
+    exercises?: { id: string; name: string; weightUnit?: 'kg' | 'plates'; plateWeightKg?: number }[];
     /** Sets of the previous session, by exerciseId. */
     previousSets?: Record<string, WorkedSet[]>;
     dayName?: string | null;
@@ -658,6 +658,106 @@ describe('SessionSummaryPage', () => {
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('100 kg');
+  });
+
+  // --- D4 / S11: ejercicios en placas ---
+
+  describe('placas (D4 · S11)', () => {
+    const plates = (id: string, n: number, reps: number, isPR = false): WorkedSet => makeWeightRepsSet(id, 'ex-p', n, reps, isPR);
+    const platesExercise = { id: 'ex-p', name: 'Prensa', weightUnit: 'plates' as const, plateWeightKg: 10 };
+
+    async function render(
+      sets: WorkedSet[],
+      opts: SetupOptions = {},
+      unit: PreferredUnit = 'kg',
+    ): Promise<HTMLElement> {
+      await setup(sets, completedSession, { exercises: [platesExercise], ...opts });
+      unitSignal.set(unit);
+      fixture = TestBed.createComponent(SessionSummaryPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      for (let i = 0; i < 10; i++) await Promise.resolve();
+      fixture.detectChanges();
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    const volume = (el: HTMLElement): string | undefined =>
+      el.querySelectorAll('[aria-label="Totales"] [data-total-value]')[1]?.textContent?.trim();
+
+    it('the volume counts plates × plate weight × reps, in kg', async () => {
+      // 2 × (7 placas × 10 kg × 5 reps) = 700 kg
+      const el = await render([plates('a', 7, 5), plates('b', 7, 5)]);
+      expect(volume(el)).toBe('700');
+      expect(el.querySelector('[data-total-unit]')?.textContent?.trim()).toBe('kg');
+    });
+
+    it('a plates exercise without its own plate weight counts 5 kg per plate', async () => {
+      // 7 placas × 5 kg × 5 reps = 175 kg
+      const el = await render([plates('a', 7, 5)], { exercises: [{ id: 'ex-p', name: 'Prensa', weightUnit: 'plates' }] });
+      expect(volume(el)).toBe('175');
+    });
+
+    it('the plates volume follows the preferred unit like any other volume (700 kg = 1543.2 lb)', async () => {
+      const el = await render([plates('a', 7, 5), plates('b', 7, 5)], {}, 'lb');
+      expect(volume(el)).toBe('1543.2');
+      expect(el.querySelector('[data-total-unit]')?.textContent?.trim()).toBe('lb');
+    });
+
+    it('the volume adds kg and plates exercises together', async () => {
+      // 100 kg × 10 + 7 placas × 10 kg × 5 = 1000 + 350
+      const el = await render(
+        [makeWeightRepsSet('k', 'ex-k', 100, 10), plates('a', 7, 5)],
+        { exercises: [platesExercise, { id: 'ex-k', name: 'Remo' }] },
+      );
+      expect(volume(el)).toBe('1350');
+    });
+
+    it('"Mejor" and "vs. ant." read in plates, singular included, and are never converted to lb', async () => {
+      const prev = (n: number): WorkedSet => ({ ...plates('p', n, 5), sessionId: 's-0' });
+      const el = await render([plates('a', 6, 5), plates('b', 7, 5)], { previousSets: { 'ex-p': [prev(6)] } }, 'lb');
+      const row = el.querySelector<HTMLElement>('[data-exercise-row]')!;
+      expect(row.querySelector('[data-row-best]')?.textContent?.trim()).toBe('7 placas×5');
+      expect(row.querySelector('[data-row-delta]')?.textContent?.trim()).toBe('+1 placa');
+    });
+
+    it('"vs. ant." shows several plates, "igual" and a negative difference', async () => {
+      const prev = (n: number): WorkedSet => ({ ...plates('p', n, 5), sessionId: 's-0' });
+      let el = await render([plates('a', 8, 5)], { previousSets: { 'ex-p': [prev(6)] } });
+      expect(el.querySelector('[data-row-delta]')?.textContent?.trim()).toBe('+2 placas');
+
+      el = await render([plates('a', 6, 5)], { previousSets: { 'ex-p': [prev(6)] } });
+      expect(el.querySelector('[data-row-delta]')?.textContent?.trim()).toBe('igual');
+
+      el = await render([plates('a', 5, 5)], { previousSets: { 'ex-p': [prev(6)] } });
+      expect(el.querySelector('[data-row-delta]')?.textContent?.trim()).toBe('-1 placa');
+    });
+
+    it('a record reads "N placas × reps" with its difference in plates', async () => {
+      const prSet = plates('ws-pr', 7, 5, true);
+      const oldPr = { ...plates('ws-old', 5, 5, true), sessionId: 's-0' };
+      await setup([prSet], completedSession, { exercises: [platesExercise] });
+      unitSignal.set('lb');
+      mockPrRepo.listAll.mockResolvedValue([
+        { id: 'pr-new', exerciseId: 'ex-p', set: prSet },
+        { id: 'pr-old', exerciseId: 'ex-p', set: oldPr },
+      ]);
+      fixture = TestBed.createComponent(SessionSummaryPage);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      for (let i = 0; i < 10; i++) await Promise.resolve();
+      fixture.detectChanges();
+
+      const card = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('[data-pr-card]')!;
+      expect(card.textContent).toContain('7 placas × 5');
+      expect(card.textContent).toContain('+2 placas vs. récord anterior');
+      expect(card.textContent).not.toMatch(/\blb\b|\bkg\b/);
+    });
+
+    it('the detail of each set shows plates, not lb', async () => {
+      const el = await render([plates('a', 1, 5)], {}, 'lb');
+      const detail = el.querySelector('.session-summary__set-detail')?.textContent?.replace(/\s+/g, ' ').trim();
+      expect(detail).toBe('5 reps × 1 placa');
+    });
   });
 
   // P3-5: loading skeleton

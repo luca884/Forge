@@ -7,7 +7,9 @@ import { Component, Input, Output, EventEmitter, input } from '@angular/core';
 import { WorkedSet } from '../../domain/worked-set';
 import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
 import { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
+import type { WeightUnit } from '@core/shared/domain/weight-unit';
 import { FgIconComponent } from '@core/shared/ui';
+import { formatPlates } from '../format-plates';
 
 @Component({
   selector: 'fg-pr-celebration',
@@ -33,7 +35,11 @@ import { FgIconComponent } from '@core/shared/ui';
           <div class="font-mono tabular-nums text-[13px] leading-[18px] text-ink-2 mt-0.5">
             @switch (set.type) {
               @case ('weight-reps') {
-                {{ set.weight.value | displayWeight: unit() }} · {{ set.reps.value }} reps
+                @if (weightUnit() === 'plates') {
+                  {{ plates(set.weight.value) }} · {{ set.reps.value }} reps
+                } @else {
+                  {{ set.weight.value | displayWeight: unit() }} · {{ set.reps.value }} reps
+                }
               }
               @case ('bodyweight-reps') {
                 {{ set.reps.value }} reps
@@ -66,6 +72,9 @@ export class PrCelebrationComponent {
   /** Preferred weight unit — passed down from the hosting page (D-3, ADR-22). */
   readonly unit = input<PreferredUnit>('kg');
 
+  /** Unit of the exercise's weight: a plates set is shown as plates, never converted (D4). */
+  readonly weightUnit = input<WeightUnit>('kg');
+
   /** Exercise name to display in the banner. */
   readonly exerciseName = input<string>('');
 
@@ -73,6 +82,10 @@ export class PrCelebrationComponent {
   readonly delta = input<string | null>(null);
 
   @Output() dismissed = new EventEmitter<void>();
+
+  protected plates(count: number): string {
+    return formatPlates(count);
+  }
 
   onDismiss(): void {
     this.dismissed.emit();
