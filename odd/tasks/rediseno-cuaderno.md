@@ -67,10 +67,20 @@ Requisitos:
 - S7: el tema por defecto es "Sistema" y el acento por defecto es `#2B59FF` (confirmado en L7: "dale,").
 - S8 (supuesto): Primer uso reemplaza el estado vacío "Sin rutina activa" de Hoy cuando no hay ninguna rutina. Con rutinas pero sin una activa, Hoy sigue como hoy. Confirmar o descartar en T13.
 - S9: "Pantalla siempre encendida" viene desactivada por defecto; el usuario la activa en Perfil (L19: "nop, la tenes que activar").
+- S10: "obviamente quiero que la aplicacion siga aprovechando la informacoin y datos que se estvieron cargando, por ejemplo luego de esta migracion grande que fue, que sigan apareciendo los datos que todo este tiempo usando la apliciion, que eso siga como siempre, se entiende?" (L20).
+  - Aceptación:
+    - Lo que se guardó antes de la rama se sigue viendo y usando después de actualizar: perfil, rutinas, días, ejercicios propios, sesiones, series y PRs.
+    - Ninguna pantalla deja de mostrar un dato que antes mostraba, salvo por decisión del usuario (L17: nombre y avatar).
+    - No cambian el esquema Dexie ni el formato de las filas.
+  - Checks:
+    - Sin cambios en `src/app/core/db` ni en los `data/` de las features desde `081e4d3`.
+    - Auditoría de antes y después por pantalla.
+    - Chequeo diferencial de actualización: lo que escribe la build de `081e4d3` se ve en la build nueva, en el mismo origen.
+    - El CSV de T12 incluye las sesiones viejas.
 
 Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implementar):
 - D1 (T13): ejercicios, series y repeticiones de cada plantilla, tomados del catálogo de 42 ejercicios.
-- D2 (T12): columnas del CSV. Propuesta: `fecha, rutina, dia, ejercicio, serie, peso, unidad, reps, tiempo_s, distancia_m, pr`.
+- D2 (T12), resuelta en L20: columnas `fecha, rutina, dia, ejercicio, serie, tipo, peso, unidad, reps, tiempo_s, distancia_km, pr`. Una fila por serie, solo de sesiones terminadas. `peso` va en la unidad preferida y `unidad` dice cuál es. Las celdas que no aplican al tipo de serie quedan vacías. La distancia va en km porque así se guarda (`DistanceTimeSet.distanceKm`).
 - D3 (T10), resuelta en L16: entran "Descanso por defecto" (hoy es la constante `DEFAULT_REST_SECONDS = 90` en `src/app/features/training/ui/services/rest-timer.service.ts:8`; el descanso propio de cada ejercicio sigue mandando) y "Aviso al terminar el descanso" (switch para el beep y la notificación que hoy siempre se disparan). Las dos son preferencias del dispositivo en `localStorage`, sin tocar Dexie.
 
 ## Tasks
@@ -86,10 +96,21 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
 - [x] T9 · S1 · ruta: delegada · Progreso e historial (`progress-home`, `pr-list`, `exercise-history`, componentes de `progress/ui/components/`; quitar los hex de `line-chart.component.ts`) según `C-Progress` y `C-Exercise`, más `e2e/journeys/progress.spec.ts` · Aceptación: capturas; gráficos legibles en los dos temas; e2e de progreso verde · Evidencia: `ecf9324`, ruta delegada (subagente Sonnet). RED observado primero en el redibujo por tema y acento (los colores fijos `#4CAF50` y `rgba(0,0,0,0.1)`) y en el redondeo del 1RM. GREEN: `npx jest src/app/features/progress/ui` 152/152. `tsc` limpio. `npm test` 1526/1526. `npm run e2e` 25/25. `npm run e2e:visual` 18/18; solo cambiaron `progreso-*` e `historial-ejercicio-*`. eslint limpio. `rg` sin hex. Revisé `progreso-dark` · Risk: item 6 (igual que T4)
 - [x] T10 · S1, S2, S6 · ruta: inline · Perfil según `C-Profile`: secciones Apariencia (Tema, Color de acento, conectados al servicio de T2), Entrenamiento (Unidad de peso; "Descanso por defecto" y "Aviso al terminar el descanso" según D3, test-first, el timer usa el descanso por defecto guardado cuando el ejercicio no tiene uno propio y respeta el switch de aviso) y Datos (Borrar historial sin cambio de comportamiento), más `e2e/journeys/profile.spec.ts`. Sin Nombre ni Avatar (L17) · Aceptación: S2 y S6 de punta a punta; J13.1 verde · Evidencia: `7d17fb9` (L17, L18). RED: faltaban `SetPreferredUnitUseCase` y `RestPreferencesService`. Después fallaron 30 de 30 tests de la página, 3 del timer (descanso guardado, descanso 0 y aviso apagado) y 1 de Sesión (`Expected: 150, Received: undefined`). GREEN: `npx jest src/app/features/profile` 67/67. `tsc -p tsconfig.app.json` limpio. `npm test` 1560/1560. `npm run e2e` 27/27 (J13.1 reescrito, suma J13.2 y J13.3). `npm run e2e:visual` 18/18, con build; solo cambiaron `perfil-*`. eslint limpio en lo tocado. Revisé `perfil-light` y `perfil-dark` · Risk: none (la clave `forge.rest` es nueva; el perfil se guarda con la misma forma de `ProfileRow`)
 - [x] T11 · S4, S9 · ruta: inline · Servicio de Wake Lock en `src/app/core/`, preferencia en `forge.appearance`, uso desde la sesión activa, fila en Perfil. Test-first en Jest con `navigator.wakeLock` simulado: pedir, volver a pedir en `visibilitychange`, liberar al terminar, sin soporte · Aceptación: S4 · Evidencia: `88da6bc` (L19). RED: 21 tests nuevos fallaban con el servicio vacío (17 del servicio, 3 de Perfil y 2 de Sesión). GREEN: `npx jest src/app/core/wake-lock src/app/features/profile/ui …/training-session.page.spec.ts` 88/88. `tsc` limpio. `npm test` 1582/1582. `npm run e2e` 27/27. `npm run e2e:visual` 18/18; solo cambiaron `perfil-*`. eslint limpio en lo tocado. Revisé `perfil-light` · Risk: item 4 (pedido y liberación asíncronos del lock con `visibilitychange`; lo cubren los tests de carrera y queda para el verificador de T15)
-- [ ] T12 · S5 · ruta: inline · Preguntar D2 antes. Caso de uso que arma el CSV desde sesiones y series (repositorios existentes, sin escribir datos), descarga con `Blob`, botón en Perfil. Test-first en Jest · Aceptación: S5 · Evidencia: — · Risk: none (solo lectura; formato nuevo que todavía nadie consume)
+- [x] T12 · S5 · ruta: inline · Preguntar D2 antes. Caso de uso que arma el CSV desde sesiones y series (repositorios existentes, sin escribir datos), descarga con `Blob`, botón en Perfil. Test-first en Jest · Aceptación: S5 · Evidencia: `f88df20` (L21). RED:
+  - Caso de uso: 9 de 9 fallaban contra un stub vacío.
+  - Página y `FileDownloadService`: fallaban 7, que son 4 de Perfil y 3 del servicio.
+  - GREEN: `npx jest src/app/core/files src/app/features/profile/ui src/app/features/progress/domain` 125/125. `tsc` limpio. `npm test` 1598/1598.
+  - `npm run e2e` 28/28, con J13.4 nuevo. Ese e2e se escribió después de implementar; el RED de esas reglas se vio en Jest.
+  - `npm run e2e:visual` 18/18; solo cambiaron `perfil-*`. eslint limpio en lo tocado. Revisé `perfil-dark`.
+  - Risk: none (solo lectura; formato nuevo que todavía nadie consume)
 - [ ] T13 · S3, S8 · ruta: inline · Preguntar D1 antes. Feature `onboarding`: pantalla Primer uso según `C-Welcome`, catálogo de plantillas, caso de uso que crea la rutina con los casos de uso de `routines` existentes (respeta "una sola rutina activa", J6a.2). Ajustar el e2e "muestra \"Sin rutina activa\"…" y sumar uno de primer uso · Aceptación: S3 · Evidencia: — · Risk: none (crea registros nuevos con los casos de uso existentes)
-- [ ] T14 · S1 · ruta: inline · Limpieza: borrar la rampa `forge-*`, `accent-50..700`, `--pr-warm*` si queda sin uso, los bloques viejos `.forge-dark`/`.forge-light`, las Geist y sus `preload`; regenerar todas las baselines · Aceptación: `rg` de S1 sin resultados; build verde · Evidencia: — · Risk: item 6 (igual que T4)
-- [ ] T15 · S1–S9 · ruta: delegada (Verification trigger: items 4, 5 y 6 en T1, T4–T9, T11, T14) · Cierre: `npm test`, `npm run lint`, `npm run build`, `npm run e2e`, `npm run e2e:pwa` (fuentes offline), y un `odd-verifier` (opus) sobre toda la feature desde `081e4d3` · Aceptación: todo verde o un único **Needs your decision** · Evidencia: — · Risk: —
+- [ ] T14 · S1 · ruta: inline · Limpieza: borrar la rampa `forge-*`, `accent-50..700`, `--pr-warm*` si queda sin uso, los bloques viejos `.forge-dark`/`.forge-light`, las Geist y sus `preload`; regenerar todas las baselines. En `public/manifest.webmanifest` cambian solo los colores: `id`, `start_url`, `scope` y `name` quedan igual, así la app instalada sigue siendo la misma (S10) · Aceptación: `rg` de S1 sin resultados; build verde · Evidencia: — · Risk: item 6 (igual que T4)
+- [ ] T16 · S10 · ruta: delegada (auditoría en workflow) e inline (chequeo diferencial) · Continuidad de datos:
+  - Auditoría de solo lectura de antes (`081e4d3`) y después: capa de persistencia y cada pantalla, con verificación adversarial de cada hallazgo.
+  - Chequeo diferencial en scratch: la build de `081e4d3` escribe datos con su propia UI y la build nueva los muestra en el mismo origen.
+  - Corregir lo que se haya perdido sin decisión del usuario.
+  - Aceptación: S10 · Evidencia: — · Risk: none (verificación de solo lectura; si hay correcciones, se reevalúa)
+- [ ] T15 · S1–S10 · ruta: delegada (Verification trigger: items 4, 5 y 6 en T1, T4–T9, T11, T14) · Cierre: `npm test`, `npm run lint`, `npm run build`, `npm run e2e`, `npm run e2e:pwa` (fuentes offline), y un `odd-verifier` (opus) sobre toda la feature desde `081e4d3` · Aceptación: todo verde o un único **Needs your decision** · Evidencia: — · Risk: —
 
 ## Log
 
@@ -256,3 +277,25 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
     - Un pedido rechazado (`NotAllowedError`) no rompe nada y se reintenta en el próximo paso a primer plano.
   - Sin soporte, la fila de Perfil dice "Tu navegador no permite mantener la pantalla encendida." y el switch queda `disabled`.
   - Próximo paso: T12 (CSV). Antes hay que preguntar D2.
+- L20 (2026-10-28) Pregunta D2, con la propuesta `fecha, rutina, dia, ejercicio, serie, tipo, peso, unidad, reps, tiempo_s, distancia_km, pr`: "¿Vamos con esas columnas?". Respuesta textual:
+  > dale me parece bien, obviamente quiero que la aplicacion siga aprovechando la informacoin y datos que se estvieron cargando, por ejemplo luego de esta migracion grande que fue, que sigan apareciendo los datos que todo este tiempo usando la apliciion, que eso siga como siempre, se entiende?
+
+  - D2 queda resuelta con esas columnas.
+  - La segunda parte es un requisito nuevo, S10, y se cubre con la tarea nueva T16. T15 pasa a cubrir S1–S10.
+  - T14 suma una restricción: el manifest mantiene su identidad.
+  - Próximo paso: T12 (inline, test-first). En paralelo corre la auditoría de T16 (workflow de solo lectura, que compara `081e4d3` con `49c5183`).
+- L21 (2026-10-28) T12 cerrada:
+  - `ExportHistoryCsvUseCase` vive en `features/progress/domain/use-cases/`, porque `progress` ya lee `SessionRepository` de `training`. La ruta de Perfil lo provee junto con los cuatro repositorios Dexie que lee. No escribe nada.
+  - Lee todas las series con `getWorkedSetsSince(new Date(0))` y toma solo las sesiones `completed`. Los estados `missed` y `recovered` existen en el tipo, pero ningún código los escribe, ni en `081e4d3` ni hoy.
+  - Valores:
+    - `tipo`: `peso_reps`, `peso_corporal`, `tiempo` o `distancia_tiempo`.
+    - `pr`: `sí` o `no`.
+    - `serie`: numera las series de cada ejercicio dentro de la sesión, en el orden en que se registraron.
+    - `peso`: en lb usa el mismo factor y redondeo que `DisplayWeightPipe` (2.20462, un decimal); en kg va tal como se guardó.
+  - Si la rutina, el día o el ejercicio ya no existen, la fila queda igual, con esas celdas vacías.
+  - Formato: comillas según RFC 4180 y fin de línea CRLF.
+  - Sin protección contra fórmulas (`=`, `+`, `-`, `@`), porque los nombres los escribe solo el dueño del dispositivo; no es entrada de terceros.
+  - `FileDownloadService` (`src/app/core/files/`): arma un Blob con BOM y lo descarga con un link agregado al documento. Revoca la URL 40 s después, como FileSaver.js, porque Safari en iOS falla si se revoca enseguida.
+  - Sin series: toast "Todavía no hay series para exportar." y no se descarga nada. Si falla: toast "No se pudo exportar el historial". El botón queda deshabilitado mientras exporta.
+  - J13.4 siembra una sesión de hace 400 días y una abierta: cubre S5 y la parte de S10 que corresponde al CSV.
+  - Próximo paso: revisar la auditoría de T16 cuando termine; después, el chequeo diferencial de actualización.
