@@ -9,6 +9,7 @@ import { NotificationPermissionService } from '@core/notifications/notification-
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import { AccentId, AppearanceService, ThemePreference } from '@core/appearance/appearance.service';
 import { RestPreferencesService } from '@core/rest-preferences/rest-preferences.service';
+import { ScreenWakeLockService } from '@core/wake-lock/screen-wake-lock.service';
 import { ToastService } from '@core/shared/ui/toast/toast.service';
 import { FgButtonComponent, FgIconComponent } from '@core/shared/ui';
 
@@ -156,6 +157,27 @@ const REST_STEP_SECONDS = 15;
             }
           </div>
 
+          <div class="flex items-center justify-between gap-2 min-h-[52px] py-2 px-3.5 border-b border-line-soft">
+            <span class="flex flex-col" [class.opacity-60]="!wakeLock.supported">
+              <span class="text-[15px] font-medium">Pantalla siempre encendida</span>
+              <span class="text-[12px] text-ink-2">
+                {{ wakeLock.supported ? 'Durante la sesión' : 'Tu navegador no permite mantener la pantalla encendida.' }}
+              </span>
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-label="Pantalla siempre encendida"
+              [attr.aria-checked]="wakeLock.enabled()"
+              [disabled]="!wakeLock.supported"
+              class="w-[46px] h-7 flex-none rounded-full p-[3px] flex disabled:opacity-40"
+              [class]="wakeLock.enabled() ? 'bg-accent justify-end' : 'bg-dash justify-start'"
+              (click)="wakeLock.setEnabled(!wakeLock.enabled())"
+            >
+              <span class="w-[22px] h-[22px] rounded-full bg-white"></span>
+            </button>
+          </div>
+
           <div class="flex flex-col gap-2 py-2 px-3.5">
             <div class="flex items-center justify-between gap-2 min-h-9">
               <span class="flex flex-col">
@@ -253,6 +275,7 @@ export class ProfilePage implements OnInit {
   private readonly userPreferences = inject(UserPreferencesService);
   readonly appearance = inject(AppearanceService);
   readonly rest = inject(RestPreferencesService);
+  readonly wakeLock = inject(ScreenWakeLockService);
   readonly pwaInstallService = inject(PwaInstallService);
   readonly notificationService = inject(NotificationPermissionService);
 

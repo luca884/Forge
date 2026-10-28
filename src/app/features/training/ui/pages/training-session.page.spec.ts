@@ -34,6 +34,7 @@ import { GetPreviousSessionSetsUseCase } from '../../domain/use-cases/get-previo
 import { ProgressionTargetCalculator } from '../../domain/services/progression-target-calculator';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import { RestPreferencesService } from '@core/rest-preferences/rest-preferences.service';
+import { ScreenWakeLockService } from '@core/wake-lock/screen-wake-lock.service';
 import type { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
 import type { WorkedSet } from '../../domain/worked-set';
 import { Router } from '@angular/router';
@@ -120,9 +121,11 @@ describe('TrainingSessionPage', () => {
   let mockLogSetUseCase: { execute: jest.Mock };
   let mockDayRepo: { getById: jest.Mock };
   let mockExerciseRepo: { getAll: jest.Mock };
+  let wakeLock: { hold: jest.Mock; release: jest.Mock };
 
   beforeEach(async () => {
     unitSignal = signal<PreferredUnit>('lb');
+    wakeLock = { hold: jest.fn(), release: jest.fn() };
     loadOnceSpy = jest.fn().mockResolvedValue(undefined);
 
     activeSessionSignal = signal(null);
@@ -170,8 +173,42 @@ describe('TrainingSessionPage', () => {
         { provide: PersonalRecordRepository, useValue: mockPrRepo },
         { provide: RestTimerService, useValue: { remaining: signal(null), start: jest.fn(), skip: jest.fn(), cancel: jest.fn(), setRestPlan: jest.fn() } },
         { provide: NotificationPermissionService, useValue: { status: signal('default'), requestPermission: jest.fn() } },
+        { provide: ScreenWakeLockService, useValue: wakeLock },
       ],
     }).compileComponents();
+  });
+
+  // --- Pantalla siempre encendida (S4) ---
+
+  it('holds the screen wake lock once the active session is loaded', async () => {
+    activeSessionSignal.set(makeSession());
+    fixture = TestBed.createComponent(TrainingSessionPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(wakeLock.hold).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not hold the wake lock when there is no active session', async () => {
+    fixture = TestBed.createComponent(TrainingSessionPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await Promise.resolve();
+
+    expect(wakeLock.hold).not.toHaveBeenCalled();
+  });
+
+  it('frees the wake lock when leaving the session (finish, cancel or minimize)', async () => {
+    activeSessionSignal.set(makeSession());
+    fixture = TestBed.createComponent(TrainingSessionPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.destroy();
+
+    expect(wakeLock.release).toHaveBeenCalledTimes(1);
   });
 
   // --- Existing smoke tests ---
