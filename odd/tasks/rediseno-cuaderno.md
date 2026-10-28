@@ -71,17 +71,25 @@ Requisitos:
   - Aceptación:
     - Lo que se guardó antes de la rama se sigue viendo y usando después de actualizar: perfil, rutinas, días, ejercicios propios, sesiones, series y PRs.
     - Ninguna pantalla deja de mostrar un dato que antes mostraba, salvo por decisión del usuario (L17: nombre y avatar).
-    - No cambian el esquema Dexie ni el formato de las filas.
+    - No cambian el esquema Dexie ni el formato de las filas. Excepción autorizada en L26 ("autorizo"): `ExerciseRow.plateWeightKg`, opcional y sin índice (S11).
   - Checks:
     - Sin cambios en `src/app/core/db` ni en los `data/` de las features desde `081e4d3`.
     - Auditoría de antes y después por pantalla.
     - Chequeo diferencial de actualización: lo que escribe la build de `081e4d3` se ve en la build nueva, en el mismo origen.
     - El CSV de T12 incluye las sesiones viejas.
+- S11: "y si ponemos que cada placa pesa 5kgs?? para darle un valor a ese volumen, igualmente ese valor se tendria que pode cambiar, ya sea al cambiar en el edit del ejercicio, por ejemplo lo cambio a placas y m da un lugar donde escribir el peso de cada placa, seria opcional, sino se ingresa nada es 5kg" (L26).
+  - Aceptación:
+    - En el formulario del ejercicio, con unidad "Placas (máquina)", aparece un campo opcional para el peso de cada placa en kg. Vacío vale 5 kg. Se guarda en `plateWeightKg`, opcional y sin índice, sin versión nueva de Dexie. Los ejercicios guardados antes valen 5 kg.
+    - Las series en placas se muestran como "N placas" en todas las pantallas y nunca se convierten a lb (D4).
+    - Todo volumen cuenta una serie en placas como placas × peso por placa × reps, en kg, y lo convierte a lb si esa es la unidad preferida.
+    - Supuesto: el 1RM estimado de un ejercicio en placas también usa el peso por placa, como el volumen. Confirmar o descartar al cierre de T18.
+    - El editor del día pide "Placas" en esos ejercicios, no "Peso … kg".
+  - Checks: Jest de cada superficie; e2e con un ejercicio propio en placas de 10 kg por placa, de la sesión al Resumen.
 
 Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implementar):
 - D1 (T13): ejercicios, series y repeticiones de cada plantilla, tomados del catálogo de 42 ejercicios.
 - D2 (T12), resuelta en L20: columnas `fecha, rutina, dia, ejercicio, serie, tipo, peso, unidad, reps, tiempo_s, distancia_km, pr`. Una fila por serie, solo de sesiones terminadas. `peso` va en la unidad preferida y `unidad` dice cuál es. Las celdas que no aplican al tipo de serie quedan vacías. La distancia va en km porque así se guarda (`DistanceTimeSet.distanceKm`).
-- D4 (T17), abierta: en los ejercicios con unidad "Placas (máquina)", ¿el número guardado es la cantidad de placas o kg? Hoy cada parte lo trata distinto:
+- D4 (T17), resuelta en L25: el número guardado es la cantidad de placas que se le ponen a la máquina; nunca son kg ni se convierten a lb. Antes, cada parte lo trataba distinto:
   - el editor del día lo pide como "Peso … kg";
   - Sesión lo muestra como "N placas";
   - Hoy, Resumen y Progreso lo tratan como kg y, con lb, lo convierten.
@@ -127,7 +135,12 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
     - Revisé `hoy-light`, `hoy-dark`, `resumen-dark`, `historial-ejercicio-light`, `historial-ejercicio-dark` y `editor-dia-light`.
   - Pendiente: las correcciones menores de L23 no se aplicaron.
   - Risk: item 6 (cambios visuales; lo cubren J8.2, J4.5 y las capturas, y queda para el verificador de T15)
-- [ ] T15 · S1–S10 · ruta: delegada (Verification trigger: items 4, 5 y 6 en T1, T4–T9, T11, T14) · Cierre: `npm test`, `npm run lint`, `npm run build`, `npm run e2e`, `npm run e2e:pwa` (fuentes offline), y un `odd-verifier` (opus) sobre toda la feature desde `081e4d3` · Aceptación: todo verde o un único **Needs your decision** · Evidencia: — · Risk: —
+- [x] T18 · S10, S11 · Placas según D4 y S11. Risk: item 1 (formato guardado de `ExerciseRow`) e item 3 (CSV con unidad `placas`, firmas de la agregación de Progreso); quedan para el verificador de T15.
+  - T18a · ruta: inline · Base compartida: `DEFAULT_PLATE_WEIGHT_KG` y la carga en kg de una serie en `src/app/core/shared/domain/weight-unit.ts`; `plateWeightKg` en `Exercise`, `ExerciseRow`, mapper, casos de uso de crear y editar, y el campo del formulario · Hecha · Evidencia: `29b9e75`. RED: 19 de 52 tests (helpers, mapper y casos de uso) y 4 de 12 del formulario. GREEN: `npx jest src/app/features/exercises src/app/core/shared/domain` 199/199, tsc limpio. eslint limpio en lo tocado; se arregló el error previo de `weight-unit.ts:12`. Corrección a lo dicho en L26: los ejercicios del catálogo también se editan (`exercise-list.page.ts:104`), así que también pueden pasar a placas.
+  - T18b · ruta: delegada (Writer trigger: T18b y T18c son disjuntas y de más de 100 líneas cada una, en paralelo, Sonnet) · `src/app/features/training/ui` (Hoy, Resumen, celebración de PR) y `src/app/features/routines/ui/components/target-set-editor.component.ts` · Hecha · Evidencia: `3fbe130`. RED por regla, lo reportó el writer y no lo observó el parent (L27). GREEN: `npx jest src/app/features/training src/app/features/routines` 798/798, que el parent volvió a correr con el mismo resultado; tsc y eslint limpios.
+  - T18c · ruta: delegada (ídem) · `src/app/features/progress` (agregación de volumen, récords, 1RM, historial, gráfico, lista de PR, lista de progreso) · Hecha · Evidencia: `aecda84`. RED por regla, lo reportó el writer y no lo observó el parent (L27). GREEN: `npx jest src/app/features/progress` 335/335; tsc y eslint limpios.
+  - T18d · ruta: inline · Integración, e2e de S11, capturas y revisión · Hecha · Evidencia: `ef2672b` (J15). `npm test` 1741/1741. e2e 31/31, corrido en el puerto 4300 con una config temporal (L27). `npm run e2e:visual:update` 18/18 sin capturas cambiadas. tsc limpio. `npm run lint` da 5 errores, todos previos.
+- [ ] T15 · S1–S11 · ruta: delegada (Verification trigger: items 4, 5 y 6 en T1, T4–T9, T11, T14) · Cierre: `npm test`, `npm run lint`, `npm run build`, `npm run e2e`, `npm run e2e:pwa` (fuentes offline), y un `odd-verifier` (opus) sobre toda la feature desde `081e4d3` · Aceptación: todo verde o un único **Needs your decision** · Evidencia: — · Risk: —
 
 ## Log
 
@@ -401,3 +414,30 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
   - Las correcciones menores de L23 siguen sin aplicar.
   - Las ramas `worktree-wf_4b271193-2d2-{1,2,3}` y sus worktrees siguen; su contenido ya está integrado.
   - Próximo paso: preguntar D4. Después, seguir con T13, T14 y T15.
+- L25 (2026-10-28) D4 resuelta. Respuesta del usuario, textual:
+  > yo suelo usar los pesos en kg, y cuando pongo a un ejercicio para medirlo en placas, es eso lo que pongo en el numeor, X placas que le pongo a la maquina
+  - Coincide con el dominio: `weight-unit.ts:4` ("abstract machine stack plates (integer, step 1, no kg conversion)") y la progresión de +1 placa.
+  - Pantallas que ignoran `weightUnit` y muestran placas como kg (y las convierten con lb): Hoy ("Última vez" y volumen del Diario); Resumen (series, Mejor, vs. ant., PR, volumen) y la celebración de PR; Progreso (récords, 1RM, volumen semanal y del tablero, lista de progreso); historial del ejercicio (tiles, gráfico, lista, volumen); lista de PR; editor del día ("Peso … kg").
+  - Próximo paso: preguntar cómo cuentan las series en placas en los volúmenes en kg. Después, planificar la tarea de placas.
+- L26 (2026-10-28) Peso por placa para el volumen. Propuesta del usuario, textual:
+  > y si ponemos que cada placa pesa 5kgs?? para darle un valor a ese volumen, igualmente ese valor se tendria que pode cambiar, ya sea al cambiar en el edit del ejercicio, por ejemplo lo cambio a placas y m da un lugar donde escribir el peso de cada placa, seria opcional, sino se ingresa nada es 5kg
+  - Le avisé que choca con S10 ("No cambian el esquema Dexie ni el formato de las filas") y con "Fuera de alcance". Respuesta, textual:
+    > autorizo
+  - Mismo camino que `weightUnit` (`database.ts:80`): campo opcional sin índice, sin subir la versión. La build vieja lo ignora y la nueva lee 5 kg por defecto.
+  - El volumen se calcula al mostrarlo: si cambia el peso por placa, cambia el volumen de las sesiones pasadas de ese ejercicio. El usuario ya lo sabía antes de autorizar.
+  - Hoy hay tres reglas de volumen: `computeVolume` del dominio de Progreso suma el lastre del peso corporal, y Resumen, el Diario y el historial no lo suman. T18 no cambia eso; solo agrega placas.
+  - Se agregaron S11 y T18. Próximo paso: T18a inline y después T18b y T18c en paralelo.
+- L27 (2026-10-28) T18 cerrada.
+  - T18b (`3fbe130`) y T18c (`aecda84`): dos writers Sonnet en paralelo, en el mismo árbol, con superficies disjuntas. El parent revisó que cada diff quedara dentro de su superficie.
+  - Decisiones de los writers, aceptadas por el parent:
+    - El CSV escribe una serie en placas con `peso` = el número cargado y `unidad` = `placas`. Antes salía convertida a lb ("15.4,lb"). Es coherente con D2, donde `unidad` dice cuál es.
+    - El aviso de PR durante la sesión también da el delta en placas (`training-session.page.ts`).
+    - La lista de progreso no cambió: muestra el 1RM en kg (`loadKg`) en la unidad preferida.
+  - J15 se escribió antes de T18b y T18c, pero corrió por primera vez después de integrar, así que no se vio en RED. El RED de cada regla está en Jest.
+  - Entorno: un `ng serve` de otro proyecto (`ferreteria/frontend`) ocupaba el puerto 4200. `reuseExistingServer` hizo correr los 31 e2e contra esa app, y fallaron todos con "One of the specified object stores was not found". Se corrieron en el puerto 4300 con una config temporal, que después se borró. No se cortó el otro servidor.
+  - Advisories:
+    - Hay dos funciones que formatean placas: `training/ui/format-plates.ts` y una privada en `progress/ui/helpers/format-tracking-value.ts`.
+    - La progresión todavía dice "placa 6 × 12" (`progression-target-calculator.ts`).
+    - La seed visual no tiene ejercicios en placas.
+  - Pendiente: confirmar el supuesto del 1RM de S11. Siguen sin aplicar las correcciones menores de L23.
+  - Próximo paso: confirmar el supuesto del 1RM y seguir con T13 (preguntar D1).
