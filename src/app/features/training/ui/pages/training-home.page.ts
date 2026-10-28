@@ -14,14 +14,17 @@ import { GetLastWorkedSetForExerciseUseCase } from '../../domain/use-cases/get-l
 import { SessionRepository } from '../../domain/session.repository';
 import { WorkedSet } from '../../domain/worked-set';
 import { ExerciseRepository } from '../../../exercises/domain/exercise.repository';
+import type { Exercise } from '../../../exercises/domain/exercise.entity';
 import { TargetSet } from '../../../routines/domain/target-set';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
+import { loadKg } from '@core/shared/domain/weight-unit';
 import type { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
 import { TrainingSessionStore } from '../services/training-session.store';
 import { SessionAlreadyInProgressError } from '../../domain/errors/session-already-in-progress.error';
 import { FgCardComponent, FgButtonComponent, FgIconComponent, ToastService } from '@core/shared/ui';
 import { DAYS_OF_WEEK, DayOfWeek } from '../../../routines/domain/value-objects/weekly-schedule';
+import { formatPlates } from '../format-plates';
 
 // ─── File-local types ─────────────────────────────────────────────────────────
 
@@ -46,8 +49,16 @@ interface PlanRow {
   name: string;
   /** e.g. "4 × 6–8" */
   target: string;
-  /** e.g. "100 kg × 7", or "—" when the exercise was never logged */
+  /** e.g. "100 kg × 7" or "7 placas × 8", or "—" when the exercise was never logged */
   last: string;
+}
+
+/** A weight-reps set of a journal session, as stored: its volume depends on the exercise's unit. */
+interface JournalLoad {
+  exerciseId: string;
+  /** Kilograms, or plates on a plates exercise. */
+  weight: number;
+  reps: number;
 }
 
 /** What "Diario" knows about a session, before the unit-dependent text is built. */
@@ -60,8 +71,8 @@ interface JournalEntry {
   day: string;
   /** null while the session has no end time */
   minutes: number | null;
-  /** Sum of weight × reps, always in kg as stored. */
-  volumeKg: number;
+  /** Weight-reps sets, kept raw so the volume follows the exercise's unit once exercises load. */
+  loads: readonly JournalLoad[];
   sets: number;
   prs: number;
 }
@@ -461,7 +472,7 @@ export class TrainingHomePage implements OnInit {
 
   /** Completed sessions, newest first. Feeds the week strip and "Diario". */
   private readonly completedSessions = signal<Session[]>([]);
-  private readonly exerciseNameById = signal<ReadonlyMap<string, string>>(new Map());
+  private readonly exerciseById = signal<ReadonlyMap<string, Exercise>>(new Map());
   private readonly lastSetByExerciseId = signal<ReadonlyMap<string, WorkedSet>>(new Map());
 
   /** "Martes 27 de octubre" */
@@ -504,7 +515,7 @@ export class TrainingHomePage implements OnInit {
   readonly planRows = computed<PlanRow[]>(() => {
     const day = this.suggestedDay()?.day;
     if (!day) return [];
-    const names = this.exerciseNameById();
+    const exercises = this.exerciseById();
     const lasts = this.lastSetByExerciseId();
     const unit = this.userPrefs.unit();
     return [...day.exercises]
@@ -514,9 +525,9 @@ export class TrainingHomePage implements OnInit {
         return {
           exerciseId: ex.exerciseId,
           n: String(i + 1).padStart(2, '0'),
-          name: names.get(ex.exerciseId) ?? '—',
+          name: exercises.get(ex.exerciseId)?.name ?? '—',
           target: formatTarget(ex.targetSets),
-          last: last ? this.formatLast(last, unit) : '—',
+          last: last ? this.formatLast(last, unit, exercises.get(ex.exerciseId)) : '—',
         };
       });
   });
@@ -537,11 +548,13 @@ export class TrainingHomePage implements OnInit {
 
   /**
    * "Diario" rows. The volume is shown in the preferred unit, so the rows follow
-   * UserPreferencesService.unit even when it loads after the sessions.
+   * UserPreferencesService.unit even when it loads after the sessions. They also follow the
+   * exercises, whose unit (kg or plates) decides how much each set weighs.
    */
   readonly journal = computed<JournalRow[]>(() => {
     const unit = this.userPrefs.unit();
-    return this.journalEntries().map((entry) => this.toJournalRow(entry, unit));
+    const exercises = this.exerciseById();
+    return this.journalEntries().map((entry) => this.toJournalRow(entry, unit, exercises));
   });
 
   ngOnInit(): void {
@@ -572,20 +585,29 @@ export class TrainingHomePage implements OnInit {
       this.suggestedDay.set(suggested);
 
       // Las secciones de apoyo nunca bloquean ni rompen la home.
-      await Promise.all([this.loadPlanContext(suggested), this.loadJournal()]);
+      await Promise.all([this.loadExercises(), this.loadPlanContext(suggested), this.loadJournal()]);
     }
   }
 
-  /** Exercise names and last logged set for the exercises of today's day. */
+  /**
+   * Every exercise: names for the plan and the unit (kg or plates) for the plan and for "Diario",
+   * which lists sessions of any day, rest days included.
+   */
+  private async loadExercises(): Promise<void> {
+    try {
+      const exercises = await this.exerciseRepo.getAll();
+      this.exerciseById.set(new Map(exercises.map((e) => [e.id, e])));
+    } catch {
+      // Sin nombres: la tabla muestra "—"; sin unidad, el volumen cuenta todo como kg.
+    }
+  }
+
+  /** Last logged set for the exercises of today's day. */
   private async loadPlanContext(suggested: SuggestedDayResult): Promise<void> {
     const day = suggested.day;
     if (!day) return;
     try {
-      const [exercises, lastSets] = await Promise.all([
-        this.exerciseRepo.getAll(),
-        Promise.all(day.exercises.map((ex) => this.getLastSetUseCase.execute(ex.exerciseId))),
-      ]);
-      this.exerciseNameById.set(new Map(exercises.map((e) => [e.id, e.name])));
+      const lastSets = await Promise.all(day.exercises.map((ex) => this.getLastSetUseCase.execute(ex.exerciseId)));
       const byId = new Map<string, WorkedSet>();
       day.exercises.forEach((ex, i) => {
         const set = lastSets[i];
@@ -593,7 +615,7 @@ export class TrainingHomePage implements OnInit {
       });
       this.lastSetByExerciseId.set(byId);
     } catch {
-      // Sin nombres ni "última vez": la tabla muestra "—".
+      // Sin "última vez": la tabla muestra "—".
     }
   }
 
@@ -628,17 +650,21 @@ export class TrainingHomePage implements OnInit {
       minutes: session.endedAt
         ? Math.max(1, Math.round((session.endedAt.getTime() - session.startedAt.getTime()) / 60_000))
         : null,
-      volumeKg: sets.reduce((acc, s) => (s.type === 'weight-reps' ? acc + s.weight.value * s.reps.value : acc), 0),
+      loads: sets.flatMap((s) =>
+        s.type === 'weight-reps' ? [{ exerciseId: s.exerciseId, weight: s.weight.value, reps: s.reps.value }] : [],
+      ),
       sets: sets.length,
       prs: sets.filter((s) => s.isPR).length,
     };
   }
 
-  private toJournalRow(entry: JournalEntry, unit: PreferredUnit): JournalRow {
+  private toJournalRow(entry: JournalEntry, unit: PreferredUnit, exercises: ReadonlyMap<string, Exercise>): JournalRow {
+    // In kg: a plates set counts plates × plate weight (S11), through `loadKg`.
+    const volumeKg = entry.loads.reduce((acc, l) => acc + loadKg(l.weight, exercises.get(l.exerciseId)) * l.reps, 0);
     const parts = [
       entry.minutes !== null ? `${entry.minutes} min` : null,
       // Rounded to cents so float noise (32.2 × 3 = 96.60000000000001) never reaches the text.
-      entry.volumeKg > 0 ? this.weightPipe.transform(Math.round(entry.volumeKg * 100) / 100, unit) : null,
+      volumeKg > 0 ? this.weightPipe.transform(Math.round(volumeKg * 100) / 100, unit) : null,
       `${entry.sets} ${entry.sets === 1 ? 'serie' : 'series'}`,
     ].filter((p): p is string => p !== null);
 
@@ -652,10 +678,13 @@ export class TrainingHomePage implements OnInit {
     };
   }
 
-  private formatLast(set: WorkedSet, unit: 'kg' | 'lb'): string {
+  private formatLast(set: WorkedSet, unit: 'kg' | 'lb', exercise: Exercise | undefined): string {
     switch (set.type) {
       case 'weight-reps':
-        return `${this.weightPipe.transform(set.weight.value, unit)} × ${set.reps.value}`;
+        // Plates stay plates (D4): never converted to lb.
+        return exercise?.weightUnit === 'plates'
+          ? `${formatPlates(set.weight.value)} × ${set.reps.value}`
+          : `${this.weightPipe.transform(set.weight.value, unit)} × ${set.reps.value}`;
       case 'bodyweight-reps':
         return `${set.reps.value} reps`;
       case 'time':

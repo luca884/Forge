@@ -361,6 +361,59 @@ describe('TrainingSessionPage', () => {
     expect(prComp!.delta()).toBe('+11.0 lb');
   });
 
+  it('D4: the PR of a plates exercise reaches the banner as plates, with a delta in plates (never lb)', async () => {
+    const exerciseId = 'ex-plates';
+    const exercise = { ...makeExercise(exerciseId, 'Prensa'), weightUnit: 'plates' as const };
+    const exInDay = makeExerciseInDay(exerciseId, 3);
+
+    mockDayRepo.getById.mockResolvedValue({ exercises: [exInDay] });
+    mockExerciseRepo.getAll.mockResolvedValue([exercise]);
+    activeSessionSignal.set(makeSession());
+
+    TestBed.overrideComponent(TrainingSessionPage, {
+      set: {
+        providers: [
+          { provide: LogSetUseCase, useValue: mockLogSetUseCase },
+          { provide: CompleteSessionUseCase, useValue: { execute: jest.fn() } },
+          { provide: CancelSessionUseCase, useValue: { execute: jest.fn() } },
+          { provide: EditWorkedSetUseCase, useValue: { execute: jest.fn() } },
+          { provide: RemoveWorkedSetUseCase, useValue: { execute: jest.fn() } },
+          { provide: GetProgressionTargetUseCase, useValue: { execute: jest.fn().mockResolvedValue(null) } },
+          { provide: GetPreviousSessionSetsUseCase, useValue: { execute: jest.fn().mockResolvedValue([]) } },
+          ProgressionTargetCalculator,
+        ],
+      },
+    });
+
+    // Previous PR: 5 plates. The new set: 7 plates.
+    mockPrRepo.getCurrentForExercise.mockResolvedValue({
+      id: 'pr-1', exerciseId, trackingType: 'weight-reps', workedSetId: 'ws-old', achievedAt: new Date(),
+      set: { id: 'ws-old', sessionId: 'session-1', exerciseId, type: 'weight-reps', reps: { value: 5 }, weight: { value: 5 }, isPR: true, createdAt: new Date() },
+    });
+    mockLogSetUseCase.execute.mockResolvedValue({
+      id: 'ws-new', sessionId: 'session-1', exerciseId, type: 'weight-reps',
+      reps: { value: 5 }, weight: { value: 7 }, isPR: true, createdAt: new Date(),
+    });
+
+    fixture = TestBed.createComponent(TrainingSessionPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.componentInstance.exercisesWithData.set([{ exercise: exercise as any, exerciseInDay: exInDay as any }]);
+    fixture.detectChanges();
+
+    await fixture.componentInstance.onSetLogged({
+      sessionId: 'session-1', exerciseId, type: 'weight-reps', repsValue: 5, weightKgValue: 7,
+    });
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.latestPrDelta()).toBe('+2 placas');
+    const prComp = fixture.debugElement.query(By.directive(PrCelebrationComponent))?.componentInstance as PrCelebrationComponent;
+    expect(prComp.weightUnit()).toBe('plates');
+    const banner = (fixture.nativeElement as HTMLElement).querySelector('fg-pr-celebration')!.textContent ?? '';
+    expect(banner).toContain('7 placas · 5 reps');
+    expect(banner).not.toMatch(/\bkg\b|\blb\b/);
+  });
+
   // --- Step-by-step: focused single-exercise view + rail ---
 
   const completedId = 'ex-complete';

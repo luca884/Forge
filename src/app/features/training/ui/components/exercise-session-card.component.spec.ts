@@ -673,6 +673,25 @@ describe('ExerciseSessionCardComponent', () => {
     expect(text).toContain('¡Objetivo cumplido!');
   });
 
+  it('placas (D4): una placa se lee "1 placa" y varias "N placas", nunca en kg ni en lb', () => {
+    const platesExercise: Exercise = { ...mockExercise, weightUnit: 'plates' };
+    const plateSet = (id: string, plates: number): WorkedSet => ({
+      id, sessionId: 's-1', exerciseId: 'ex-1', type: 'weight-reps',
+      reps: { value: 10 } as any, weight: { value: plates } as any, isPR: false, createdAt: new Date('2026-01-01'),
+    });
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', platesExercise);
+    fixture.componentRef.setInput('unit', 'lb');
+    fixture.componentRef.setInput('loggedSets', [plateSet('ws-1', 1), plateSet('ws-2', 7)]);
+    fixture.componentRef.setInput('targetSets', [targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.detectChanges();
+
+    const [one, many] = fixture.componentInstance.loggedSets.map((s) => fixture.componentInstance.setCells(s)[0]);
+    expect(one).toBe('1 placa');
+    expect(many).toBe('7 placas');
+  });
+
   // ── SLICE 2: "¡Objetivo cumplido!" badge per logged set ────────────────────
 
   it('shows "¡Objetivo cumplido!" badge on a logged set that meets the target', () => {

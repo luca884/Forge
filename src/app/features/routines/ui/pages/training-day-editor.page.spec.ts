@@ -404,6 +404,31 @@ describe('TrainingDayEditorPage', () => {
       expect(c.expandedExerciseId()).toBeNull();
     });
 
+    it('D4: un ejercicio en placas pide "Placas" al editar sus series objetivo', async () => {
+      const platesView = makeView({
+        exercises: [
+          {
+            exerciseId: 'ex-1',
+            order: 0,
+            targetSets: [{ type: 'weight-reps', reps: 10, weightKg: 6 }],
+            exerciseName: 'Prensa',
+            trackingType: 'weight-reps',
+            weightUnit: 'plates',
+          },
+        ],
+      });
+      const { fixture } = makeFixture({ view: platesView, dayId: 'd-1' });
+      await flush(fixture);
+
+      fixture.componentInstance.toggleExpand('ex-1');
+      fixture.detectChanges();
+
+      const editor = (fixture.debugElement.query(By.css('fg-target-set-editor')).nativeElement as HTMLElement);
+      const label = editor.querySelector('#set-0-weightKg')!.closest('label')!;
+      expect(label.textContent).toContain('Placas');
+      expect(editor.textContent).not.toContain('kg');
+    });
+
     it('onTargetSetsChange persiste vía SetTargetSetsUseCase y recarga', async () => {
       const { fixture, setTargetSetsSpy, getDayViewSpy } = makeFixture({
         view: viewWithExercise,

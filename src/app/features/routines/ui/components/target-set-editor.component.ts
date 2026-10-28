@@ -6,6 +6,7 @@ import {
 } from '@angular/core';
 import { TargetSet, assertNeverTargetSet } from '../../domain/target-set';
 import { TrackingType } from '@core/shared/domain/tracking-type';
+import { WeightUnit } from '@core/shared/domain/weight-unit';
 import { FgButtonComponent } from '@core/shared/ui';
 
 type SetField = 'reps' | 'weightKg' | 'extraWeightKg' | 'durationSec' | 'distanceKm';
@@ -65,19 +66,22 @@ type SetField = 'reps' | 'weightKg' | 'extraWeightKg' | 'durationSec' | 'distanc
                   </div>
                 </label>
                 <label class="flex flex-col items-center gap-1">
-                  <span class="text-[11px] leading-3 font-semibold tracking-[0.06em] uppercase text-ink-2">Peso</span>
+                  <!-- Plates (D4): a whole number of machine plates, so no kg suffix and no decimals. -->
+                  <span class="text-[11px] leading-3 font-semibold tracking-[0.06em] uppercase text-ink-2">{{ isPlates() ? 'Placas' : 'Peso' }}</span>
                   <div class="flex items-baseline gap-1 w-full justify-center">
                     <input
                       [id]="'set-' + i + '-weightKg'"
                       type="number"
-                      inputmode="decimal"
+                      [attr.inputmode]="isPlates() ? 'numeric' : 'decimal'"
                       min="0"
-                      step="0.25"
+                      [attr.step]="isPlates() ? 1 : 0.25"
                       class="target-num w-full h-8 bg-transparent border-0 border-b border-line focus:border-accent outline-none text-center font-mono text-[17px] text-ink tabular-nums"
                       [value]="getSetField(i, 'weightKg')"
                       (change)="updateSetField(i, 'weightKg', $event)"
                     />
-                    <span class="text-[12px] text-ink-2">kg</span>
+                    @if (!isPlates()) {
+                      <span class="text-[12px] text-ink-2">kg</span>
+                    }
                   </div>
                 </label>
               </div>
@@ -178,8 +182,14 @@ type SetField = 'reps' | 'weightKg' | 'extraWeightKg' | 'durationSec' | 'distanc
 })
 export class TargetSetEditorComponent {
   readonly trackingType = input<TrackingType>('weight-reps');
+  /** Unit of the exercise's weight: 'plates' asks for machine plates instead of kg (D4). */
+  readonly weightUnit = input<WeightUnit>('kg');
   readonly targetSets = input<readonly TargetSet[]>([]);
   readonly targetSetsChange = output<TargetSet[]>();
+
+  protected isPlates(): boolean {
+    return this.weightUnit() === 'plates';
+  }
 
   protected getSetField(index: number, field: SetField): number | undefined {
     const set = this.targetSets()[index];

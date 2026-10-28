@@ -58,6 +58,27 @@ describe('PrCelebrationComponent', () => {
     expect(text).toContain('220.5 lb');
   });
 
+  it('D4: a plates PR reads "N placas", never converted to lb nor suffixed with kg', () => {
+    fixture = TestBed.createComponent(PrCelebrationComponent);
+    fixture.componentRef.setInput('unit', 'lb');
+    fixture.componentRef.setInput('weightUnit', 'plates');
+    fixture.componentInstance.visible = true;
+    fixture.componentInstance.set = { ...weightRepsSet, weight: { value: 7 } as any };
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('7 placas · 5 reps');
+    expect(text).not.toMatch(/\bkg\b|\blb\b/);
+  });
+
+  it('D4: a plates PR of a single plate reads "1 placa"', () => {
+    fixture = TestBed.createComponent(PrCelebrationComponent);
+    fixture.componentRef.setInput('weightUnit', 'plates');
+    fixture.componentInstance.visible = true;
+    fixture.componentInstance.set = { ...weightRepsSet, weight: { value: 1 } as any };
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('1 placa · 5 reps');
+  });
+
   it('dismissed output emits when dismiss button is clicked', () => {
     fixture = TestBed.createComponent(PrCelebrationComponent);
     fixture.componentRef.setInput('unit', 'kg');

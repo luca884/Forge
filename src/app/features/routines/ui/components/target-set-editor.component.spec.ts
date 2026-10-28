@@ -7,6 +7,7 @@ import { TargetSet } from '../../domain/target-set';
 
 function makeFixture(opts: {
   trackingType?: 'weight-reps' | 'bodyweight-reps' | 'time' | 'distance-time';
+  weightUnit?: 'kg' | 'plates';
   targetSets?: readonly TargetSet[];
 } = {}): {
   fixture: ComponentFixture<TargetSetEditorComponent>;
@@ -17,6 +18,7 @@ function makeFixture(opts: {
 
   const fixture = TestBed.createComponent(TargetSetEditorComponent);
   fixture.componentRef.setInput('trackingType', opts.trackingType ?? 'weight-reps');
+  if (opts.weightUnit) fixture.componentRef.setInput('weightUnit', opts.weightUnit);
   fixture.componentRef.setInput('targetSets', opts.targetSets ?? []);
   fixture.detectChanges();
   return { fixture };
@@ -53,6 +55,41 @@ describe('TargetSetEditorComponent (signals migration)', () => {
       const labelTexts = labels.map(l => (l.nativeElement as HTMLElement).textContent ?? '');
       expect(labelTexts.some(t => t.includes('Dur'))).toBe(false);
       expect(labelTexts.some(t => t.includes('Dist'))).toBe(false);
+    });
+  });
+
+  describe('weight-reps en placas (D4 · S11)', () => {
+    const platesSets: TargetSet[] = [{ type: 'weight-reps', reps: 8, weightKg: 6 }];
+    const weightField = (fixture: ComponentFixture<TargetSetEditorComponent>): HTMLInputElement =>
+      fixture.debugElement.query(By.css('#set-0-weightKg')).nativeElement as HTMLInputElement;
+
+    it('pide "Placas" en vez de "Peso", sin el sufijo kg', () => {
+      const { fixture } = makeFixture({ trackingType: 'weight-reps', weightUnit: 'plates', targetSets: platesSets });
+
+      const label = weightField(fixture).closest('label')!;
+      expect(label.textContent).toContain('Placas');
+      expect(label.textContent).not.toContain('Peso');
+      expect(label.textContent).not.toContain('kg');
+      expect(fixture.nativeElement.textContent).not.toContain('kg');
+    });
+
+    it('el campo de placas es entero: paso 1 y teclado numérico', () => {
+      const { fixture } = makeFixture({ trackingType: 'weight-reps', weightUnit: 'plates', targetSets: platesSets });
+
+      const input = weightField(fixture);
+      expect(input.getAttribute('step')).toBe('1');
+      expect(input.getAttribute('inputmode')).toBe('numeric');
+      expect(input.value).toBe('6');
+    });
+
+    it('sin unidad de placas sigue pidiendo "Peso" en kg con paso decimal', () => {
+      const { fixture } = makeFixture({ trackingType: 'weight-reps', targetSets: platesSets });
+
+      const input = weightField(fixture);
+      const label = input.closest('label')!;
+      expect(label.textContent).toContain('Peso');
+      expect(label.textContent).toContain('kg');
+      expect(input.getAttribute('step')).toBe('0.25');
     });
   });
 
