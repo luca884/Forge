@@ -12,31 +12,35 @@ import { AppearanceService } from '@core/appearance/appearance.service';
 import { LineChartComponent } from './line-chart.component';
 import type { LineChartSeries } from '../../helpers/time-series';
 
-// Mock canvas context for jsdom (Chart.js requires it)
+// Mock canvas context for jsdom (Chart.js requires it). Kept in a variable so a
+// test can ask which canvas elements Chart.js drew on (`mock.contexts`).
+let getContextMock: jest.Mock;
+
 beforeAll(() => {
-  Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
-    value: jest.fn(() => ({
-      clearRect: jest.fn(),
-      fillRect: jest.fn(),
-      beginPath: jest.fn(),
-      arc: jest.fn(),
-      fill: jest.fn(),
-      stroke: jest.fn(),
-      save: jest.fn(),
-      restore: jest.fn(),
-      scale: jest.fn(),
-      translate: jest.fn(),
-      rotate: jest.fn(),
-      createLinearGradient: jest.fn(() => ({
-        addColorStop: jest.fn(),
-      })),
-      measureText: jest.fn(() => ({ width: 0 })),
-      fillText: jest.fn(),
-      strokeText: jest.fn(),
-      setTransform: jest.fn(),
-      drawImage: jest.fn(),
-      canvas: { width: 300, height: 150 },
+  getContextMock = jest.fn(() => ({
+    clearRect: jest.fn(),
+    fillRect: jest.fn(),
+    beginPath: jest.fn(),
+    arc: jest.fn(),
+    fill: jest.fn(),
+    stroke: jest.fn(),
+    save: jest.fn(),
+    restore: jest.fn(),
+    scale: jest.fn(),
+    translate: jest.fn(),
+    rotate: jest.fn(),
+    createLinearGradient: jest.fn(() => ({
+      addColorStop: jest.fn(),
     })),
+    measureText: jest.fn(() => ({ width: 0 })),
+    fillText: jest.fn(),
+    strokeText: jest.fn(),
+    setTransform: jest.fn(),
+    drawImage: jest.fn(),
+    canvas: { width: 300, height: 150 },
+  }));
+  Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+    value: getContextMock,
     configurable: true,
   });
 });
@@ -171,6 +175,76 @@ describe('LineChartComponent', () => {
       fixture.detectChanges();
 
       expect(chartOf(fixture)).toBe(before);
+    });
+  });
+
+  // ── C3: a tap anywhere on the chart queries a point, although only the last one is drawn ──
+  describe('touch interaction', () => {
+    const chartOf = (f: ComponentFixture<LineChartComponent>): Chart =>
+      (f.componentInstance as unknown as { chart: Chart }).chart;
+
+    function render(): Chart {
+      fixture = TestBed.createComponent(LineChartComponent);
+      fixture.componentRef.setInput('series', singleSeries);
+      fixture.detectChanges();
+      return chartOf(fixture);
+    }
+
+    it('finds the nearest point by x without having to touch it (nearest, intersect: false)', () => {
+      const chart = render();
+      // Chart.js default is {mode: 'nearest', intersect: true}: only a tap on the (invisible) dot hits.
+      // Real hit-testing needs a layout engine; the real-browser probe of this setting is in the T17 notes.
+      expect(chart.options.interaction).toMatchObject({ mode: 'nearest', axis: 'x', intersect: false });
+    });
+
+    it('does not change the drawing: invisible points, only the latest one marked, same hover size', () => {
+      const chart = render();
+      const dataset = chart.data.datasets[0] as { pointRadius: (ctx: { dataIndex: number }) => number; pointHoverRadius: number };
+      expect(dataset.pointRadius({ dataIndex: 0 })).toBe(0);
+      expect(dataset.pointRadius({ dataIndex: 1 })).toBe(4);
+      expect(dataset.pointHoverRadius).toBe(5);
+    });
+  });
+
+  // ── C1: an empty series removes the <canvas>; data coming back must draw on the new one ──
+  describe('empty series in between', () => {
+    const canvasOf = (f: ComponentFixture<LineChartComponent>): HTMLCanvasElement | null =>
+      (f.nativeElement as HTMLElement).querySelector('canvas');
+
+    function setSeries(value: LineChartSeries[]): void {
+      fixture.componentRef.setInput('series', value);
+      fixture.detectChanges();
+    }
+
+    it('draws the chart again, on the new canvas, when data returns after an empty series', () => {
+      fixture = TestBed.createComponent(LineChartComponent);
+      setSeries(singleSeries);
+      const firstCanvas = canvasOf(fixture);
+
+      setSeries(emptySeries);
+      expect(canvasOf(fixture)).toBeNull();
+      expect((fixture.nativeElement as HTMLElement).querySelector('.empty-state')).not.toBeNull();
+
+      setSeries(singleSeries);
+      const newCanvas = canvasOf(fixture);
+
+      expect(newCanvas).not.toBeNull();
+      expect(newCanvas).not.toBe(firstCanvas);
+      // Chart.js asks its canvas for the 2d context when it is created: the new element must be asked.
+      expect(getContextMock.mock.contexts).toContain(newCanvas);
+    });
+
+    it('still updates the chart in place while the data keeps changing (no new chart per update)', () => {
+      fixture = TestBed.createComponent(LineChartComponent);
+      setSeries(singleSeries);
+      const chart = (fixture.componentInstance as unknown as { chart: Chart }).chart;
+      const drawnOn = getContextMock.mock.contexts.length;
+
+      setSeries([{ label: 'Peso (kg)', points: [{ x: new Date('2026-02-01'), y: 90 }] }]);
+
+      expect((fixture.componentInstance as unknown as { chart: Chart }).chart).toBe(chart);
+      expect(getContextMock.mock.contexts.length).toBe(drawnOn);
+      expect(chart.data.datasets[0]!.data).toEqual([90]);
     });
   });
 });

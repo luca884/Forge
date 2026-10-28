@@ -12,12 +12,12 @@ import { Component, computed, input, signal } from '@angular/core';
 import type { WorkedSet } from '@features/training/domain/worked-set';
 import type { TrackingType } from '@core/shared/domain/tracking-type';
 import type { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
-import { buildTimeSeries, type LineChartSeries, type Metric } from '../../helpers/time-series';
+import { buildTimeSeries, metricAxisLabel, type LineChartSeries, type Metric } from '../../helpers/time-series';
 import { displayWeightValue } from '../../helpers/weight-display';
 import { LineChartComponent } from '../line-chart/line-chart.component';
 
 const METRIC_LABELS: Record<Metric, string> = {
-  weight: 'Peso máx.',
+  weight: 'Peso',
   reps: 'Reps',
   volume: 'Volumen',
   '1rm': '1RM est.',
@@ -119,7 +119,7 @@ export class ExerciseHistoryChartComponent {
   readonly series = computed<LineChartSeries[]>(() => {
     const metric = this.selectedMetric();
     const unit = this.unit();
-    const built = buildTimeSeries(this.rangedSets(), this.trackingType(), metric);
+    const built = buildTimeSeries(this.rangedSets(), this.trackingType(), metric, unit);
     if (unit === 'kg' || !WEIGHT_VALUED.includes(metric)) return built;
     return built.map((s) => ({
       ...s,
@@ -127,17 +127,8 @@ export class ExerciseHistoryChartComponent {
     }));
   });
 
-  readonly yLabel = computed(() => {
-    const m = this.selectedMetric();
-    const u = this.unit();
-    const labels: Record<Metric, string> = {
-      weight: `Peso (${u})`,
-      reps: 'Repeticiones',
-      volume: `Volumen (${u}×reps)`,
-      '1rm': `1RM estimado (${u})`,
-    };
-    return labels[m];
-  });
+  /** Axis title; the series carries the same text, so the tooltip names the unit too. */
+  readonly yLabel = computed(() => metricAxisLabel(this.selectedMetric(), this.unit()));
 
   metricLabel(m: Metric): string {
     return METRIC_LABELS[m];

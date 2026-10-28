@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
 import { FgCardComponent, FgEmptyStateComponent } from '@core/shared/ui';
 import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
 import type { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
@@ -7,7 +7,11 @@ import type { WeeklyTrendPoint } from '../../../domain/models/weekly-trend-point
 import { displayWeightValue } from '../../helpers/weight-display';
 
 export interface WeekBar {
+  /** Monday of the week, 'YYYY-MM-DD': the key of the selection. */
+  readonly weekStart: string;
   readonly label: string;
+  /** "Semana del 20 oct: 500 kg": the accessible name of the bar and the line of the chosen week. */
+  readonly text: string;
   /** Bar height as a percentage of the axis maximum. */
   readonly heightPct: number;
   /** The week still in progress: drawn lighter, it is not comparable with a full week. */
@@ -45,15 +49,35 @@ function shortWeek(weekStart: string): string {
   return `${Number(day)}/${Number(month)}`;
 }
 
+/** 'YYYY-MM-DD' → '20 oct' (local date: the week starts on that calendar day, not at that UTC instant). */
+function weekName(weekStart: string): string {
+  return new Date(`${weekStart}T00:00:00`).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+}
+
+const weightPipe = new DisplayWeightPipe();
+
+/** Weekly volume text in the preferred unit, through DisplayWeightPipe like every weight on screen. */
+function volumeText(kg: number, unit: PreferredUnit): string {
+  // kg: the pipe prints the raw number, so round off float noise (126.66666…) as displayWeightValue does.
+  return weightPipe.transform(unit === 'kg' ? Math.round(kg * 10) / 10 : kg, unit);
+}
+
+function sessionsText(count: number): string {
+  return `${count} ${count === 1 ? 'sesión' : 'sesiones'}`;
+}
+
 function buildChart(
   points: readonly WeeklyTrendPoint[],
   values: readonly number[],
   wholeNumbers: boolean,
   describe: (min: number, max: number, current: number | null) => string,
+  valueText: (point: WeeklyTrendPoint) => string,
 ): WeekBarChart {
   const max = axisMax(Math.max(0, ...values), wholeNumbers);
   const now = Date.now();
   const bars = points.map((point, i): WeekBar => ({
+    weekStart: point.weekStart,
+    text: `Semana del ${weekName(point.weekStart)}: ${valueText(point)}`,
     label: i % 3 === 0 || i === points.length - 1 ? shortWeek(point.weekStart) : '',
     heightPct: Math.round(((values[i] ?? 0) / max) * 1000) / 10,
     current: now - new Date(`${point.weekStart}T00:00:00`).getTime() < WEEK_MS,
@@ -96,7 +120,7 @@ function buildChart(
     </section>
 
     <ng-template #bars let-chart="chart">
-      <div role="img" [attr.aria-label]="chart.ariaLabel" class="grid grid-cols-[44px_minmax(0,1fr)] gap-x-1.5">
+      <div role="group" [attr.aria-label]="chart.ariaLabel" class="grid grid-cols-[44px_minmax(0,1fr)] gap-x-1.5">
         <div class="flex flex-col justify-between h-[112px] -mt-[5px] mb-[5px] font-mono text-[10px] leading-[10px] text-ink-2 text-right">
           @for (tick of chart.ticks; track $index) {
             <span>{{ tick }}</span>
@@ -106,22 +130,34 @@ function buildChart(
           <span class="absolute inset-x-0 top-0 border-t border-dashed border-line"></span>
           <span class="absolute inset-x-0 top-[51px] border-t border-dashed border-line"></span>
           <div class="absolute inset-0 grid grid-flow-col auto-cols-fr items-end gap-x-1.5">
-            @for (bar of chart.bars; track $index) {
-              <span
+            @for (bar of chart.bars; track bar.weekStart) {
+              <!-- The whole column is the tap target; the chosen week gets a soft accent background. -->
+              <button
+                type="button"
                 data-bar
-                class="block rounded-t-sm"
-                [class]="bar.current ? 'bg-accent/40' : 'bg-accent'"
-                [style.height.%]="bar.heightPct"
-              ></span>
+                class="flex h-full items-end rounded-t-sm p-0 border-0"
+                [class]="bar.weekStart === selectedWeek() ? 'bg-accent-soft' : 'bg-transparent'"
+                [attr.aria-pressed]="bar.weekStart === selectedWeek()"
+                [attr.aria-label]="bar.text"
+                (click)="chosenWeek.set(bar.weekStart)"
+              >
+                <span
+                  class="block w-full rounded-t-sm"
+                  [class]="bar.current ? 'bg-accent/40' : 'bg-accent'"
+                  [style.height.%]="bar.heightPct"
+                ></span>
+              </button>
             }
           </div>
         </div>
         <span></span>
         <div class="grid grid-flow-col auto-cols-fr gap-x-1.5 font-mono text-[10px] leading-[14px] text-ink-2 pt-1">
-          @for (bar of chart.bars; track $index) {
+          @for (bar of chart.bars; track bar.weekStart) {
             <span class="text-center whitespace-nowrap overflow-visible">{{ bar.label }}</span>
           }
         </div>
+        <span></span>
+        <p data-week-selection aria-live="polite" class="m-0 pt-1.5 font-mono tabular-nums text-xs text-ink">{{ selectedText(chart) }}</p>
       </div>
     </ng-template>
   `,
@@ -131,22 +167,55 @@ export class WeeklyTrendChartComponent {
   /** Preferred weight unit: volume is stored in kg and shown in this unit. */
   readonly unit = input<PreferredUnit>('kg');
 
+  /** The week the user tapped; null until then. */
+  protected readonly chosenWeek = signal<string | null>(null);
+
   readonly volumeChart = computed<WeekBarChart>(() => {
     const unit = this.unit();
     const values = this.points().map((p) => displayWeightValue(p.volumeKg, unit));
-    return buildChart(this.points(), values, false, (min, max, current) => {
-      const base = `Volumen semanal de las últimas ${values.length} semanas, entre ${min} y ${max} ${unit}`;
-      return current === null ? base : `${base}; semana en curso ${current} ${unit}`;
-    });
+    return buildChart(
+      this.points(),
+      values,
+      false,
+      (min, max, current) => {
+        const base = `Volumen semanal de las últimas ${values.length} semanas, entre ${min} y ${max} ${unit}`;
+        return current === null ? base : `${base}; semana en curso ${current} ${unit}`;
+      },
+      (point) => volumeText(point.volumeKg, unit),
+    );
   });
 
   readonly sessionChart = computed<WeekBarChart>(() => {
     const values = this.points().map((p) => p.sessions);
-    return buildChart(this.points(), values, true, (min, max, current) => {
-      const base = `Sesiones semanales de las últimas ${values.length} semanas, entre ${min} y ${max}`;
-      return current === null ? base : `${base}; semana en curso ${current}`;
-    });
+    return buildChart(
+      this.points(),
+      values,
+      true,
+      (min, max, current) => {
+        const base = `Sesiones semanales de las últimas ${values.length} semanas, entre ${min} y ${max}`;
+        return current === null ? base : `${base}; semana en curso ${current}`;
+      },
+      (point) => sessionsText(point.sessions),
+    );
   });
+
+  /**
+   * The selected week, shared by both charts: the one the user tapped, else the week in
+   * progress, else the last one. A tapped week that left the data (new points) is dropped.
+   */
+  protected readonly selectedWeek = computed<string | null>(() => {
+    const points = this.points();
+    const chosen = this.chosenWeek();
+    if (chosen !== null && points.some((p) => p.weekStart === chosen)) return chosen;
+    const current = this.volumeChart().bars.find((b) => b.current);
+    return (current ?? this.volumeChart().bars[points.length - 1])?.weekStart ?? null;
+  });
+
+  /** "Semana del 20 oct: 500 kg" for the selected week of a chart. */
+  protected selectedText(chart: WeekBarChart): string {
+    const week = this.selectedWeek();
+    return chart.bars.find((b) => b.weekStart === week)?.text ?? '';
+  }
 
   /** Average weekly volume in kg (rounded); the template formats it with the preferred unit. */
   readonly averageVolumeKg = computed<number>(() => {

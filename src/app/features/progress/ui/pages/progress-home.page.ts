@@ -23,6 +23,7 @@ import { Exercise } from '@features/exercises/domain/exercise.entity';
 import { OneRepMax } from '@core/shared/domain/value-objects/one-rep-max';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
+import { bestRecordPerExercise } from '../helpers/best-record-per-exercise';
 import { formatBestSet } from '../helpers/format-tracking-value';
 import { SessionHeatmapComponent } from '../components/session-heatmap.component';
 import { DashboardOverviewComponent } from '../components/dashboard-overview/dashboard-overview.component';
@@ -167,7 +168,8 @@ export class ProgressHomePage implements OnInit {
   readonly progressEntries = signal<ExerciseProgressEntry[]>([]);
   private readonly exerciseMap = signal<Map<string, Exercise>>(new Map());
 
-  readonly recentPRs = computed(() => this.allPRs().slice(0, 5));
+  /** Rows of "Récords personales": the five exercises with the most recent record, each with its best mark. */
+  readonly recentPRs = computed(() => bestRecordPerExercise(this.allPRs()).slice(0, 5));
   readonly totalPRs = computed(() => this.allPRs().length);
   readonly prsThisWeek = computed(() => {
     const now = new Date();

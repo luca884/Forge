@@ -215,16 +215,69 @@ describe('ExerciseHistoryPage', () => {
       expect(routerNavigateSpy).toHaveBeenCalledWith(['/progress']);
     });
 
-    it('shows the three summary tiles: 1RM est., Mejor serie and Sesiones', async () => {
+    it('shows the summary tiles: 1RM est., Mejor serie, Reps máx. and Sesiones', async () => {
       await settle();
       const tiles = root().querySelector('[aria-label="Resumen del ejercicio"]')!;
       const text = tiles.textContent ?? '';
       expect(text).toContain('1RM est.');
       expect(text).toContain('Mejor serie');
+      expect(text).toContain('Reps máx.');
       expect(text).toContain('Sesiones');
-      // Best set in the preferred unit, sessions counted
+      // Best set in the preferred unit, max reps, sessions counted
       expect(text).toContain('220.5 lb × 5');
+      expect(tiles.querySelector('[data-stat="max-reps"]')?.textContent?.trim()).toBe('5');
       expect(tiles.querySelector('[data-stat="sessions"]')?.textContent?.trim()).toBe('1');
+    });
+
+    // C2: "Mejor serie" and "Reps máx." are computed from the registered sets, never from the PR table.
+    describe('best set from the registered sets', () => {
+      const tile = (stat: string): string =>
+        root().querySelector(`[aria-label="Resumen del ejercicio"] [data-stat="${stat}"]`)?.textContent?.trim() ?? '';
+
+      const kg = (value: number): any => ({ value });
+
+      beforeEach(() => {
+        unitSignal.set('kg');
+        // The PR table holds 100 kg x 5 (mockPR), which the registered sets below do not contain.
+        getAllWorkedSetsMock.mockResolvedValue([
+          makeSet({ id: 'ws-a', sessionId: 's-1', weight: kg(80), reps: { value: 8 } as any, createdAt: new Date('2026-01-01') }),
+          makeSet({ id: 'ws-b', sessionId: 's-2', weight: kg(80), reps: { value: 10 } as any, createdAt: new Date('2026-01-08') }),
+          makeSet({ id: 'ws-c', sessionId: 's-3', weight: kg(70), reps: { value: 12 } as any, createdAt: new Date('2026-01-15') }),
+        ]);
+      });
+
+      it('shows the heaviest registered set, and on a tie the one with more reps', async () => {
+        await settle();
+        expect(tile('best')).toBe('80 kg × 10');
+      });
+
+      it('shows the best set in the preferred unit', async () => {
+        unitSignal.set('lb');
+        await settle();
+        expect(tile('best')).toBe('176.4 lb × 10');
+      });
+
+      it('brings back the most reps of any set as "Reps máx."', async () => {
+        await settle();
+        expect(tile('max-reps')).toBe('12');
+        expect(root().querySelector('[aria-label="Resumen del ejercicio"]')?.textContent).toContain('Reps máx.');
+      });
+
+      it('shows all three even when there is no PR row at all', async () => {
+        const prRepo = TestBed.inject(PersonalRecordRepository) as unknown as { getCurrentForExercise: jest.Mock };
+        prRepo.getCurrentForExercise.mockResolvedValue(null);
+        await settle();
+        expect(tile('best')).toBe('80 kg × 10');
+        expect(tile('max-reps')).toBe('12');
+        expect(tile('1rm')).toBe('106.7 kg');
+      });
+
+      // T17 · C2: with a stale or tied PR row, "1RM est." must not contradict "Mejor serie".
+      it('estimates the 1RM from the same best set, not from the PR row', async () => {
+        await settle();
+        // 80 kg x 10 -> Epley 106.67 kg; the PR row (100 kg x 5) would give 116.7 kg.
+        expect(tile('1rm')).toBe('106.7 kg');
+      });
     });
 
     it('rounds the 1RM tile to one decimal in kg so it fits the tile', async () => {
@@ -242,6 +295,7 @@ describe('ExerciseHistoryPage', () => {
       await settle();
       const tiles = root().querySelector('[aria-label="Resumen del ejercicio"]')!;
       expect(tiles.querySelector('[data-stat="best"]')?.textContent?.trim()).toBe('—');
+      expect(tiles.querySelector('[data-stat="max-reps"]')?.textContent?.trim()).toBe('—');
       expect(tiles.querySelector('[data-stat="1rm"]')?.textContent?.trim()).toBe('—');
     });
 
@@ -252,6 +306,18 @@ describe('ExerciseHistoryPage', () => {
       expect(root().textContent).toContain('Series (lb × reps)');
       expect(root().textContent).toContain('Vol.');
     });
+
+    // T17 · C5: "(lb × reps)" only describes weight-reps sets; the others carry their own unit.
+    it.each(['time', 'distance-time', 'bodyweight-reps'] as const)(
+      'drops the "(unit × reps)" hint from the column header for %s exercises',
+      async (trackingType) => {
+        const exRepo = TestBed.inject(ExerciseRepository) as unknown as { getById: jest.Mock };
+        exRepo.getById.mockResolvedValue({ ...mockExercise, trackingType });
+        await settle();
+        const header = Array.from(root().querySelectorAll('span')).find((s) => s.textContent?.trim().startsWith('Series'));
+        expect(header?.textContent?.trim()).toBe('Series');
+      },
+    );
 
     it('shows each session volume in the preferred unit', async () => {
       await settle();
@@ -273,6 +339,59 @@ describe('ExerciseHistoryPage', () => {
       await Promise.resolve();
       fixture.detectChanges();
       expect(fixture.componentInstance.groupedHistory().length).toBe(2);
+    });
+
+    // ── C7: the list is cut at 10 sessions: say so, and let the user see them all ──
+    describe('more than 10 sessions', () => {
+      /** `count` sessions, one set each, on consecutive days starting 2026-01-01. */
+      function sessions(count: number): WorkedSet[] {
+        return Array.from({ length: count }, (_, i) =>
+          makeSet({ id: `ws-${i}`, sessionId: `s-${i}`, createdAt: new Date(2026, 0, 1 + i) }),
+        );
+      }
+
+      const rowCount = (): number => root().querySelectorAll('[data-session-volume]').length;
+      const notice = (): string | undefined => root().querySelector('[data-history-notice]')?.textContent?.trim();
+      const seeAll = (): HTMLButtonElement | undefined =>
+        Array.from(root().querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Ver todas');
+
+      it('shows the latest 10 sessions with an "Últimas 10 de N" notice and a "Ver todas" button', async () => {
+        getAllWorkedSetsMock.mockResolvedValue(sessions(12));
+        await settle();
+
+        expect(rowCount()).toBe(10);
+        expect(notice()).toBe('Últimas 10 de 12');
+        expect(seeAll()).toBeTruthy();
+      });
+
+      it('keeps the heading as "Historial" only: the notice and the button are separate elements', async () => {
+        getAllWorkedSetsMock.mockResolvedValue(sessions(12));
+        await settle();
+
+        const heading = Array.from(root().querySelectorAll('h2')).find((h) => h.textContent?.includes('Historial'));
+        expect(heading?.textContent?.trim()).toBe('Historial');
+      });
+
+      it('"Ver todas" lists every session and drops the notice and the button', async () => {
+        getAllWorkedSetsMock.mockResolvedValue(sessions(12));
+        await settle();
+
+        seeAll()!.click();
+        fixture.detectChanges();
+
+        expect(rowCount()).toBe(12);
+        expect(notice()).toBeUndefined();
+        expect(seeAll()).toBeUndefined();
+      });
+
+      it('shows neither the notice nor the button with 10 sessions or fewer', async () => {
+        getAllWorkedSetsMock.mockResolvedValue(sessions(10));
+        await settle();
+
+        expect(rowCount()).toBe(10);
+        expect(notice()).toBeUndefined();
+        expect(seeAll()).toBeUndefined();
+      });
     });
 
     it('renders fg-chip with "PR" text when session hasPR', async () => {

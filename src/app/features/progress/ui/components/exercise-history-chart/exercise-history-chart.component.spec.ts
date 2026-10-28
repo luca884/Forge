@@ -7,33 +7,36 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ExerciseHistoryChartComponent } from './exercise-history-chart.component';
 import type { WorkedSet } from '@features/training/domain/worked-set';
 
-// Mock canvas for Chart.js in jsdom
+// Mock canvas for Chart.js in jsdom. Kept in a variable so a test can ask which
+// canvas elements Chart.js drew on (`mock.contexts`).
 type CanvasPrototypeExt = typeof HTMLCanvasElement.prototype & { __mockSet?: boolean };
+let getContextMock: jest.Mock;
 
 beforeAll(() => {
   const proto = HTMLCanvasElement.prototype as CanvasPrototypeExt;
   if (!proto.__mockSet) {
+    getContextMock = jest.fn(() => ({
+      clearRect: jest.fn(),
+      fillRect: jest.fn(),
+      beginPath: jest.fn(),
+      arc: jest.fn(),
+      fill: jest.fn(),
+      stroke: jest.fn(),
+      save: jest.fn(),
+      restore: jest.fn(),
+      scale: jest.fn(),
+      translate: jest.fn(),
+      rotate: jest.fn(),
+      createLinearGradient: jest.fn(() => ({ addColorStop: jest.fn() })),
+      measureText: jest.fn(() => ({ width: 0 })),
+      fillText: jest.fn(),
+      strokeText: jest.fn(),
+      setTransform: jest.fn(),
+      drawImage: jest.fn(),
+      canvas: { width: 300, height: 150 },
+    }));
     Object.defineProperty(proto, 'getContext', {
-      value: jest.fn(() => ({
-        clearRect: jest.fn(),
-        fillRect: jest.fn(),
-        beginPath: jest.fn(),
-        arc: jest.fn(),
-        fill: jest.fn(),
-        stroke: jest.fn(),
-        save: jest.fn(),
-        restore: jest.fn(),
-        scale: jest.fn(),
-        translate: jest.fn(),
-        rotate: jest.fn(),
-        createLinearGradient: jest.fn(() => ({ addColorStop: jest.fn() })),
-        measureText: jest.fn(() => ({ width: 0 })),
-        fillText: jest.fn(),
-        strokeText: jest.fn(),
-        setTransform: jest.fn(),
-        drawImage: jest.fn(),
-        canvas: { width: 300, height: 150 },
-      })),
+      value: getContextMock,
       configurable: true,
       writable: true,
     });
@@ -134,7 +137,7 @@ describe('ExerciseHistoryChartComponent', () => {
 
   it('metric buttons carry the Cuaderno labels (D-6/S1)', () => {
     render();
-    expect(metricButtons().map((b) => b.textContent?.trim())).toEqual(['Peso máx.', 'Reps', 'Volumen', '1RM est.']);
+    expect(metricButtons().map((b) => b.textContent?.trim())).toEqual(['Peso', 'Reps', 'Volumen', '1RM est.']);
   });
 
   it('shows a single "Reps" button for non weight exercises', () => {
@@ -202,6 +205,26 @@ describe('ExerciseHistoryChartComponent', () => {
       render();
       expect(fixture.componentInstance.series()[0]!.points.length).toBe(2);
     });
+
+    // C1: the chart is drawn again when a range with no sets is left behind.
+    it('draws the chart again when Todo follows a range with no sets', () => {
+      jest.useFakeTimers().setSystemTime(new Date('2026-08-01T12:00:00Z'));
+      render();
+      const host = fixture.nativeElement as HTMLElement;
+      expect(host.querySelector('canvas')).not.toBeNull();
+
+      rangeButtons()[0]!.click(); // 3M: the January sets are out, so no canvas and an empty message
+      fixture.detectChanges();
+      expect(host.querySelector('canvas')).toBeNull();
+      expect(host.textContent).toContain('Sin datos para mostrar');
+
+      rangeButtons()[3]!.click(); // Todo: the data is back on a new canvas
+      fixture.detectChanges();
+      const canvas = host.querySelector('canvas');
+      expect(canvas).not.toBeNull();
+      expect(getContextMock.mock.contexts).toContain(canvas);
+      expect(host.textContent).not.toContain('Sin datos para mostrar');
+    });
   });
 
   // ── Weight metrics are plotted in the preferred unit ─────────────────────
@@ -214,6 +237,24 @@ describe('ExerciseHistoryChartComponent', () => {
     it('plots weight in lb (same conversion as DisplayWeightPipe) when unit="lb"', () => {
       render('lb');
       expect(fixture.componentInstance.series()[0]!.points.map((p) => p.y)).toEqual([220.5, 231.5]);
+    });
+
+    // C5: the tooltip prints "<series label>: <value>", so the label must carry the unit of the values.
+    it('names the series with the preferred unit, the same text as the axis', () => {
+      render('lb');
+      expect(fixture.componentInstance.series()[0]!.label).toBe('Peso (lb)');
+
+      fixture.componentInstance.selectedMetric.set('volume');
+      expect(fixture.componentInstance.series()[0]!.label).toBe('Volumen (lb×reps)');
+      expect(fixture.componentInstance.series()[0]!.label).toBe(fixture.componentInstance.yLabel());
+
+      fixture.componentInstance.selectedMetric.set('1rm');
+      expect(fixture.componentInstance.series()[0]!.label).toBe('1RM estimado (lb)');
+    });
+
+    it('keeps the kg series label by default', () => {
+      render();
+      expect(fixture.componentInstance.series()[0]!.label).toBe('Peso (kg)');
     });
 
     it('plots volume in lb too, but never converts reps', () => {

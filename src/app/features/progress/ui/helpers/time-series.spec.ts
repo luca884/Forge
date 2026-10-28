@@ -104,6 +104,26 @@ describe('buildTimeSeries', () => {
     });
   });
 
+  describe('series label in the preferred unit', () => {
+    const sets = [weightRepsSet()];
+
+    it('names weight-valued metrics with the unit the values are plotted in', () => {
+      expect(buildTimeSeries(sets, 'weight-reps', 'weight', 'lb')[0]!.label).toBe('Peso (lb)');
+      expect(buildTimeSeries(sets, 'weight-reps', 'volume', 'lb')[0]!.label).toBe('Volumen (lb×reps)');
+      expect(buildTimeSeries(sets, 'weight-reps', '1rm', 'lb')[0]!.label).toBe('1RM estimado (lb)');
+    });
+
+    it('never puts a unit on reps', () => {
+      expect(buildTimeSeries(sets, 'weight-reps', 'reps', 'lb')[0]!.label).toBe('Repeticiones');
+    });
+
+    it('keeps the kg labels when no unit is given', () => {
+      expect(buildTimeSeries(sets, 'weight-reps', 'weight')[0]!.label).toBe('Peso (kg)');
+      expect(buildTimeSeries(sets, 'weight-reps', 'volume')[0]!.label).toBe('Volumen (kg×reps)');
+      expect(buildTimeSeries(sets, 'weight-reps', '1rm')[0]!.label).toBe('1RM estimado (kg)');
+    });
+  });
+
   describe('series label', () => {
     it('uses a descriptive label per metric', () => {
       const sets: WorkedSet[] = [weightRepsSet()];
