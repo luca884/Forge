@@ -210,6 +210,17 @@ describe('ExportHistoryCsvUseCase', () => {
     expect(lines(content)[2]).toMatch(/^2026-03-02,/);
   });
 
+  it('writes fecha as the local day of startedAt, not the UTC day stored in session.date', async () => {
+    // An evening session: StartSessionUseCase stores date as the UTC day, which is
+    // already the next day in a UTC-3 timezone. The app shows the local day.
+    const evening = makeSession('s-1', { date: '2026-10-27', startedAt: new Date(2026, 9, 26, 22, 30) });
+    const { useCase } = setup({ sessions: [evening], sets: [weightReps('s-1', 'ex-squat', 100, 5)] });
+
+    const { content } = await useCase.execute('kg');
+
+    expect(lines(content)[1]).toMatch(/^2026-10-26,/);
+  });
+
   it('quotes names with commas, quotes or line breaks', async () => {
     const { useCase } = setup({
       sessions: [makeSession('s-1')],

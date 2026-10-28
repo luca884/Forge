@@ -66,7 +66,8 @@ export class ExportHistoryCsvUseCase {
         const serie = (setNumber.get(set.exerciseId) ?? 0) + 1;
         setNumber.set(set.exerciseId, serie);
         rows.push([
-          session.date,
+          // Local day of startedAt, as the app shows it: session.date is the UTC day.
+          session.startedAt.toLocaleDateString('en-CA'),
           routineNames.get(session.routineId) ?? '',
           dayNames.get(session.dayId) ?? '',
           exerciseNames.get(set.exerciseId) ?? '',
