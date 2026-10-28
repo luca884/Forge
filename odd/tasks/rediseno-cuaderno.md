@@ -114,13 +114,19 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
   - Chequeo diferencial en scratch: la build de `081e4d3` escribe datos con su propia UI y la build nueva los muestra en el mismo origen.
   - Corregir lo que se haya perdido sin decisión del usuario: pasó a T17 (L22).
   - Aceptación: S10 · Evidencia: auditoría `wf_20f26eae-8cb` (L22) y diferencial `wf_0bfe533d-a45` (L23) · Risk: none (verificación de solo lectura)
-- [ ] T17 · S10 · ruta: delegada (Writer trigger: 3 unidades con superficies disjuntas, en paralelo, cada una en su worktree, Sonnet) · Correcciones de la auditoría de T16 según las decisiones de L22:
+- [x] T17 · S10 · ruta: delegada (Writer trigger: 3 unidades con superficies disjuntas, en paralelo, cada una en su worktree, Sonnet) e inline (integración y correcciones de la revisión) · Correcciones de la auditoría de T16 según las decisiones de L22:
   - Unidad A: Hoy y Resumen (`src/app/features/training/ui`).
   - Unidad B: Rutinas (`src/app/features/routines/ui`).
   - Unidad C: Progreso (`src/app/features/progress/ui`).
   - Los hallazgos de placas esperan D4.
-  - Estado (L23): las tres unidades están implementadas y commiteadas como WIP en ramas propias, sin integrar: A `worktree-wf_4b271193-2d2-1` (`bd87b54`), B `worktree-wf_4b271193-2d2-2` (`c327d46`), C `worktree-wf_4b271193-2d2-3` (`86f2293`), las tres sobre `2245fd9`. Las tres revisiones dieron "con correcciones"; la lista está en L23.
-  - Aceptación: cada hallazgo confirmado tiene su test RED→GREEN; `npm test`, `npm run e2e` y `npm run e2e:visual` verdes; capturas revisadas · Evidencia: — · Risk: item 6 (cambios visuales en varias pantallas)
+  - Aceptación: cada hallazgo confirmado tiene su test RED→GREEN; `npm test`, `npm run e2e` y `npm run e2e:visual` verdes; capturas revisadas.
+  - Evidencia: `3b55fc4` (A), `80187d1` (B), `a4c027c` (C) (L24).
+    - RED de A1–C7: lo reportaron los writers del workflow `wf_4b271193-2d2`; el parent no lo observó.
+    - RED observado de las correcciones importantes de la revisión: A2 en J8.2, B2 en J4.5, C2 en 2 tests y C5 en 3 tests (detalle en L24).
+    - GREEN: `npm test` 1659/1659, `npm run e2e` 30/30, `npm run e2e:visual:update` 18/18. tsc limpio.
+    - Revisé `hoy-light`, `hoy-dark`, `resumen-dark`, `historial-ejercicio-light`, `historial-ejercicio-dark` y `editor-dia-light`.
+  - Pendiente: las correcciones menores de L23 no se aplicaron.
+  - Risk: item 6 (cambios visuales; lo cubren J8.2, J4.5 y las capturas, y queda para el verificador de T15)
 - [ ] T15 · S1–S10 · ruta: delegada (Verification trigger: items 4, 5 y 6 en T1, T4–T9, T11, T14) · Cierre: `npm test`, `npm run lint`, `npm run build`, `npm run e2e`, `npm run e2e:pwa` (fuentes offline), y un `odd-verifier` (opus) sobre toda la feature desde `081e4d3` · Aceptación: todo verde o un único **Needs your decision** · Evidencia: — · Risk: —
 
 ## Log
@@ -380,3 +386,18 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
     - C1: el comentario de cabecera de `LineChartComponent` describe el ciclo de vida anterior.
   - Scratch: se quitaron los worktrees `wt-base` y `wt-head`.
   - Próximo paso: integrar las tres ramas WIP en `feat/rediseno-cuaderno` (cherry-pick o merge, son superficies disjuntas), aplicar las correcciones importantes con su test, correr `npm test`, `npm run e2e` y `npm run e2e:visual:update`, revisar las capturas y commitear T17. Después, preguntar D4, y seguir con T13, T14 y T15.
+- L24 (2026-10-28) T17 integrada y cerrada. Pedido del usuario, textual:
+  > continuamos con el proyecto
+  - Integración: `git cherry-pick -n` de `bd87b54`, `c327d46` y `86f2293` sobre `07791ce`, sin conflictos. Jest de las tres superficies 632/632.
+  - Correcciones importantes de la revisión (L23), test primero:
+    - A2: J8.2 nuevo, con 44092.4 lb y una sesión de 1:05:23. RED: la celda Volumen se desbordaba ("Volumen44092.4lb"). Causa: `grid-cols-4` es `repeat(4, minmax(0, 1fr))` y la columna no crece. GREEN con `grid-cols-[repeat(4,1fr)]`: las columnas siguen iguales cuando todo entra.
+    - B2: J4.5 nuevo, con "3 × 120–180 s" y "2 × 5–10 km". RED: la etiqueta ocupaba 2 líneas.
+      - Arreglo: cabecera y filas comparten un grid con `subgrid`, y Objetivo es `minmax(72px, max-content)`, alineada con su cabecera.
+      - La captura mostró que el número de fila pisaba el nombre: el padding de un subgrid se descuenta de las columnas de los bordes. J4.5 suma esa medida (RED: 2 px de separación). GREEN con columnas de 36 px y 50 px. `editor-dia-*` quedó idéntica a la captura anterior.
+    - C2: "1RM est." sale de la misma serie que "Mejor serie". RED: 2 tests, porque la fila de PR daba 116.7 kg y la serie da 106.7 kg. La página ya no lee la tabla de PR.
+    - C5: la cabecera dice "Series" en tiempo, distancia y peso corporal, y "Series ({unidad} × reps)" solo en peso y reps. RED: 3 tests.
+  - Checks: `npm test` 1659/1659, `npm run e2e` 30/30, `npm run e2e:visual:update` 18/18. Cambiaron `hoy-*`, `resumen-*` e `historial-ejercicio-*`. `rutinas-*` y `progreso-*` no cambiaron, porque C4 y C6 quedan debajo del pliegue de la captura.
+  - `npm run lint` da 6 errores previos, fuera de lo tocado: `pwa-update.service(.spec).ts`, `weight-unit.ts`, `seed-exercises.use-case.spec.ts`, `progression-target-calculator.ts` y `cancel-session.use-case.spec.ts`. HEAD sin los cambios da los mismos 6. T15 pide lint verde.
+  - Las correcciones menores de L23 siguen sin aplicar.
+  - Las ramas `worktree-wf_4b271193-2d2-{1,2,3}` y sus worktrees siguen; su contenido ya está integrado.
+  - Próximo paso: preguntar D4. Después, seguir con T13, T14 y T15.
