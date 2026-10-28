@@ -15,6 +15,23 @@
   font-display: swap;
   font-style: normal;
 }
+/* Cuaderno · subset latin (cubre español y la puntuación general U+2000-206F) */
+@font-face {
+  font-family: 'Inter Tight';
+  src: url('/fonts/InterTight-Variable.woff2') format('woff2 supports variations'),
+       url('/fonts/InterTight-Variable.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-Variable.woff2') format('woff2 supports variations'),
+       url('/fonts/JetBrainsMono-Variable.woff2') format('woff2-variations');
+  font-weight: 100 800;
+  font-display: swap;
+  font-style: normal;
+}
 
 /* ─── Tailwind directives ─── */
 @tailwind base;
@@ -78,8 +95,8 @@
 
   /* === TYPE SCALE === */
   /* ── Type scale (px, line-height) — Geist ────────────────────────────── */
-  --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --font-mono: 'Geist Mono', ui-monospace, 'JetBrains Mono', SFMono-Regular, Menlo, monospace;
+  --font-sans: 'Inter Tight', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --t-display-xl: 96px;  --lh-display-xl: 96px;  --tr-display-xl: -0.04em;
   --t-display:    64px;  --lh-display:    64px;  --tr-display:    -0.035em;
@@ -180,6 +197,68 @@
   --elev-1: var(--elev-light-1);
   --elev-2: var(--elev-light-2);
   --elev-3: var(--elev-light-3);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   CUADERNO · tokens semánticos (R G B sin comas, invariante R7)
+   <html data-theme="light|dark"> elige el tema ya resuelto (Sistema se
+   resuelve antes de pintar); <html data-accent="cobalt|orange|green|ink">
+   elige el acento. Sin atributos: claro + cobalto.
+   ───────────────────────────────────────────────────────────────────────── */
+:root, [data-theme="light"] {
+  --color-page:      246 246 244;  /* #F6F6F4 */
+  --color-surface:   255 255 255;  /* #FFFFFF */
+  --color-line:      228 228 224;  /* #E4E4E0 */
+  --color-line-soft: 238 238 234;  /* #EEEEEA */
+  --color-ink:       17 17 19;     /* #111113 */
+  --color-ink-2:     91 91 96;     /* #5B5B60 */
+  --color-dash:      210 210 204;  /* #D2D2CC */
+  --color-empty:     236 236 232;  /* #ECECE8 */
+  --color-danger:    198 40 40;    /* #C62828 */
+  --color-shadow:    rgba(17,17,19,0.08);
+  --color-accent-soft-alpha: 0.08;
+}
+[data-theme="dark"] {
+  --color-page:      15 15 17;     /* #0F0F11 */
+  --color-surface:   24 24 27;     /* #18181B */
+  --color-line:      42 42 47;     /* #2A2A2F */
+  --color-line-soft: 34 34 38;     /* #222226 */
+  --color-ink:       237 237 234;  /* #EDEDEA */
+  --color-ink-2:     161 161 168;  /* #A1A1A8 */
+  --color-dash:      58 58 64;     /* #3A3A40 */
+  --color-empty:     38 38 43;     /* #26262B */
+  --color-danger:    248 113 113;  /* #F87171 */
+  --color-shadow:    rgba(0,0,0,0.45);
+  --color-accent-soft-alpha: 0.16;
+}
+
+/* Acento: accent = color elegido · accent-ink = texto en color acento
+   (en oscuro cada canal se aclara 38% hacia blanco) · accent-on = texto
+   sobre fondo acento (#111113 si la luminancia supera 0.6, si no blanco). */
+:root, [data-accent="cobalt"] {
+  --color-accent: 43 89 255; --color-accent-ink: 43 89 255; --color-accent-on: 255 255 255;      /* #2B59FF */
+}
+[data-accent="orange"] {
+  --color-accent: 255 90 31; --color-accent-ink: 255 90 31; --color-accent-on: 255 255 255;      /* #FF5A1F */
+}
+[data-accent="green"] {
+  --color-accent: 15 157 118; --color-accent-ink: 15 157 118; --color-accent-on: 255 255 255;    /* #0F9D76 */
+}
+[data-accent="ink"] {
+  --color-accent: 17 17 19; --color-accent-ink: 17 17 19; --color-accent-on: 255 255 255;        /* #111113 */
+}
+[data-theme="dark"], [data-theme="dark"][data-accent="cobalt"] {
+  --color-accent: 43 89 255; --color-accent-ink: 124 152 255; --color-accent-on: 255 255 255;
+}
+[data-theme="dark"][data-accent="orange"] {
+  --color-accent: 255 90 31; --color-accent-ink: 255 153 116; --color-accent-on: 255 255 255;
+}
+[data-theme="dark"][data-accent="green"] {
+  --color-accent: 15 157 118; --color-accent-ink: 106 194 170; --color-accent-on: 255 255 255;
+}
+/* Tinta en oscuro se reemplaza por #EDEDEA */
+[data-theme="dark"][data-accent="ink"] {
+  --color-accent: 237 237 234; --color-accent-ink: 244 244 242; --color-accent-on: 17 17 19;
 }
 
 /* === TYPE UTILITY CLASSES === */
