@@ -2,6 +2,7 @@ import { OneRepMax } from '@core/shared/domain/value-objects/one-rep-max';
 import type { WorkedSet } from '@features/training/domain/worked-set';
 import type { Exercise } from '@features/exercises/domain/exercise.entity';
 import type { TrackingType } from '@core/shared/domain/tracking-type';
+import { loadKg } from '@core/shared/domain/weight-unit';
 import type { DashboardOverview } from '../models/dashboard-overview.model';
 import type { WeeklyTrendPoint } from '../models/weekly-trend-point.model';
 import { type ExerciseProgressEntry, type ProgressStatus } from '../models/exercise-progress-entry.model';
@@ -9,11 +10,17 @@ import { type ExerciseProgressEntry, type ProgressStatus } from '../models/exerc
 export const IMPROVING_MIN_PCT = 5;
 export const NO_PROGRESS_MAX_PCT = -5;
 
-export function computeVolume(sets: readonly WorkedSet[]): number {
+/**
+ * Volume in kg. A weight-reps set weighs `loadKg` of its exercise (plates × plate
+ * weight on a plates exercise, S11); a set of an exercise not in `exercises` counts
+ * its weight as kg. A bodyweight set adds only its extra weight.
+ */
+export function computeVolume(sets: readonly WorkedSet[], exercises: readonly Exercise[]): number {
+  const exerciseById = new Map(exercises.map(e => [e.id, e]));
   return sets.reduce((sum, set) => {
     switch (set.type) {
       case 'weight-reps':
-        return sum + set.weight.value * set.reps.value;
+        return sum + loadKg(set.weight.value, exerciseById.get(set.exerciseId)) * set.reps.value;
       case 'bodyweight-reps':
         return sum + (set.extraWeight?.value ?? 0) * set.reps.value;
       case 'time':
@@ -54,13 +61,14 @@ export function classifyProgressStatus(signedImprovementPct: number | null): Pro
 export function computeOverview(
   current: readonly WorkedSet[],
   prior: readonly WorkedSet[],
+  exercises: readonly Exercise[],
 ): DashboardOverview {
   const sessionsCurrent = countSessions(current);
   const sessionsPrior = countSessions(prior);
   const setsCurrent = current.length;
   const setsPrior = prior.length;
-  const volumeCurrentKg = computeVolume(current);
-  const volumePriorKg = computeVolume(prior);
+  const volumeCurrentKg = computeVolume(current, exercises);
+  const volumePriorKg = computeVolume(prior, exercises);
 
   return {
     sessionsCurrent,
@@ -75,7 +83,11 @@ export function computeOverview(
   };
 }
 
-export function weeklyTrendPoints(sets: readonly WorkedSet[], weeksBack: number): WeeklyTrendPoint[] {
+export function weeklyTrendPoints(
+  sets: readonly WorkedSet[],
+  weeksBack: number,
+  exercises: readonly Exercise[],
+): WeeklyTrendPoint[] {
   if (weeksBack <= 0) return [];
 
   const today = new Date();
@@ -98,7 +110,7 @@ export function weeklyTrendPoints(sets: readonly WorkedSet[], weeksBack: number)
 
     points.push({
       weekStart: weekStart.toLocaleDateString('en-CA'),
-      volumeKg: computeVolume(weekSets),
+      volumeKg: computeVolume(weekSets, exercises),
       sessions: countSessions(weekSets),
     });
   }
@@ -133,8 +145,8 @@ export function exerciseProgressEntries(
     const firstWorkout = workouts[0]!;
     const latestWorkout = workouts[workouts.length - 1]!;
 
-    const firstBest = bestMetric(firstWorkout, trackingType);
-    const latestBest = bestMetric(latestWorkout, trackingType);
+    const firstBest = bestMetric(firstWorkout, trackingType, exercise);
+    const latestBest = bestMetric(latestWorkout, trackingType, exercise);
 
     const direction = desirableDirection(trackingType);
     const deltaPct = signedImprovementPct(firstBest, latestBest, direction);
@@ -169,13 +181,14 @@ function groupByWorkout(sets: readonly WorkedSet[]): WorkedSet[][] {
   });
 }
 
-function bestMetric(workoutSets: readonly WorkedSet[], trackingType: TrackingType): number {
+function bestMetric(workoutSets: readonly WorkedSet[], trackingType: TrackingType, exercise?: Exercise): number {
   switch (trackingType) {
     case 'weight-reps': {
       let max = -Infinity;
       for (const set of workoutSets) {
         if (set.type === 'weight-reps') {
-          const rm = OneRepMax.epley(set.weight.value, set.reps.value).kg;
+          // Epley over the load in kg, so a plates exercise compares like any other (S11).
+          const rm = OneRepMax.epley(loadKg(set.weight.value, exercise), set.reps.value).kg;
           if (rm > max) max = rm;
         }
       }

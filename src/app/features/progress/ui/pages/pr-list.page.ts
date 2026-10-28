@@ -192,7 +192,7 @@ export class PRListPage implements OnInit {
   }
 
   formatValue(pr: PersonalRecord): string {
-    return formatTrackingValue(pr.set, this.unit());
+    return formatTrackingValue(pr.set, this.unit(), this.exerciseMap().get(pr.exerciseId)?.weightUnit);
   }
 
   formatDate(date: Date): string {

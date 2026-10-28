@@ -17,6 +17,11 @@ function applyUnit(kg: number, unit: PreferredUnit): string {
   return displayWeight.transform(kg, unit);
 }
 
+/** "1 placa", "7 placas": a plates set is never converted to lb nor suffixed "kg" (D4). */
+function formatPlates(count: number): string {
+  return `${count} ${count === 1 ? 'placa' : 'placas'}`;
+}
+
 /**
  * Compact "best set" for tables and tiles: "100 kg × 5" (no "reps" suffix).
  * Non weight-reps sets fall back to formatTrackingValue.
@@ -27,7 +32,7 @@ export function formatBestSet(
   weightUnit: WeightUnit = 'kg',
 ): string {
   if (set.type !== 'weight-reps') return formatTrackingValue(set, unit, weightUnit);
-  const weight = weightUnit === 'plates' ? `${set.weight.value} placas` : applyUnit(set.weight.value, unit);
+  const weight = weightUnit === 'plates' ? formatPlates(set.weight.value) : applyUnit(set.weight.value, unit);
   return `${weight} × ${set.reps.value}`;
 }
 
@@ -39,7 +44,7 @@ export function formatTrackingValue(
   switch (set.type) {
     case 'weight-reps':
       if (weightUnit === 'plates') {
-        return `${set.weight.value} placas × ${set.reps.value} reps`;
+        return `${formatPlates(set.weight.value)} × ${set.reps.value} reps`;
       }
       return `${applyUnit(set.weight.value, unit)} × ${set.reps.value} reps`;
     case 'bodyweight-reps': {

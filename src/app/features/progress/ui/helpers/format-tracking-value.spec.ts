@@ -17,6 +17,8 @@ const weightRepsSet: WorkedSet = {
   createdAt: new Date('2026-01-01'),
 };
 
+const onePlateSet: WorkedSet = { ...weightRepsSet, id: 'ws-1-plate', weight: { value: 1 } as any };
+
 const bodyweightSetWithExtra: WorkedSet = {
   id: 'ws-2',
   sessionId: 's-1',
@@ -79,6 +81,11 @@ describe('formatTrackingValue', () => {
   it('weight-reps with explicit weightUnit="kg" behaves same as default', () => {
     expect(formatTrackingValue(weightRepsSet, 'kg', 'kg')).toBe('100 kg × 5 reps');
   });
+
+  // S11: one plate reads "1 placa", never "1 placas".
+  it('weight-reps with a single plate is singular', () => {
+    expect(formatTrackingValue(onePlateSet, 'lb', 'plates')).toBe('1 placa × 5 reps');
+  });
 });
 
 describe('formatBestSet', () => {
@@ -92,5 +99,13 @@ describe('formatBestSet', () => {
 
   it('other set types fall back to formatTrackingValue', () => {
     expect(formatBestSet(bodyweightSetWithExtra, 'lb')).toBe(formatTrackingValue(bodyweightSetWithExtra, 'lb'));
+  });
+
+  it('weight-reps on a plates exercise shows plates and never converts them to lb', () => {
+    expect(formatBestSet(weightRepsSet, 'lb', 'plates')).toBe('100 placas × 5');
+  });
+
+  it('weight-reps with a single plate is singular', () => {
+    expect(formatBestSet(onePlateSet, 'kg', 'plates')).toBe('1 placa × 5');
   });
 });

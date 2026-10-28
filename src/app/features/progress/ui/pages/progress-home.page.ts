@@ -2,7 +2,8 @@
  * ProgressHomePage — /progress (D-27, C-Progress).
  * Cuaderno: Constancia (heatmap), Récords personales (table), Volumen semanal, plus
  * the 30-day overview, per-exercise progress and PR counters.
- * Click a PR → /progress/exercise/:id. Every weight goes through the preferred unit.
+ * Click a PR → /progress/exercise/:id. Every weight goes through the preferred unit,
+ * except the sets of a plates exercise, which stay "N placas" (D4).
  *
  * No ProgressStore (D-31 design note: read-only page-local signals).
  * Injects use cases + exercise repo via inject().
@@ -21,6 +22,7 @@ import type { ExerciseProgressEntry } from '../../domain/models/exercise-progres
 import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
 import { Exercise } from '@features/exercises/domain/exercise.entity';
 import { OneRepMax } from '@core/shared/domain/value-objects/one-rep-max';
+import { loadKg } from '@core/shared/domain/weight-unit';
 import { UserPreferencesService } from '@core/profile/user-preferences.service';
 import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
 import { bestRecordPerExercise } from '../helpers/best-record-per-exercise';
@@ -229,15 +231,19 @@ export class ProgressHomePage implements OnInit {
     return this.exerciseMap().get(exerciseId)?.name ?? exerciseId;
   }
 
-  /** Best set in the preferred unit, compact: "100 kg × 5". */
+  /** Best set in the preferred unit, compact: "100 kg × 5"; plates stay plates: "7 placas × 5". */
   bestSet(pr: PersonalRecord): string {
-    return formatBestSet(pr.set, this.unit());
+    return formatBestSet(pr.set, this.unit(), this.exerciseMap().get(pr.exerciseId)?.weightUnit);
   }
 
-  /** Estimated 1RM of the PR set in kg (the template formats it with the preferred unit). */
+  /**
+   * Estimated 1RM of the PR set in kg (the template formats it with the preferred unit).
+   * Epley over `loadKg`, so a plates exercise counts plates × plate weight (S11).
+   */
   estimated1RMKg(pr: PersonalRecord): number | null {
     if (pr.set.type !== 'weight-reps') return null;
-    const result = OneRepMax.tryFrom({ weightKg: pr.set.weight.value, reps: pr.set.reps.value });
+    const weightKg = loadKg(pr.set.weight.value, this.exerciseMap().get(pr.exerciseId));
+    const result = OneRepMax.tryFrom({ weightKg, reps: pr.set.reps.value });
     return result.ok ? Math.round(result.value.kg * 10) / 10 : null;
   }
 

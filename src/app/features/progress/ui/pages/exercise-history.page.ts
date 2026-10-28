@@ -11,6 +11,7 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
 import { ActivatedRoute } from '@angular/router';
 import { OneRepMax } from '@core/shared/domain/value-objects/one-rep-max';
+import { loadKg } from '@core/shared/domain/weight-unit';
 import { GetExerciseHistoryUseCase } from '../../domain/use-cases/get-exercise-history.use-case';
 import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
 import { Exercise } from '@features/exercises/domain/exercise.entity';
@@ -38,7 +39,7 @@ interface SessionGroup {
   readonly date: Date;
   readonly sets: readonly WorkedSet[];
   readonly hasPR: boolean;
-  /** Σ weight × reps of the weight-reps sets, in kg. */
+  /** Σ load × reps of the weight-reps sets, in kg (a plates set weighs plates × plate weight). */
   readonly volumeKg: number;
 }
 
@@ -113,6 +114,7 @@ interface SessionGroup {
               [sets]="history()"
               [trackingType]="exercise()?.trackingType ?? 'weight-reps'"
               [unit]="unit()"
+              [exercise]="exercise()"
             ></fg-exercise-history-chart>
           </fg-card>
         }
@@ -180,11 +182,15 @@ export class ExerciseHistoryPage implements OnInit {
   readonly exercise = signal<Exercise | null>(null);
   readonly history = signal<WorkedSet[]>([]);
 
-  /** Epley 1RM of the same set "Mejor serie" shows, so the two tiles never contradict each other. */
+  /**
+   * Epley 1RM of the same set "Mejor serie" shows, so the two tiles never contradict each other.
+   * In kg: over `loadKg`, so a plates exercise counts plates × plate weight (S11).
+   */
   readonly estimated1RM = computed<number | null>(() => {
     const best = bestSetOf(this.history());
     if (!best || best.type !== 'weight-reps') return null;
-    const result = OneRepMax.tryFrom({ weightKg: best.weight.value, reps: best.reps.value });
+    const weightKg = loadKg(best.weight.value, this.exercise());
+    const result = OneRepMax.tryFrom({ weightKg, reps: best.reps.value });
     return result.ok ? Math.round(result.value.kg * 10) / 10 : null;
   });
 
@@ -195,6 +201,7 @@ export class ExerciseHistoryPage implements OnInit {
 
   /** Every session in reverse-chronological order, grouped by sessionId. */
   private readonly allSessions = computed<readonly SessionGroup[]>(() => {
+    const exercise = this.exercise();
     const byId = new Map<string, WorkedSet[]>();
     for (const set of this.history()) {
       const list = byId.get(set.sessionId) ?? [];
@@ -209,7 +216,10 @@ export class ExerciseHistoryPage implements OnInit {
         date: sets[0]!.createdAt,
         sets,
         hasPR: sets.some((s) => s.isPR),
-        volumeKg: sets.reduce((sum, set) => sum + (set.type === 'weight-reps' ? set.weight.value * set.reps.value : 0), 0),
+        volumeKg: sets.reduce(
+          (sum, set) => sum + (set.type === 'weight-reps' ? loadKg(set.weight.value, exercise) * set.reps.value : 0),
+          0,
+        ),
       });
     }
     return groups.sort((a, b) => b.date.getTime() - a.date.getTime());
@@ -235,18 +245,24 @@ export class ExerciseHistoryPage implements OnInit {
   });
 
   /**
-   * "Mejor serie" in the preferred unit ("100 kg × 5"), or null without sets. Taken from
-   * the registered sets (heaviest, more reps on a tie): a PR row can be missing or stale.
+   * "Mejor serie" in the preferred unit ("100 kg × 5", or "7 placas × 5" on a plates exercise),
+   * or null without sets. Taken from the registered sets (heaviest, more reps on a tie):
+   * a PR row can be missing or stale.
    */
   readonly bestSetText = computed<string | null>(() => {
     const best = bestSetOf(this.history());
-    return best ? formatBestSet(best, this.unit()) : null;
+    return best ? formatBestSet(best, this.unit(), this.exercise()?.weightUnit) : null;
   });
 
-  /** "Series (lb × reps)" for weight-reps; plain "Series" for the rest, whose sets carry their own unit. */
-  readonly setsHeader = computed<string>(() =>
-    (this.exercise()?.trackingType ?? 'weight-reps') === 'weight-reps' ? `Series (${this.unit()} × reps)` : 'Series',
-  );
+  /**
+   * "Series (lb × reps)" for weight-reps, "Series (placas × reps)" on a plates exercise;
+   * plain "Series" for the rest, whose sets carry their own unit.
+   */
+  readonly setsHeader = computed<string>(() => {
+    const exercise = this.exercise();
+    if ((exercise?.trackingType ?? 'weight-reps') !== 'weight-reps') return 'Series';
+    return `Series (${exercise?.weightUnit === 'plates' ? 'placas' : this.unit()} × reps)`;
+  });
 
   /** "Reps máx.": the most reps of any registered set, whatever its weight. */
   readonly maxReps = computed<number | null>(() => maxRepsOf(this.history()));
@@ -281,7 +297,7 @@ export class ExerciseHistoryPage implements OnInit {
   }
 
   formatWorkedSet(set: WorkedSet): string {
-    return formatTrackingValue(set, this.unit());
+    return formatTrackingValue(set, this.unit(), this.exercise()?.weightUnit);
   }
 
   formatDate(date: Date): string {
@@ -293,9 +309,10 @@ export class ExerciseHistoryPage implements OnInit {
     return date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
   }
 
-  /** "100 kg × 8 · 100 kg × 7": every set in the preferred unit. */
+  /** "100 kg × 8 · 100 kg × 7": every set in the preferred unit ("7 placas × 5" on a plates exercise). */
   joinSets(sets: readonly WorkedSet[]): string {
-    return sets.map((s) => formatBestSet(s, this.unit())).join(' · ');
+    const weightUnit = this.exercise()?.weightUnit;
+    return sets.map((s) => formatBestSet(s, this.unit(), weightUnit)).join(' · ');
   }
 
   /** Session volume as a plain number in the preferred unit (the column header names the unit). */
