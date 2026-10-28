@@ -331,7 +331,7 @@ describe('ExerciseSessionCardComponent', () => {
     fixture.componentRef.setInput('expanded', true);
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
-    // done dot should have bg-accent-500 class or contain a check icon
+    // a done set shows a check icon
     const checkIcons = Array.from(el.querySelectorAll('fg-icon')).filter(
       (ic) => (ic as HTMLElement).getAttribute('name') === 'check',
     );

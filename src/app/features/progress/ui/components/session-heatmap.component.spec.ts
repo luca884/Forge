@@ -25,14 +25,14 @@ describe('SessionHeatmapComponent', () => {
     expect(cells.length).toBe(84);
   });
 
-  // ── R15: count=0 cells use the empty token (ring-zero) — NO bg-forge-800 / bg-green-* ──
-  it('count=0 cell does NOT have bg-forge-800 class (R15)', () => {
+  // ── R15: count=0 cells use the empty token (ring-zero) — NO legacy bg-forge-* / bg-green-* ──
+  it('count=0 cell does NOT have a legacy bg-forge-* class (R15)', () => {
     // All cells are count=0 by default (empty heatmapData)
     const el = fixture.nativeElement as HTMLElement;
     const cells = el.querySelectorAll<HTMLDivElement>('.heatmap__cell');
     expect(cells.length).toBeGreaterThan(0);
     cells.forEach(cell => {
-      expect(cell.classList.contains('bg-forge-800')).toBe(false);
+      expect(cell.className).not.toMatch(/bg-forge-\d/);
     });
   });
 

@@ -1,3 +1,2 @@
-Geist & Geist Mono fonts © Vercel — MIT License. Source: https://github.com/vercel/geist-font
 Inter Tight © The Inter Project Authors — SIL Open Font License 1.1 (InterTight-OFL.txt). Source: https://github.com/rsms/inter-tight · latin subset via @fontsource-variable/inter-tight@5.3.0
 JetBrains Mono © The JetBrains Mono Project Authors — SIL Open Font License 1.1 (JetBrainsMono-OFL.txt). Source: https://github.com/JetBrains/JetBrainsMono · latin subset via @fontsource-variable/jetbrains-mono@5.3.0
