@@ -22,7 +22,26 @@ module.exports = {
           925: 'rgb(var(--forge-925) / <alpha-value>)',
           950: 'rgb(var(--forge-950) / <alpha-value>)',
         },
+        // Cuaderno · semánticos, cambian con data-theme / data-accent (src/styles.css)
+        page: 'rgb(var(--color-page) / <alpha-value>)',
+        surface: 'rgb(var(--color-surface) / <alpha-value>)',
+        line: {
+          DEFAULT: 'rgb(var(--color-line) / <alpha-value>)',
+          soft: 'rgb(var(--color-line-soft) / <alpha-value>)',
+        },
+        ink: {
+          DEFAULT: 'rgb(var(--color-ink) / <alpha-value>)',
+          2: 'rgb(var(--color-ink-2) / <alpha-value>)',
+        },
+        dash: 'rgb(var(--color-dash) / <alpha-value>)',
+        empty: 'rgb(var(--color-empty) / <alpha-value>)',
+        danger: 'rgb(var(--color-danger) / <alpha-value>)',
         accent: {
+          DEFAULT: 'rgb(var(--color-accent) / <alpha-value>)',
+          ink: 'rgb(var(--color-accent-ink) / <alpha-value>)',
+          on: 'rgb(var(--color-accent-on) / <alpha-value>)',
+          // alfa fijo por tema (0.08 claro, 0.16 oscuro); no admite modificador /NN
+          soft: 'rgb(var(--color-accent) / var(--color-accent-soft-alpha))',
           50:  'rgb(var(--accent-50) / <alpha-value>)',
           100: 'rgb(var(--accent-100) / <alpha-value>)',
           200: 'rgb(var(--accent-200) / <alpha-value>)',
@@ -38,8 +57,8 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['Geist', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
-        mono: ['Geist Mono', 'ui-monospace', 'JetBrains Mono', 'SFMono-Regular', 'Menlo', 'monospace'],
+        sans: ['Inter Tight', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       borderRadius: {
         xs: 'var(--r-xs)',
