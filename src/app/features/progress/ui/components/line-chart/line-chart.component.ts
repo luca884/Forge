@@ -12,7 +12,7 @@ import {
   Component,
   ElementRef,
   ViewChild,
-  AfterViewInit,
+  AfterViewChecked,
   OnChanges,
   OnDestroy,
   SimpleChanges,
@@ -74,7 +74,7 @@ Chart.register(
     }
   `,
 })
-export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
+export class LineChartComponent implements AfterViewChecked, OnChanges, OnDestroy {
   readonly series = input.required<readonly LineChartSeries[]>();
   readonly xAxisLabel = input<string>('Fecha');
   readonly yAxisLabel = input<string>('');
@@ -88,6 +88,8 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
   @ViewChild('chartCanvas') private canvasRef?: ElementRef<HTMLCanvasElement>;
 
   private chart: Chart | null = null;
+  /** The element `chart` draws on: the @if in the template swaps the <canvas> after an empty series. */
+  private chartCanvas: HTMLCanvasElement | null = null;
   private readonly appearance = inject(AppearanceService);
 
   constructor() {
@@ -97,7 +99,7 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     effect(() => {
       this.appearance.resolvedTheme();
       this.appearance.accent();
-      untracked(() => this.restyle());
+      untracked(() => this.repaint());
     });
   }
 
@@ -105,19 +107,28 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     return this.series().every((s) => s.points.length === 0);
   }
 
-  ngAfterViewInit(): void {
-    this.renderChart();
+  ngAfterViewChecked(): void {
+    const canvas = this.canvasRef?.nativeElement ?? null;
+    if (canvas === this.chartCanvas) return;
+    // The <canvas> appeared, vanished or was replaced (an empty series removes it, and
+    // the data coming back creates a new one). A chart bound to the old element draws
+    // nowhere, so drop it and draw on the one that is in the page now.
+    this.destroyChart();
+    if (canvas) this.renderChart();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['series'] && this.chart) {
-      this.updateChart();
-    }
+    if (changes['series']) this.repaint();
   }
 
   ngOnDestroy(): void {
+    this.destroyChart();
+  }
+
+  private destroyChart(): void {
     this.chart?.destroy();
     this.chart = null;
+    this.chartCanvas = null;
   }
 
   private buildChartData(palette: ChartPalette): ChartData<'line'> {
@@ -163,6 +174,10 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     return {
       responsive: true,
       maintainAspectRatio: false,
+      // Only the latest point is drawn, so a tap would almost never land on a dot (Chart.js
+      // default: intersect). Pick the point nearest to the tap along x, at any distance;
+      // the tooltip falls back to this scope too, so touch and hover share it.
+      interaction: { mode: 'nearest', axis: 'x', intersect: false },
       plugins: {
         legend: { display: this.series().length > 1, labels: { color: palette.ink2, font: mono } },
         tooltip: {
@@ -196,15 +211,15 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
 
   private renderChart(): void {
     if (!this.canvasRef) return;
-    if (this.chart) {
-      this.chart.destroy();
-    }
+    this.chart?.destroy();
+    const canvas = this.canvasRef.nativeElement;
     const palette = readChartPalette();
-    this.chart = new Chart(this.canvasRef.nativeElement, {
+    this.chart = new Chart(canvas, {
       type: 'line',
       data: this.buildChartData(palette),
       options: this.buildChartOptions(palette),
     });
+    this.chartCanvas = canvas;
   }
 
   /**
@@ -227,21 +242,14 @@ export class LineChartComponent implements AfterViewInit, OnChanges, OnDestroy {
     }
   }
 
-  /** Re-reads the tokens and repaints the existing chart (theme / accent changed). */
-  private restyle(): void {
-    if (!this.chart) return;
-    this.applyToChart(this.chart);
-  }
-
-  private updateChart(): void {
-    if (!this.chart) {
-      this.renderChart();
-      return;
-    }
-    this.applyToChart(this.chart);
-  }
-
-  private applyToChart(chart: Chart): void {
+  /**
+   * Rebuilds data and options from the current series and tokens and repaints the
+   * existing chart (new data, or the theme / accent changed). Nothing to repaint
+   * while there is no chart: ngAfterViewChecked creates it once there is a canvas.
+   */
+  private repaint(): void {
+    const chart = this.chart;
+    if (!chart) return;
     try {
       const palette = readChartPalette();
       chart.data = this.buildChartData(palette);

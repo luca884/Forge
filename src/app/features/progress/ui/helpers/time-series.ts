@@ -8,6 +8,7 @@
 import { OneRepMax } from '@core/shared/domain/value-objects/one-rep-max';
 import type { WorkedSet } from '@features/training/domain/worked-set';
 import type { TrackingType } from '@core/shared/domain/tracking-type';
+import type { PreferredUnit } from '@features/profile/domain/value-objects/preferred-unit.vo';
 
 export type Metric = 'weight' | 'reps' | 'volume' | '1rm';
 
@@ -21,22 +22,34 @@ export interface LineChartSeries {
   readonly points: readonly LineChartPoint[];
 }
 
-const METRIC_LABELS: Record<Metric, string> = {
-  weight: 'Peso (kg)',
-  reps: 'Repeticiones',
-  volume: 'Volumen (kg×reps)',
-  '1rm': '1RM estimado (kg)',
-};
+/**
+ * Descriptive name of a metric with the unit its values are plotted in: the axis title
+ * and the series label (the tooltip prints "<series label>: <value>"). Reps carry no unit.
+ */
+export function metricAxisLabel(metric: Metric, unit: PreferredUnit = 'kg'): string {
+  switch (metric) {
+    case 'weight':
+      return `Peso (${unit})`;
+    case 'reps':
+      return 'Repeticiones';
+    case 'volume':
+      return `Volumen (${unit}×reps)`;
+    case '1rm':
+      return `1RM estimado (${unit})`;
+  }
+}
 
 /**
  * Converts WorkedSet[] into a LineChartSeries array compatible with <fg-line-chart>.
  * Returns a single series. For incompatible metric/trackingType combinations,
- * the series has no points (no crash — D-30/S2).
+ * the series has no points (no crash — D-30/S2). Values stay in kg: `unit` only names
+ * the series, the caller converts the values it plots.
  */
 export function buildTimeSeries(
   sets: readonly WorkedSet[],
   trackingType: TrackingType,
   metric: Metric,
+  unit: PreferredUnit = 'kg',
 ): LineChartSeries[] {
   const points = sets.flatMap((set): LineChartPoint[] => {
     const y = extractMetricValue(set, trackingType, metric);
@@ -46,7 +59,7 @@ export function buildTimeSeries(
 
   return [
     {
-      label: METRIC_LABELS[metric],
+      label: metricAxisLabel(metric, unit),
       points,
     },
   ];

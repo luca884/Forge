@@ -245,6 +245,55 @@ describe('ProgressHomePage', () => {
       expect(row.textContent).toMatch(/116\.\d+ kg/);
     });
 
+    // C6: the table lists exercises, not records — the same lift must not fill the five rows.
+    function prFor(id: string, exerciseId: string, weight: number, reps: number, achievedAt: string): PersonalRecord {
+      const set: WorkedSet = {
+        ...prSet,
+        id: `ws-${id}`,
+        exerciseId,
+        weight: { value: weight } as any,
+        reps: { value: reps } as any,
+        createdAt: new Date(achievedAt),
+      } as WorkedSet;
+      return { id, exerciseId, set, achievedAt: new Date(achievedAt), trackingType: 'weight-reps', workedSetId: set.id };
+    }
+
+    function rows(): HTMLElement[] {
+      return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('[data-testid="pr-row"]'));
+    }
+
+    it('shows one row per exercise with its best mark, not one row per record', async () => {
+      await init();
+      fixture.componentInstance.allPRs.set([
+        prFor('pr-4', 'ex-1', 110, 3, '2026-03-04'),
+        prFor('pr-3', 'ex-1', 105, 5, '2026-03-03'),
+        prFor('pr-2', 'ex-1', 102, 5, '2026-03-02'),
+        prFor('pr-1', 'ex-1', 100, 5, '2026-03-01'),
+        prFor('pr-0', 'ex-1', 95, 5, '2026-02-01'),
+      ]);
+      fixture.detectChanges();
+
+      expect(rows()).toHaveLength(1);
+      expect(rows()[0]!.textContent).toContain('110 kg × 3');
+    });
+
+    it('lists up to five exercises, ordered by their most recent record', async () => {
+      await init();
+      fixture.componentInstance.allPRs.set(
+        [1, 2, 3, 4, 5, 6, 7].map((n) => prFor(`pr-${n}`, `ex-${n}`, 50 + n, 5, `2026-03-0${n}`)).reverse(),
+      );
+      fixture.detectChanges();
+
+      // ex-7 (Mar 7) ... ex-3 (Mar 3); ex-1 and ex-2 fall off. Names come from the exercise map (unknown ids show the id).
+      expect(rows().map((r) => r.textContent)).toEqual([
+        expect.stringContaining('ex-7'),
+        expect.stringContaining('ex-6'),
+        expect.stringContaining('ex-5'),
+        expect.stringContaining('ex-4'),
+        expect.stringContaining('ex-3'),
+      ]);
+    });
+
     it('shows weights in lb when the preferred unit is lb (no fixed "kg")', async () => {
       unitSignal.set('lb');
       await init();

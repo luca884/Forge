@@ -161,6 +161,10 @@ test.describe('J9 — Progress home', () => {
     await expect(page.getByRole('heading', { name: 'Progreso por ejercicio' })).toBeVisible();
     await expect(page.getByText('Mejora')).toBeVisible();
 
+    // Weekly bars are buttons: the week in progress starts selected and a line names it
+    await expect(page.locator('fg-weekly-trend-chart button[data-bar][aria-pressed="true"]')).toHaveCount(2);
+    await expect(page.locator('fg-weekly-trend-chart [data-week-selection]').first()).toContainText('Semana del');
+
     // Stat cards
     await expect(page.getByText('PRs totales')).toBeVisible();
     await expect(page.getByText('PRs esta semana')).toBeVisible();
@@ -401,14 +405,17 @@ test.describe('J11 — Exercise history', () => {
     await expect(page.locator('fg-exercise-history-chart canvas')).toBeVisible();
 
     // Metric and range selectors above the chart
-    await expect(page.getByRole('button', { name: 'Peso máx.' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Peso', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByRole('button', { name: '3M' })).toBeVisible();
 
-    // 3-stat tiles
+    // 4-stat tiles: Mejor serie and Reps máx. come from the registered sets
     const tiles = page.getByLabel('Resumen del ejercicio');
     await expect(tiles.getByText('1RM est.')).toBeVisible();
     await expect(tiles.getByText('Mejor serie')).toBeVisible();
+    await expect(tiles.getByText('Reps máx.')).toBeVisible();
     await expect(tiles.getByText('Sesiones')).toBeVisible();
+    await expect(tiles.locator('[data-stat="best"]')).toHaveText('80 kg × 5');
+    await expect(tiles.locator('[data-stat="max-reps"]')).toHaveText('5');
 
     // Historial section (session-grouped sets)
     await expect(page.getByRole('heading', { name: 'Historial' })).toBeVisible();

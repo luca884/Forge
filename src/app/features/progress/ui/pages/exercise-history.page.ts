@@ -1,7 +1,8 @@
 /**
  * ExerciseHistoryPage — /progress/exercise/:exerciseId (D-29, D-1 redesign, C-Exercise).
- * Shows: back link, exercise name, summary tiles (1RM est., best set, sessions),
+ * Shows: back link, exercise name, summary tiles (1RM est., best set, max reps, sessions),
  * chart, session-grouped history. Every weight goes through the preferred unit.
+ * The 1RM, the best set and the max reps are computed from the registered sets, not from the PR table.
  *
  * Reads exerciseId from route snapshot (single-load page, no hot-swap needed).
  * No dexie/data imports. Injects use cases and repos via inject().
@@ -10,13 +11,12 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
 import { ActivatedRoute } from '@angular/router';
 import { OneRepMax } from '@core/shared/domain/value-objects/one-rep-max';
-import { PersonalRecord } from '../../domain/entities/personal-record.entity';
-import { GetCurrentPRForExerciseUseCase } from '../../domain/use-cases/get-current-pr-for-exercise.use-case';
 import { GetExerciseHistoryUseCase } from '../../domain/use-cases/get-exercise-history.use-case';
 import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
 import { Exercise } from '@features/exercises/domain/exercise.entity';
 import type { WorkedSet } from '@features/training/domain/worked-set';
 import { ExerciseHistoryChartComponent } from '../components/exercise-history-chart/exercise-history-chart.component';
+import { bestSetOf, maxRepsOf } from '../helpers/best-set';
 import { formatBestSet, formatTrackingValue } from '../helpers/format-tracking-value';
 import { muscleGroupLabel } from '../helpers/muscle-group-label';
 import { displayWeightValue } from '../helpers/weight-display';
@@ -55,7 +55,6 @@ interface SessionGroup {
     FgEmptyStateComponent,
   ],
   providers: [
-    GetCurrentPRForExerciseUseCase,
     GetExerciseHistoryUseCase,
   ],
   template: `
@@ -80,22 +79,26 @@ interface SessionGroup {
       @if (loading()) {
         <fg-card><fg-skeleton [height]="180"></fg-skeleton></fg-card>
       } @else {
-        <!-- 3-stat tile row -->
+        <!-- Summary tiles, two per row so "220.5 lb × 12" fits on one line at 390 px -->
         <section
           aria-label="Resumen del ejercicio"
-          class="grid grid-cols-3 bg-surface border border-line rounded-lg"
+          class="grid grid-cols-2 bg-surface border border-line rounded-lg"
         >
-          <div class="flex flex-col gap-1 p-2.5 border-r border-line-soft min-w-0">
+          <div class="flex flex-col gap-1 p-2.5 border-r border-b border-line-soft min-w-0">
             <span class="text-[10px] leading-3 font-semibold tracking-[0.08em] uppercase text-ink-2">1RM est.</span>
             <span data-stat="1rm" class="font-mono tabular-nums text-[15px] leading-6 font-medium text-ink whitespace-nowrap">
               {{ estimated1RM() !== null ? (estimated1RM()! | displayWeight: unit()) : '—' }}
             </span>
           </div>
-          <div class="flex flex-col gap-1 p-2.5 border-r border-line-soft min-w-0">
+          <div class="flex flex-col gap-1 p-2.5 border-b border-line-soft min-w-0">
             <span class="text-[10px] leading-3 font-semibold tracking-[0.08em] uppercase text-ink-2">Mejor serie</span>
             <span data-stat="best" class="font-mono tabular-nums text-[15px] leading-6 font-medium text-ink break-words">
               {{ bestSetText() ?? '—' }}
             </span>
+          </div>
+          <div class="flex flex-col gap-1 p-2.5 border-r border-line-soft min-w-0">
+            <span class="text-[10px] leading-3 font-semibold tracking-[0.08em] uppercase text-ink-2">Reps máx.</span>
+            <span data-stat="max-reps" class="font-mono tabular-nums text-[15px] leading-6 font-medium text-ink">{{ maxReps() ?? '—' }}</span>
           </div>
           <div class="flex flex-col gap-1 p-2.5 min-w-0">
             <span class="text-[10px] leading-3 font-semibold tracking-[0.08em] uppercase text-ink-2">Sesiones</span>
@@ -121,10 +124,15 @@ interface SessionGroup {
             <fg-empty-state icon="dumbbell" title="Sin series registradas" body="Empezá a entrenar para ver tu historial."></fg-empty-state>
           } @else {
             <fg-card [padding]="0">
-              <h2 id="history-title" class="m-0 px-3.5 pt-3 pb-2 text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase text-ink-2">Historial</h2>
+              <div class="flex items-baseline justify-between gap-2 px-3.5 pt-3 pb-2">
+                <h2 id="history-title" class="m-0 text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase text-ink-2">Historial</h2>
+                @if (cutShort()) {
+                  <span data-history-notice class="font-mono tabular-nums text-xs text-ink-2">Últimas {{ historyLimit }} de {{ sessionTotal() }}</span>
+                }
+              </div>
               <div class="flex gap-2.5 px-3.5 pb-1.5 border-b border-line text-[10px] leading-3 font-semibold tracking-[0.06em] uppercase text-ink-2">
                 <span class="w-[52px] shrink-0">Fecha</span>
-                <span class="flex-1 min-w-0">Series ({{ unit() }} × reps)</span>
+                <span class="flex-1 min-w-0">{{ setsHeader() }}</span>
                 <span class="w-[52px] shrink-0 text-right">Vol.</span>
               </div>
               @for (group of groupedHistory(); track group.sessionId; let last = $last) {
@@ -143,6 +151,13 @@ interface SessionGroup {
                   <div data-session-volume class="w-[52px] shrink-0 text-right font-mono tabular-nums text-xs text-ink-2">{{ volumeText(group) }}</div>
                 </div>
               }
+              @if (cutShort()) {
+                <button
+                  type="button"
+                  class="w-full min-h-11 border-t border-line-soft text-[13px] font-medium text-accent-ink"
+                  (click)="showAll.set(true)"
+                >Ver todas</button>
+              }
             </fg-card>
           }
         </section>
@@ -152,7 +167,6 @@ interface SessionGroup {
 })
 export class ExerciseHistoryPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
-  private readonly getCurrentPR = inject(GetCurrentPRForExerciseUseCase);
   private readonly getHistory = inject(GetExerciseHistoryUseCase);
   private readonly exerciseRepo = inject(ExerciseRepository);
   private readonly router = inject(Router);
@@ -164,18 +178,23 @@ export class ExerciseHistoryPage implements OnInit {
   readonly loading = signal(true);
   readonly exerciseId = signal<string>('');
   readonly exercise = signal<Exercise | null>(null);
-  readonly currentPR = signal<PersonalRecord | null>(null);
   readonly history = signal<WorkedSet[]>([]);
 
+  /** Epley 1RM of the same set "Mejor serie" shows, so the two tiles never contradict each other. */
   readonly estimated1RM = computed<number | null>(() => {
-    const pr = this.currentPR();
-    if (!pr || pr.set.type !== 'weight-reps') return null;
-    const result = OneRepMax.tryFrom({ weightKg: pr.set.weight.value, reps: pr.set.reps.value });
+    const best = bestSetOf(this.history());
+    if (!best || best.type !== 'weight-reps') return null;
+    const result = OneRepMax.tryFrom({ weightKg: best.weight.value, reps: best.reps.value });
     return result.ok ? Math.round(result.value.kg * 10) / 10 : null;
   });
 
-  /** Last 10 sessions in reverse-chronological order, grouped by sessionId. */
-  readonly groupedHistory = computed<readonly SessionGroup[]>(() => {
+  /** Sessions shown before the user asks for all of them. */
+  protected readonly historyLimit = 10;
+  /** "Ver todas" was tapped: the list is no longer cut at `historyLimit`. */
+  protected readonly showAll = signal(false);
+
+  /** Every session in reverse-chronological order, grouped by sessionId. */
+  private readonly allSessions = computed<readonly SessionGroup[]>(() => {
     const byId = new Map<string, WorkedSet[]>();
     for (const set of this.history()) {
       const list = byId.get(set.sessionId) ?? [];
@@ -193,8 +212,18 @@ export class ExerciseHistoryPage implements OnInit {
         volumeKg: sets.reduce((sum, set) => sum + (set.type === 'weight-reps' ? set.weight.value * set.reps.value : 0), 0),
       });
     }
-    return groups.sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 10);
+    return groups.sort((a, b) => b.date.getTime() - a.date.getTime());
   });
+
+  /** The sessions listed: the latest `historyLimit`, or all of them after "Ver todas". */
+  readonly groupedHistory = computed<readonly SessionGroup[]>(() =>
+    this.showAll() ? this.allSessions() : this.allSessions().slice(0, this.historyLimit),
+  );
+
+  protected readonly sessionTotal = computed<number>(() => this.allSessions().length);
+
+  /** The list hides older sessions: show the "Últimas 10 de N" notice and "Ver todas". */
+  protected readonly cutShort = computed<boolean>(() => !this.showAll() && this.sessionTotal() > this.historyLimit);
 
   readonly sessionCount = computed<number>(() => new Set(this.history().map((s) => s.sessionId)).size);
 
@@ -205,11 +234,22 @@ export class ExerciseHistoryPage implements OnInit {
     return `${muscleGroupLabel(ex.muscleGroup)} · ${this.unit()}`;
   });
 
-  /** The current PR set in the preferred unit ("100 kg × 5"), or null without a PR. */
+  /**
+   * "Mejor serie" in the preferred unit ("100 kg × 5"), or null without sets. Taken from
+   * the registered sets (heaviest, more reps on a tie): a PR row can be missing or stale.
+   */
   readonly bestSetText = computed<string | null>(() => {
-    const pr = this.currentPR();
-    return pr ? formatBestSet(pr.set, this.unit()) : null;
+    const best = bestSetOf(this.history());
+    return best ? formatBestSet(best, this.unit()) : null;
   });
+
+  /** "Series (lb × reps)" for weight-reps; plain "Series" for the rest, whose sets carry their own unit. */
+  readonly setsHeader = computed<string>(() =>
+    (this.exercise()?.trackingType ?? 'weight-reps') === 'weight-reps' ? `Series (${this.unit()} × reps)` : 'Series',
+  );
+
+  /** "Reps máx.": the most reps of any registered set, whatever its weight. */
+  readonly maxReps = computed<number | null>(() => maxRepsOf(this.history()));
 
   /** Last 10 sets in reverse-chronological order for display (kept for backward compat) */
   readonly recentHistory = computed<WorkedSet[]>(() =>
@@ -228,15 +268,7 @@ export class ExerciseHistoryPage implements OnInit {
       const exercise = await this.exerciseRepo.getById(exerciseId);
       this.exercise.set(exercise);
 
-      const trackingType = exercise?.trackingType ?? 'weight-reps';
-
-      const [pr, history] = await Promise.all([
-        this.getCurrentPR.execute(exerciseId, trackingType),
-        this.getHistory.execute({ exerciseId }),
-      ]);
-
-      this.currentPR.set(pr);
-      this.history.set(history);
+      this.history.set(await this.getHistory.execute({ exerciseId }));
     } catch {
       this.toast.error('No se pudo cargar el historial', 'Intentá de nuevo');
     } finally {
@@ -246,10 +278,6 @@ export class ExerciseHistoryPage implements OnInit {
 
   goBack(): void {
     void this.router.navigate(['/progress']);
-  }
-
-  formatValue(pr: PersonalRecord): string {
-    return formatTrackingValue(pr.set, this.unit());
   }
 
   formatWorkedSet(set: WorkedSet): string {
