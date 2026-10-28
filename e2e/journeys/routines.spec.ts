@@ -276,4 +276,24 @@ test.describe('J6a — Auto-activate first routine', () => {
       page.locator('fg-routine-card').filter({ hasText: 'Second' }).getByText('Activa', { exact: true }),
     ).not.toBeVisible();
   });
+
+  test('J6a.3 — "Activar" en la lista pasa la activa a la otra rutina (solo una activa)', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await seedRoutines(page, [
+      { id: 'r-1', name: 'Existing', isActive: true, schedule: null, createdAt: new Date(), updatedAt: new Date() },
+      { id: 'r-2', name: 'Second', isActive: false, schedule: null, createdAt: new Date(), updatedAt: new Date() },
+    ]);
+
+    await page.goto('/routines');
+    await page.waitForLoadState('networkidle');
+
+    await page.getByRole('button', { name: 'Activar rutina Second' }).click();
+
+    const second = page.locator('fg-routine-card').filter({ hasText: 'Second' });
+    const existing = page.locator('fg-routine-card').filter({ hasText: 'Existing' });
+    await expect(second.getByText('Activa', { exact: true })).toBeVisible();
+    await expect(existing.getByText('Activa', { exact: true })).toHaveCount(0);
+    await expect(existing.getByRole('button', { name: 'Activar rutina Existing' })).toBeVisible();
+  });
 });

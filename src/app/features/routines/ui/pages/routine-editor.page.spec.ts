@@ -224,12 +224,21 @@ describe('RoutineEditorPage', () => {
       expect(emptyState).toBeTruthy();
     });
 
-    it('fg-card count === 2 cuando trainingDays retorna 2 días', async () => {
+    it('lista los días como filas de una sola tarjeta cuando trainingDays retorna 2 días', async () => {
       const days = [makeDay('d-1', 'Día 1'), makeDay('d-2', 'Día 2')];
       const { fixture } = makeFixture({ id: 'r-1', days });
       await flush(fixture);
-      const cards = fixture.debugElement.queryAll(By.css('fg-card'));
-      expect(cards.length).toBe(2);
+      expect(fixture.debugElement.queryAll(By.css('fg-card')).length).toBe(1);
+      const rows = fixture.debugElement.queryAll(By.css('[data-day-row]'));
+      expect(rows.length).toBe(2);
+      expect((rows[0]!.nativeElement as HTMLElement).textContent).toContain('Día 1');
+      expect((rows[1]!.nativeElement as HTMLElement).textContent).toContain('Día 2');
+    });
+
+    it('sin días no dibuja la tarjeta de días', async () => {
+      const { fixture } = makeFixture({ id: 'r-1', days: [] });
+      await flush(fixture);
+      expect(fixture.debugElement.queryAll(By.css('fg-card')).length).toBe(0);
     });
 
     it('fg-empty-state NO presente cuando hay días', async () => {

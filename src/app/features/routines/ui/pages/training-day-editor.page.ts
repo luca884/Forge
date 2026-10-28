@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   OnInit,
+  computed,
   inject,
   signal,
 } from '@angular/core';
@@ -14,14 +15,12 @@ import {
 } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
-  FgPageHeaderComponent,
   FgInputComponent,
   FgCardComponent,
   FgEmptyStateComponent,
   FgButtonComponent,
   FgIconComponent,
   FgSkeletonComponent,
-  type PageHeaderAction,
 } from '@core/shared/ui';
 import {
   GetTrainingDayWithExercisesUseCase,
@@ -34,33 +33,39 @@ import { SetTargetSetsUseCase } from '../../domain/use-cases/set-target-sets.use
 import { SetRestSecondsUseCase } from '../../domain/use-cases/set-rest-seconds.use-case';
 import { TargetSetEditorComponent } from '../components/target-set-editor.component';
 import { TargetSet } from '../../domain/target-set';
+import { RoutineRepository } from '../../domain/routine.repository';
+
+/** "4 × 6–8", "3 × 5", "2 × 60 s", "2 × 5 km"; "—" sin series. Usa el tipo de la primera serie. */
+function formatTarget(sets: readonly TargetSet[]): string {
+  const first = sets[0];
+  if (!first) return '—';
+  switch (first.type) {
+    case 'weight-reps':
+    case 'bodyweight-reps': {
+      const reps = sets.flatMap((s) => (s.type === first.type ? [s.reps] : []));
+      const min = Math.min(...reps);
+      const max = Math.max(...reps);
+      return `${sets.length} × ${min === max ? min : `${min}–${max}`}`;
+    }
+    case 'time':
+      return `${sets.length} × ${first.durationSec} s`;
+    case 'distance-time':
+      return `${sets.length} × ${first.distanceKm} km`;
+  }
+}
+
+/** 180 -> "3:00", 90 -> "1:30". */
+function formatRest(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const sec = String(seconds % 60).padStart(2, '0');
+  return `${m}:${sec}`;
+}
 
 @Component({
   selector: 'fg-training-day-editor-page',
   standalone: true,
-  styles: [`
-    .target-num {
-      width: 72px;
-      appearance: none;
-      -webkit-appearance: none;
-      background: transparent;
-      border: none;
-      outline: none;
-      text-align: center;
-      color: rgb(var(--forge-50));
-      font-weight: 600;
-      font-size: 22px;
-      line-height: 1.2;
-      letter-spacing: -0.02em;
-      font-variant-numeric: tabular-nums;
-      font-feature-settings: "tnum";
-    }
-    .target-num::-webkit-outer-spin-button,
-    .target-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  `],
   imports: [
     ReactiveFormsModule,
-    FgPageHeaderComponent,
     FgInputComponent,
     FgCardComponent,
     FgEmptyStateComponent,
@@ -78,116 +83,145 @@ import { TargetSet } from '../../domain/target-set';
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <fg-page-header
-      title="Editar día"
-      leadingIcon="chevron-left"
-      [trailingActions]="trailingActions"
-      (leadingClick)="back()"
-    ></fg-page-header>
+    <div class="bg-page text-ink flex flex-col gap-3 px-4 pt-1 pb-4">
+      <div class="flex items-center justify-between -mx-2">
+        <button
+          type="button"
+          aria-label="Volver"
+          class="h-11 px-2 flex items-center gap-0.5 text-[15px] font-medium text-ink min-w-0"
+          (click)="back()"
+        >
+          <fg-icon name="chevron-left" [size]="20"></fg-icon>
+          <span class="truncate">{{ routineName() }}</span>
+        </button>
+        <button
+          type="button"
+          class="h-11 px-2.5 text-[15px] font-semibold text-accent-ink"
+          (click)="save()"
+        >Listo</button>
+      </div>
 
-    <div class="px-4 pt-3 pb-6 flex flex-col gap-6">
+      <h1 class="sr-only">Editar día</h1>
+
       @if (loading()) {
         <fg-card>
           <fg-skeleton [height]="44"></fg-skeleton>
         </fg-card>
       } @else {
-        <form [formGroup]="form" class="flex flex-col gap-4">
-          <fg-input
-            label="Nombre del día"
-            formControlName="name"
-            placeholder="Ej: Día A"
-            [error]="submitAttempted() && nameControl.invalid ? 'El nombre es obligatorio' : undefined"
-          ></fg-input>
+        <form [formGroup]="form" class="flex flex-col gap-2">
+          <div class="flex flex-col gap-0.5">
+            <input
+              type="text"
+              formControlName="name"
+              aria-label="Nombre del día"
+              placeholder="Ej: Día A"
+              class="w-full bg-transparent border-0 p-0 outline-none text-[30px] leading-9 font-bold tracking-[-0.03em] text-ink placeholder:text-ink-2"
+            />
+            @if (submitAttempted() && nameControl.invalid) {
+              <span data-name-error class="text-[13px] text-danger">El nombre es obligatorio</span>
+            }
+            <span data-day-meta class="font-mono text-[13px] text-ink-2">{{ meta() }}</span>
+          </div>
           <fg-input
             label="Etiqueta (opcional)"
+            size="sm"
             formControlName="label"
             placeholder="Ej: Push, Pull, Legs..."
           ></fg-input>
         </form>
 
-        <section class="flex flex-col gap-3">
-          <h2 class="t-h3 text-forge-100">Ejercicios</h2>
+        @if ((day()?.exercises ?? []).length === 0) {
+          <fg-empty-state
+            icon="dumbbell"
+            title="Sin ejercicios"
+            body="Agregá tu primer ejercicio a este día."
+          ></fg-empty-state>
+        } @else {
+          <fg-card [padding]="0">
+            <div
+              class="grid grid-cols-[24px_minmax(0,1fr)_72px_44px] gap-x-1.5 pt-2.5 pb-1.5 pl-3 pr-1.5 text-[10px] leading-3 font-semibold tracking-[0.06em] uppercase text-ink-2 border-b border-line"
+              aria-hidden="true"
+            >
+              <span>#</span><span>Ejercicio</span><span>Objetivo</span><span></span>
+            </div>
+            @for (exercise of day()?.exercises ?? []; track exercise.exerciseId; let i = $index) {
+              @let expanded = expandedExerciseId() === exercise.exerciseId;
+              <div
+                data-exercise-row
+                class="border-b border-line-soft last:border-b-0"
+                [class.bg-accent-soft]="expanded"
+              >
+                <button
+                  type="button"
+                  class="w-full grid grid-cols-[24px_minmax(0,1fr)_72px_44px] gap-x-1.5 items-center min-h-[48px] pl-3 pr-1.5 text-left"
+                  [attr.aria-label]="'Editar series de ' + exercise.exerciseName"
+                  [attr.aria-expanded]="expanded"
+                  (click)="toggleExpand(exercise.exerciseId)"
+                >
+                  <span data-cell class="font-mono text-[13px] text-ink-2">{{ rowNumber(i) }}</span>
+                  <span data-cell class="flex flex-col min-w-0">
+                    <span
+                      class="text-[15px] truncate"
+                      [class.font-semibold]="expanded"
+                      [class.text-accent-ink]="expanded"
+                      [class.font-medium]="!expanded"
+                    >{{ exercise.exerciseName }}</span>
+                    @if (exercise.restSeconds !== undefined) {
+                      <span class="font-mono text-[11px] text-ink-2">desc. {{ restLabel(exercise.restSeconds) }}</span>
+                    }
+                  </span>
+                  <span data-cell class="font-mono text-[13px] tabular-nums">{{ targetLabel(exercise) }}</span>
+                  <span class="w-11 h-11 flex items-center justify-center" [class.text-ink]="expanded" [class.text-ink-2]="!expanded" [class.rotate-180]="expanded">
+                    <fg-icon name="chevron-down" [size]="18"></fg-icon>
+                  </span>
+                </button>
 
-          @if ((day()?.exercises ?? []).length === 0) {
-            <fg-empty-state
-              icon="dumbbell"
-              title="Sin ejercicios"
-              body="Agregá tu primer ejercicio a este día."
-            ></fg-empty-state>
-          } @else {
-            @for (exercise of day()?.exercises ?? []; track exercise.exerciseId) {
-              <fg-card>
-                <div class="flex items-center justify-between">
-                  <button
-                    type="button"
-                    (click)="toggleExpand(exercise.exerciseId)"
-                    class="text-left flex-1 min-w-0"
-                    [attr.aria-label]="'Editar series de ' + exercise.exerciseName"
-                  >
-                    <span class="t-body text-forge-100">{{ exercise.exerciseName }}</span>
-                    <p class="t-body-sm text-forge-400">
-                      {{ exercise.targetSets.length }} series objetivo
-                    </p>
-                  </button>
-                  <div class="flex items-center gap-1">
-                    <button
-                      type="button"
-                      (click)="toggleExpand(exercise.exerciseId)"
-                      [attr.aria-label]="'Editar series de ' + exercise.exerciseName"
-                      class="w-9 h-9 inline-flex items-center justify-center rounded-md text-forge-200 hover:bg-forge-850"
-                    >
-                      <fg-icon name="edit" [size]="18"></fg-icon>
-                    </button>
-                    <button
-                      type="button"
-                      (click)="removeExercise(exercise)"
-                      [attr.aria-label]="'Quitar ' + exercise.exerciseName"
-                      class="w-9 h-9 inline-flex items-center justify-center rounded-md text-destructive-500 hover:bg-forge-850"
-                    >
-                      <fg-icon name="trash" [size]="18"></fg-icon>
-                    </button>
-                  </div>
-                </div>
-
-                @if (expandedExerciseId() === exercise.exerciseId) {
-                  <div class="mt-3 pt-3 border-t border-forge-800 space-y-4">
+                @if (expanded) {
+                  <div class="flex flex-col gap-3 px-3 pt-1 pb-3">
                     <fg-target-set-editor
                       [trackingType]="exercise.trackingType"
                       [targetSets]="exercise.targetSets"
                       (targetSetsChange)="onTargetSetsChange(exercise, $event)"
                     ></fg-target-set-editor>
 
-                    <div class="flex flex-col items-center gap-1">
-                      <span class="t-caption text-forge-500">Descanso</span>
-                      <div class="flex items-baseline gap-1 justify-center">
+                    <div class="flex items-center justify-between gap-2">
+                      <label class="flex items-center gap-2">
+                        <span class="text-[11px] leading-3 font-semibold tracking-[0.06em] uppercase text-ink-2">Descanso</span>
                         <input
                           type="number"
                           inputmode="numeric"
                           min="0"
                           placeholder="90"
-                          class="target-num"
+                          aria-label="Descanso en segundos"
+                          class="target-num w-16 h-8 rounded-md bg-surface border border-line focus:border-accent outline-none text-center font-mono text-[15px] text-ink tabular-nums"
                           [value]="exercise.restSeconds ?? ''"
                           (change)="onRestSecondsChange(exercise, $event)"
                         />
-                        <span class="t-caption text-forge-600">seg</span>
-                      </div>
+                        <span class="text-[12px] text-ink-2">seg</span>
+                      </label>
+                      <button
+                        type="button"
+                        class="h-9 px-1 text-[13px] font-semibold text-danger"
+                        [attr.aria-label]="'Quitar ' + exercise.exerciseName"
+                        (click)="removeExercise(exercise)"
+                      >Quitar del día</button>
                     </div>
                   </div>
                 }
-              </fg-card>
+              </div>
             }
-          }
+          </fg-card>
+        }
 
-          <button
-            fg-button
-            variant="ghost"
-            [leadingIcon]="'plus'"
-            (click)="addExercise()"
-            class="self-end"
-          >
-            Agregar ejercicio
-          </button>
-        </section>
+        <button
+          fg-button
+          variant="secondary"
+          [leadingIcon]="'plus'"
+          (click)="addExercise()"
+          class="w-full !border-dashed !border-dash"
+        >
+          Agregar ejercicios
+        </button>
       }
     </div>
   `,
@@ -201,6 +235,7 @@ export class TrainingDayEditorPage implements OnInit {
   private readonly removeExerciseFromDay = inject(RemoveExerciseFromDayUseCase);
   private readonly setTargetSets = inject(SetTargetSetsUseCase);
   private readonly setRestSeconds = inject(SetRestSecondsUseCase);
+  private readonly routineRepo = inject(RoutineRepository);
 
   readonly day = signal<TrainingDayView | null>(null);
   readonly routineId = signal<string>('');
@@ -209,9 +244,15 @@ export class TrainingDayEditorPage implements OnInit {
   readonly loading = signal(true);
   readonly expandedExerciseId = signal<string | null>(null);
 
-  readonly trailingActions: readonly PageHeaderAction[] = [
-    { icon: 'check', ariaLabel: 'Guardar día', click: () => { void this.save(); } },
-  ];
+  readonly routineName = signal('Rutina');
+
+  protected readonly meta = computed(() => {
+    const exercises = this.day()?.exercises ?? [];
+    const sets = exercises.reduce((total, e) => total + e.targetSets.length, 0);
+    const exLabel = exercises.length === 1 ? '1 ejercicio' : `${exercises.length} ejercicios`;
+    const setLabel = sets === 1 ? '1 serie' : `${sets} series`;
+    return `${exLabel} · ${setLabel}`;
+  });
 
   /* eslint-disable @typescript-eslint/unbound-method */
   readonly form: FormGroup = this.fb.group({
@@ -230,6 +271,24 @@ export class TrainingDayEditorPage implements OnInit {
     this.routineId.set(rId);
     this.dayId.set(dId);
     void this.loadDay();
+    void this.loadRoutineName(rId);
+  }
+
+  private async loadRoutineName(routineId: string): Promise<void> {
+    const routine = await this.routineRepo.getById(routineId);
+    if (routine) this.routineName.set(routine.name);
+  }
+
+  protected rowNumber(index: number): string {
+    return String(index + 1).padStart(2, '0');
+  }
+
+  protected targetLabel(exercise: ExerciseInDayView): string {
+    return formatTarget(exercise.targetSets);
+  }
+
+  protected restLabel(seconds: number): string {
+    return formatRest(seconds);
   }
 
   async loadDay(): Promise<void> {

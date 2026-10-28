@@ -12,6 +12,8 @@ import { RemoveExerciseFromDayUseCase } from '../../domain/use-cases/remove-exer
 import { SetTargetSetsUseCase } from '../../domain/use-cases/set-target-sets.use-case';
 import { SetRestSecondsUseCase } from '../../domain/use-cases/set-rest-seconds.use-case';
 import { TargetSet } from '../../domain/target-set';
+import { RoutineRepository } from '../../domain/routine.repository';
+import { Routine } from '../../domain/routine.entity';
 
 // ---- Factories ----
 
@@ -36,6 +38,22 @@ async function flush(fixture: ComponentFixture<TrainingDayEditorPage>): Promise<
   fixture.detectChanges();
 }
 
+function buttonByText(fixture: ComponentFixture<TrainingDayEditorPage>, text: string): HTMLButtonElement {
+  const found = fixture.debugElement
+    .queryAll(By.css('button'))
+    .find((b) => ((b.nativeElement as HTMLElement).textContent ?? '').trim() === text);
+  if (!found) throw new Error(`No button with text "${text}"`);
+  return found.nativeElement as HTMLButtonElement;
+}
+
+const routine: Routine = {
+  id: 'r-1',
+  name: 'Torso / Pierna',
+  isActive: true,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
 // ---- Setup ----
 
 function makeFixture(opts: {
@@ -49,6 +67,7 @@ function makeFixture(opts: {
   editSpy: jest.Mock;
   removeSpy: jest.Mock;
   setTargetSetsSpy: jest.Mock;
+  setRestSecondsSpy: jest.Mock;
 } {
   const navigateSpy = jest.fn().mockResolvedValue(true);
   const getDayViewSpy = jest.fn().mockResolvedValue(
@@ -58,6 +77,7 @@ function makeFixture(opts: {
   const removeSpy = jest.fn().mockResolvedValue(undefined);
   const setTargetSetsSpy = jest.fn().mockResolvedValue(undefined);
   const setRestSecondsSpy = jest.fn().mockResolvedValue(undefined);
+  const routineRepo = { getById: jest.fn().mockResolvedValue(routine) };
 
   const paramMap = {
     get: (k: string) =>
@@ -70,6 +90,7 @@ function makeFixture(opts: {
     imports: [TrainingDayEditorPage, ReactiveFormsModule],
     providers: [
       { provide: Router, useValue: { navigate: navigateSpy } },
+      { provide: RoutineRepository, useValue: routineRepo },
       {
         provide: ActivatedRoute,
         useValue: { snapshot: { paramMap } },
@@ -102,7 +123,7 @@ function makeFixture(opts: {
     .compileComponents();
 
   const fixture = TestBed.createComponent(TrainingDayEditorPage);
-  return { fixture, navigateSpy, getDayViewSpy, editSpy, removeSpy, setTargetSetsSpy };
+  return { fixture, navigateSpy, getDayViewSpy, editSpy, removeSpy, setTargetSetsSpy, setRestSecondsSpy };
 }
 
 // ---- Tests ----
@@ -133,25 +154,59 @@ describe('TrainingDayEditorPage', () => {
     });
   });
 
-  describe('page header', () => {
-    it('renders fg-page-header with title "Editar día" and leading chevron-left', async () => {
+  describe('encabezado', () => {
+    it('mantiene un h1 "Editar día" para lectores de pantalla', async () => {
       const { fixture } = makeFixture();
       await flush(fixture);
 
-      const header = fixture.debugElement.query(By.css('fg-page-header'));
-      expect(header).toBeTruthy();
-      expect(header.attributes['title']).toBe('Editar día');
-      expect(header.attributes['leadingIcon']).toBe('chevron-left');
+      const h1 = fixture.debugElement.query(By.css('h1'));
+      expect((h1.nativeElement as HTMLElement).textContent?.trim()).toBe('Editar día');
     });
 
-    it('leading chevron-left navigates to /routines/:routineId', async () => {
+    it('el botón de volver muestra el nombre de la rutina y navega a /routines/:routineId', async () => {
       const { fixture, navigateSpy } = makeFixture({ routineId: 'r-1' });
       await flush(fixture);
 
-      const header = fixture.debugElement.query(By.css('fg-page-header'));
-      header.triggerEventHandler('leadingClick', null);
+      const back = fixture.debugElement.query(By.css('button[aria-label="Volver"]'));
+      expect((back.nativeElement as HTMLElement).textContent).toContain('Torso / Pierna');
+      (back.nativeElement as HTMLButtonElement).click();
 
       expect(navigateSpy).toHaveBeenCalledWith(['/routines', 'r-1']);
+    });
+
+    it('muestra el nombre del día en un campo editable con su etiqueta accesible', async () => {
+      const { fixture } = makeFixture({ view: makeView({ name: 'Pierna B' }) });
+      await flush(fixture);
+
+      const input = fixture.debugElement.query(By.css('input[aria-label="Nombre del día"]'));
+      expect((input.nativeElement as HTMLInputElement).value).toBe('Pierna B');
+    });
+
+    it('resume ejercicios y series del día', async () => {
+      const set: TargetSet = { type: 'weight-reps', reps: 8, weightKg: 60 };
+      const view = makeView({
+        exercises: [
+          { exerciseId: 'ex-1', exerciseName: 'Squat', order: 0, targetSets: [set, set, set], trackingType: 'weight-reps' },
+          { exerciseId: 'ex-2', exerciseName: 'Row', order: 1, targetSets: [set], trackingType: 'weight-reps' },
+        ],
+      });
+      const { fixture } = makeFixture({ view });
+      await flush(fixture);
+
+      const meta = fixture.debugElement.query(By.css('[data-day-meta]'));
+      expect((meta.nativeElement as HTMLElement).textContent?.trim()).toBe('2 ejercicios · 4 series');
+    });
+
+    it('resume en singular', async () => {
+      const set: TargetSet = { type: 'weight-reps', reps: 8 };
+      const view = makeView({
+        exercises: [{ exerciseId: 'ex-1', exerciseName: 'Squat', order: 0, targetSets: [set], trackingType: 'weight-reps' }],
+      });
+      const { fixture } = makeFixture({ view });
+      await flush(fixture);
+
+      const meta = fixture.debugElement.query(By.css('[data-day-meta]'));
+      expect((meta.nativeElement as HTMLElement).textContent?.trim()).toBe('1 ejercicio · 1 serie');
     });
   });
 
@@ -205,7 +260,7 @@ describe('TrainingDayEditorPage', () => {
       expect(cards).toHaveLength(0);
     });
 
-    it('renders fg-card per exercise and no fg-empty-state when exercises exist', async () => {
+    it('renders one fg-card holding the exercise table and no fg-empty-state when exercises exist', async () => {
       const view = makeView({
         exercises: [
           { exerciseId: 'ex-1', exerciseName: 'Squat', order: 0, targetSets: [] },
@@ -222,13 +277,13 @@ describe('TrainingDayEditorPage', () => {
   });
 
   describe('navigation', () => {
-    it('"Agregar ejercicio" button navigates to /routines/r-1/days/d-1/pick-exercise', async () => {
+    it('"Agregar ejercicios" button navigates to /routines/r-1/days/d-1/pick-exercise', async () => {
       const { fixture, navigateSpy } = makeFixture({ routineId: 'r-1', dayId: 'd-1' });
       await flush(fixture);
 
       const buttons = fixture.debugElement.queryAll(By.css('button[fg-button]'));
       const addBtn = buttons.find(b =>
-        ((b.nativeElement as HTMLElement).textContent ?? '').includes('Agregar ejercicio'),
+        ((b.nativeElement as HTMLElement).textContent ?? '').trim() === 'Agregar ejercicios',
       );
       expect(addBtn).toBeTruthy();
       (addBtn!.nativeElement as HTMLButtonElement).click();
@@ -242,13 +297,13 @@ describe('TrainingDayEditorPage', () => {
       ]);
     });
 
-    it('trailing check action navigates to /routines/:routineId on valid save', async () => {
+    it('"Listo" guarda y navega a /routines/:routineId', async () => {
       const view = makeView({ name: 'Día A' });
       const { fixture, navigateSpy, editSpy } = makeFixture({ routineId: 'r-1', view });
       await flush(fixture);
 
       fixture.componentInstance.form.patchValue({ name: 'Día A v2' });
-      fixture.componentInstance.trailingActions[0]!.click();
+      buttonByText(fixture, 'Listo').click();
       await fixture.whenStable();
 
       expect(editSpy).toHaveBeenCalledWith(
@@ -265,7 +320,7 @@ describe('TrainingDayEditorPage', () => {
       await flush(fixture);
 
       fixture.componentInstance.form.patchValue({ name: '' });
-      fixture.componentInstance.trailingActions[0]!.click();
+      buttonByText(fixture, 'Listo').click();
       await fixture.whenStable();
       fixture.detectChanges();
 
@@ -273,19 +328,18 @@ describe('TrainingDayEditorPage', () => {
       expect(fixture.componentInstance.submitAttempted()).toBe(true);
     });
 
-    it('invalid form: fg-input shows error message', async () => {
+    it('invalid form: muestra el error del nombre', async () => {
       const view = makeView({ name: 'Día A' });
       const { fixture } = makeFixture({ view });
       await flush(fixture);
 
       fixture.componentInstance.form.patchValue({ name: '' });
-      fixture.componentInstance.trailingActions[0]!.click();
+      buttonByText(fixture, 'Listo').click();
       await fixture.whenStable();
       fixture.detectChanges();
 
-      const fgInput = fixture.debugElement.query(By.css('fg-input'));
-      const errorAttr = fgInput?.attributes['ng-reflect-error'] ?? fgInput?.properties['error'];
-      expect(errorAttr).toBeTruthy();
+      const error = fixture.debugElement.query(By.css('[data-name-error]'));
+      expect((error.nativeElement as HTMLElement).textContent?.trim()).toBe('El nombre es obligatorio');
     });
 
     it('remove exercise calls RemoveExerciseFromDayUseCase and reloads', async () => {
@@ -299,10 +353,14 @@ describe('TrainingDayEditorPage', () => {
       const { fixture, removeSpy, getDayViewSpy } = makeFixture({ view, dayId: 'd-1' });
       await flush(fixture);
 
+      fixture.componentInstance.toggleExpand('ex-1');
+      fixture.detectChanges();
+
       const removeBtn = fixture.debugElement.query(
-        By.css('button[aria-label^="Quitar"]'),
+        By.css('button[aria-label="Quitar Squat"]'),
       );
       expect(removeBtn).toBeTruthy();
+      expect((removeBtn.nativeElement as HTMLElement).textContent?.trim()).toBe('Quitar del día');
       (removeBtn.nativeElement as HTMLButtonElement).click();
       await fixture.whenStable();
 
@@ -354,6 +412,75 @@ describe('TrainingDayEditorPage', () => {
         targetSets: sets,
       });
       expect(getDayViewSpy).toHaveBeenCalledTimes(2); // initial + reload
+    });
+  });
+
+  describe('tabla de ejercicios', () => {
+    const w = (reps: number): TargetSet => ({ type: 'weight-reps', reps, weightKg: 50 });
+    const view = makeView({
+      exercises: [
+        { exerciseId: 'ex-1', exerciseName: 'Sentadilla', order: 0, targetSets: [w(6), w(7), w(8), w(8)], restSeconds: 180, trackingType: 'weight-reps' },
+        { exerciseId: 'ex-2', exerciseName: 'Peso muerto', order: 1, targetSets: [w(5), w(5), w(5)], trackingType: 'weight-reps' },
+        { exerciseId: 'ex-3', exerciseName: 'Plancha', order: 2, targetSets: [{ type: 'time', durationSec: 60 }, { type: 'time', durationSec: 60 }], trackingType: 'time' },
+        { exerciseId: 'ex-4', exerciseName: 'Remo ergómetro', order: 3, targetSets: [], trackingType: 'distance-time' },
+      ],
+    });
+
+    function rowText(fixture: ComponentFixture<TrainingDayEditorPage>, index: number): string {
+      const rows = fixture.debugElement.queryAll(By.css('[data-exercise-row]'));
+      return Array.from((rows[index]!.nativeElement as HTMLElement).querySelectorAll('[data-cell]'))
+        .map((c) => {
+          const parts = Array.from(c.children).map((child) => child.textContent?.trim() ?? '');
+          return parts.length > 0 ? parts.join(' ') : (c.textContent?.trim() ?? '');
+        })
+        .join(' | ');
+    }
+
+    it('numera cada fila y resume el objetivo con rango de reps y el descanso propio', async () => {
+      const { fixture } = makeFixture({ view });
+      await flush(fixture);
+
+      expect(rowText(fixture, 0)).toBe('01 | Sentadilla desc. 3:00 | 4 × 6–8');
+      expect(rowText(fixture, 1)).toBe('02 | Peso muerto | 3 × 5');
+      expect(rowText(fixture, 2)).toBe('03 | Plancha | 2 × 60 s');
+      expect(rowText(fixture, 3)).toBe('04 | Remo ergómetro | —');
+    });
+
+    it('la fila es un botón con aria-expanded que abre y cierra las series', async () => {
+      const { fixture } = makeFixture({ view });
+      await flush(fixture);
+
+      const row = (): HTMLButtonElement =>
+        fixture.debugElement.query(By.css('button[aria-label="Editar series de Sentadilla"]')).nativeElement as HTMLButtonElement;
+
+      expect(row().getAttribute('aria-expanded')).toBe('false');
+      expect(fixture.debugElement.query(By.css('fg-target-set-editor'))).toBeNull();
+
+      row().click();
+      fixture.detectChanges();
+      expect(row().getAttribute('aria-expanded')).toBe('true');
+      expect(fixture.debugElement.query(By.css('fg-target-set-editor'))).toBeTruthy();
+
+      row().click();
+      fixture.detectChanges();
+      expect(row().getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('el descanso se edita en segundos y persiste con SetRestSecondsUseCase', async () => {
+      const { fixture, setRestSecondsSpy } = makeFixture({ view, dayId: 'd-1' });
+      await flush(fixture);
+
+      fixture.componentInstance.toggleExpand('ex-1');
+      fixture.detectChanges();
+
+      const input = fixture.debugElement.query(By.css('input[aria-label="Descanso en segundos"]')).nativeElement as HTMLInputElement;
+      expect(input.value).toBe('180');
+
+      input.value = '120';
+      input.dispatchEvent(new Event('change'));
+      await fixture.whenStable();
+
+      expect(setRestSecondsSpy).toHaveBeenCalledWith({ dayId: 'd-1', exerciseId: 'ex-1', restSeconds: 120 });
     });
   });
 });
