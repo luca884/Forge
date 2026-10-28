@@ -109,8 +109,8 @@ test.describe('J7 — Start session + log one set', () => {
     await page.waitForLoadState('networkidle');
 
     // STEP 7: Exercise card is expanded by default (expanded input defaults to true).
-    // Assert session counter starts at "0 de 1 sets" (training-session.page.ts:64).
-    await expect(page.getByText(/0 de 1 sets/)).toBeVisible();
+    // Assert session counter starts at "0 de 1 series" (training-session.page.ts:64).
+    await expect(page.getByText(/0 de 1 series/)).toBeVisible();
 
     // STEP 8: The logger pre-fills the routine target (60 kg × 5 reps).
     // Click "Loguear set".
@@ -118,8 +118,8 @@ test.describe('J7 — Start session + log one set', () => {
     await expect(logBtn).toBeVisible();
     await logBtn.click();
 
-    // STEP 9: Counter increments to "1 de 1 sets".
-    await expect(page.getByText(/1 de 1 sets/)).toBeVisible();
+    // STEP 9: Counter increments to "1 de 1 series".
+    await expect(page.getByText(/1 de 1 series/)).toBeVisible();
   });
 });
 
@@ -195,8 +195,8 @@ test.describe('J8 — Finalizar sesión y summary', () => {
     await expect(logBtn).toBeVisible();
     await logBtn.click();
 
-    // STEP 7: Confirm 1 de 1 sets logged
-    await expect(page.getByText(/1 de 1 sets/)).toBeVisible();
+    // STEP 7: Confirm 1 de 1 series logged
+    await expect(page.getByText(/1 de 1 series/)).toBeVisible();
 
     // STEP 8: Click "Terminar sesión" — text button (not aria-label)
     await page.getByRole('button', { name: 'Terminar sesión' }).click();
@@ -228,7 +228,6 @@ test.describe('J14 — Prefill con lo de la última vez', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    const now = new Date();
     const lastWeek = daysAgo(7);
 
     const exercise: SeedExercise = {
@@ -341,7 +340,7 @@ test.describe('J14 — Prefill con lo de la última vez', () => {
 
     // STEP 6: Al loguear, el slot 2 arranca con lo de la última vez en ese slot (20 kg × 7).
     await page.getByRole('button', { name: 'Loguear set' }).click();
-    await expect(page.getByText(/1 de 2 sets/)).toBeVisible();
+    await expect(page.getByText(/1 de 2 series/)).toBeVisible();
 
     await expect(weightInput).toHaveValue('20');
     await expect(page.getByRole('option', { name: '7', exact: true })).toHaveAttribute(

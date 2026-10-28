@@ -61,23 +61,40 @@ describe('RestTimerComponent', () => {
       expect(container).toBeTruthy();
     });
 
-    it('pinned bar has backdrop-blur class for blur effect', () => {
+    it('renders the rest pill as role="timer" with the remaining time as accessible name', () => {
       const el = fixture.nativeElement as HTMLElement;
-      // The component uses inline styles for backdrop-blur (component-scoped CSS .rest-timer-pinned)
-      // We verify the outer div is present and has a role attribute
-      const bar = el.querySelector<HTMLElement>('[role="status"]');
-      expect(bar).toBeTruthy();
+      const pill = el.querySelector<HTMLElement>('[role="timer"]');
+      expect(pill).toBeTruthy();
+      // remaining = 90 -> "1 minuto 30 segundos"
+      expect(pill!.getAttribute('aria-label')).toBe('Descanso restante 1 minuto 30 segundos');
     });
 
-    it('pulsing dot element is present', () => {
-      const el = fixture.nativeElement as HTMLElement;
-      const dot = el.querySelector<HTMLElement>('.dot-pulse');
-      expect(dot).toBeTruthy();
+    it('accessible name pluralises minutes and drops zero parts', () => {
+      mockService.remaining.set(120);
+      fixture.detectChanges();
+      const pill = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('[role="timer"]')!;
+      expect(pill.getAttribute('aria-label')).toBe('Descanso restante 2 minutos');
+      mockService.remaining.set(1);
+      fixture.detectChanges();
+      expect(pill.getAttribute('aria-label')).toBe('Descanso restante 1 segundo');
     });
 
-    it('"DESCANSO" label is visible', () => {
+    it('uses only semantic Cuaderno classes (no forge-*, accent-<n>, ring-white, hex)', () => {
+      const html = (fixture.nativeElement as HTMLElement).innerHTML;
+      expect(html).not.toMatch(/forge-\d|accent-\d|ring-white|destructive-\d|--pr-warm|#[0-9a-fA-F]{6}/);
+      const pill = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('[role="timer"]')!;
+      expect(pill.classList).toContain('bg-accent-soft');
+      expect(pill.classList).toContain('text-accent-ink');
+    });
+
+    it('a timer icon is present', () => {
+      const icon = (fixture.nativeElement as HTMLElement).querySelector('fg-icon[name="timer"]');
+      expect(icon).toBeTruthy();
+    });
+
+    it('"Descanso" label is visible', () => {
       const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-      expect(text).toContain('DESCANSO');
+      expect(text).toContain('Descanso');
     });
 
     it('countdown displays formatted time mm:ss', () => {
@@ -87,9 +104,35 @@ describe('RestTimerComponent', () => {
     });
 
     it('"Saltar" button is present', () => {
-      const btn = (fixture.nativeElement as HTMLElement).querySelector('button');
+      const btn = (fixture.nativeElement as HTMLElement).querySelector('button[aria-label="Saltar descanso"]');
       expect(btn).toBeTruthy();
       expect(btn!.textContent?.trim()).toBe('Saltar');
+    });
+
+    it('"+15s" button is present with an accessible name', () => {
+      const btn = (fixture.nativeElement as HTMLElement).querySelector('button[aria-label="Sumar 15 segundos al descanso"]');
+      expect(btn).toBeTruthy();
+      expect(btn!.textContent?.trim()).toBe('+15s');
+    });
+
+    it('clicking "+15s" restarts the countdown with 15 more seconds through the same service', () => {
+      mockService.remaining.set(84);
+      fixture.detectChanges();
+      const btn = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+        'button[aria-label="Sumar 15 segundos al descanso"]',
+      )!;
+      btn.click();
+      expect(mockService.start).toHaveBeenCalledWith(99);
+      expect(mockService.skip).not.toHaveBeenCalled();
+    });
+
+    it('the progress fill shows the share of rest still remaining', () => {
+      const fill = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.progress-fill')!;
+      // First render: nothing elapsed -> full track
+      expect(fill.style.width).toBe('100%');
+      mockService.remaining.set(45);
+      fixture.detectChanges();
+      expect(fill.style.width).toBe('50%');
     });
 
     it('progress bar element is present at bottom of container', () => {
@@ -105,7 +148,9 @@ describe('RestTimerComponent', () => {
     // ── BEHAVIOUR TESTS (PRESERVED) ─────────────────────────────────────────
 
     it('clicking "Saltar" calls timerService.skip()', () => {
-      const btn = (fixture.nativeElement as HTMLElement).querySelector('button') as HTMLButtonElement;
+      const btn = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+        'button[aria-label="Saltar descanso"]',
+      )!;
       btn.click();
       fixture.detectChanges();
       expect(mockService.skip).toHaveBeenCalledTimes(1);
@@ -158,7 +203,7 @@ describe('RestTimerComponent', () => {
     });
 
     it('bar is hidden when remaining() is null', () => {
-      const bar = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('[role="status"]');
+      const bar = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('[role="timer"]');
       expect(bar).toBeNull();
     });
 

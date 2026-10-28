@@ -17,7 +17,7 @@ import {
   ProgressionTarget,
 } from '../../domain/services/progression-target-calculator';
 import { TrainingSessionStore } from '../services/training-session.store';
-import { RestTimerService } from '../services/rest-timer.service';
+import { DEFAULT_REST_SECONDS, RestTimerService } from '../services/rest-timer.service';
 import { ExerciseSessionCardComponent } from '../components/exercise-session-card.component';
 import { RestTimerComponent } from '../components/rest-timer.component';
 import { PrCelebrationComponent } from '../components/pr-celebration.component';
@@ -28,6 +28,7 @@ import { PersonalRecord } from '@features/progress/domain/entities/personal-reco
 import { FgButtonComponent, FgCardComponent, FgSkeletonComponent } from '@core/shared/ui';
 import { FgIconComponent } from '@core/shared/ui';
 import { ToastService } from '@core/shared/ui';
+import { DisplayWeightPipe } from '@core/shared/ui/pipes/display-weight.pipe';
 
 interface ExerciseWithData {
   exercise: Exercise;
@@ -72,26 +73,30 @@ function formatHMS(totalSeconds: number): string {
     ProgressionTargetCalculator,
   ],
   template: `
-    <div class="min-h-screen bg-forge-950 text-forge-100 flex flex-col">
+    <div class="min-h-screen bg-page text-ink flex flex-col">
       <!-- Header + rest timer pinned together so the timer follows the scroll -->
       <div class="sticky top-0 z-10" data-testid="session-sticky">
-      <header class="px-5 pt-1 pb-3 bg-forge-950">
-        <div class="flex items-center justify-between">
-          <button fg-button variant="ghost" size="sm" leadingIcon="chevron-left"
-                  (click)="goBack()" aria-label="Atrás">
+      <header class="bg-surface border-b border-line">
+        <div class="flex items-center gap-2 h-[60px] pl-1.5 pr-3">
+          <button type="button"
+                  class="w-11 h-11 flex items-center justify-center rounded-[10px] text-ink cursor-pointer"
+                  (click)="goBack()" aria-label="Minimizar sesión">
+            <fg-icon name="chevron-down" [size]="22"></fg-icon>
           </button>
-          <div class="text-center flex-1">
-            <div class="t-caption text-forge-500">SESIÓN · {{ formattedElapsed() }}</div>
-            <div class="t-body text-forge-100 font-semibold mt-0.5">
-              {{ dayLabel() }} · {{ totalLoggedCount() }} de {{ totalTargetCount() }} sets
-            </div>
+          <div class="flex-1 min-w-0 flex flex-col">
+            <span class="text-[15px] leading-5 font-semibold truncate">{{ dayLabel() }}</span>
+            <span class="font-mono tabular-nums text-[12px] leading-4 text-ink-2">
+              {{ formattedElapsed() }} · {{ totalLoggedCount() }} de {{ totalTargetCount() }} series
+            </span>
           </div>
-          <div class="w-10"></div>
+          <button fg-button variant="primary" size="md" aria-label="Terminar sesión"
+                  (click)="completeSession()" [disabled]="completing() || cancelling()">
+            {{ completing() ? 'Guardando…' : 'Terminar' }}
+          </button>
         </div>
         <!-- Progress bar -->
-        <div class="mt-2.5 h-[3px] rounded-full bg-forge-800 overflow-hidden">
-          <div class="h-full transition-[width] duration-300"
-               style="background: rgb(var(--accent-rgb));"
+        <div class="h-[3px] bg-empty overflow-hidden">
+          <div class="h-full bg-accent transition-[width] duration-300"
                [style.width.%]="progressPct()">
           </div>
         </div>
@@ -102,7 +107,7 @@ function formatHMS(totalSeconds: number): string {
       </div>
 
       <!-- Scroll area -->
-      <main class="flex-1 overflow-y-auto px-5 pb-24 pt-3 flex flex-col gap-3">
+      <main class="flex-1 overflow-y-auto px-3 pb-24 pt-3 flex flex-col gap-3">
         <!-- PR celebration -->
         @if (prVisible() && latestPrSet()) {
           <fg-pr-celebration
@@ -127,7 +132,7 @@ function formatHMS(totalSeconds: number): string {
         @if (!initLoading()) {
           @if (exercisesWithData().length > 0) {
             <!-- Rail: tap any exercise to focus / edit it -->
-            <div class="flex gap-2 overflow-x-auto pb-1 -mx-5 px-5" role="tablist" aria-label="Ejercicios">
+            <div class="flex gap-2 overflow-x-auto pb-1 -mx-3 px-3" role="tablist" aria-label="Ejercicios">
               @for (item of exercisesWithData(); track item.exercise.id) {
                 @let focused = item.exercise.id === focusedId();
                 <button
@@ -135,24 +140,24 @@ function formatHMS(totalSeconds: number): string {
                   role="tab"
                   [attr.aria-selected]="focused"
                   (click)="focus(item.exercise.id)"
-                  class="flex-shrink-0 max-w-[160px] px-3 py-2 rounded-xl text-left ring-1 ring-inset transition-colors"
-                  [ngClass]="focused ? 'bg-forge-800 ring-white/20' : 'bg-forge-900 ring-white/5'"
+                  class="flex-shrink-0 max-w-[160px] px-3 py-2 rounded-xl text-left border transition-colors"
+                  [ngClass]="focused ? 'bg-accent-soft border-accent' : 'bg-surface border-line'"
                 >
                   <div class="flex items-center gap-1.5">
                     @if (isComplete(item)) {
-                      <fg-icon name="check-circle" [size]="13" class="text-accent-300 flex-shrink-0"></fg-icon>
+                      <fg-icon name="check-circle" [size]="13" class="text-accent-ink flex-shrink-0"></fg-icon>
                     } @else {
                       <span class="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                            [class.bg-accent-400]="focused"
-                            [class.bg-forge-600]="!focused"></span>
+                            [class.bg-accent]="focused"
+                            [class.bg-dash]="!focused"></span>
                     }
                     <span class="t-body-sm truncate"
-                          [class.text-forge-100]="focused"
-                          [class.text-forge-400]="!focused">
+                          [class.text-ink]="focused"
+                          [class.text-ink-2]="!focused">
                       {{ item.exercise.name }}
                     </span>
                   </div>
-                  <div class="t-caption text-forge-500 tabular-nums mt-0.5">
+                  <div class="font-mono text-[12px] leading-4 text-ink-2 tabular-nums mt-0.5">
                     {{ loggedCountFor(item) }}/{{ item.exerciseInDay.targetSets.length }}
                   </div>
                 </button>
@@ -168,6 +173,8 @@ function formatHMS(totalSeconds: number): string {
                 [sessionId]="store.activeSession()?.id ?? ''"
                 [unit]="unit()"
                 [expanded]="true"
+                [restSeconds]="item.exerciseInDay.restSeconds ?? defaultRestSeconds"
+                [note]="item.exerciseInDay.note"
                 [progressionTargetData]="progressionTargetData()"
                 [previousSessionSets]="previousSessionSets()"
                 (setLogged)="onSetLogged($event)"
@@ -176,20 +183,15 @@ function formatHMS(totalSeconds: number): string {
               </fg-exercise-session-card>
             }
           } @else {
-            <p class="t-body text-forge-500 text-center py-12">
+            <p class="t-body text-ink-2 text-center py-12">
               No hay ejercicios en este día de entrenamiento.
             </p>
           }
         }
 
-        <!-- CTA: terminar y cancelar -->
+        <!-- Cancelar (terminar vive en el encabezado) -->
         <div class="mt-4 flex flex-col gap-2">
-          <button fg-button variant="ghost" size="md" [full]="true" leadingIcon="check"
-                  (click)="completeSession()" [disabled]="completing() || cancelling()">
-            {{ completing() ? 'Completando...' : 'Terminar sesión' }}
-          </button>
-
-          <div class="pt-2 border-t border-forge-800">
+          <div class="pt-3 border-t border-line">
             @if (!confirmingCancel()) {
               <button fg-button variant="destructive" size="md" [full]="true" leadingIcon="x"
                       (click)="confirmingCancel.set(true)"
@@ -198,7 +200,7 @@ function formatHMS(totalSeconds: number): string {
               </button>
             } @else {
               <div class="flex flex-col gap-2">
-                <span class="t-body-sm text-forge-300">¿Seguro? No se guarda nada y se borran los PRs de esta sesión.</span>
+                <span class="t-body-sm text-ink-2">¿Seguro? No se guarda nada y se borran los PRs de esta sesión.</span>
                 <div class="flex gap-2">
                   <button fg-button variant="secondary" size="sm" class="flex-1"
                           (click)="confirmingCancel.set(false)">
@@ -236,6 +238,11 @@ export class TrainingSessionPage implements OnInit {
 
   /** Preferred weight unit — propagated to ExerciseSessionCard and PrCelebration (D-5, ADR-22). */
   readonly unit = this.userPrefs.unit;
+
+  /** Rest shown for exercises without their own override — the same default the timer uses. */
+  readonly defaultRestSeconds = DEFAULT_REST_SECONDS;
+
+  private readonly weightPipe = new DisplayWeightPipe();
 
   readonly exercisesWithData = signal<ExerciseWithData[]>([]);
   readonly initLoading = signal(true);
@@ -525,7 +532,10 @@ export class TrainingSessionPage implements OnInit {
       case 'weight-reps': {
         const prevW = prev.set.type === 'weight-reps' ? prev.set.weight.value : 0;
         const diff = newSet.weight.value - prevW;
-        return diff > 0 ? `+${diff} kg` : null;
+        // Same shape as the summary page: the preferred unit, rounded to kill float noise.
+        return diff > 0
+          ? `+${this.weightPipe.transform(Math.round(diff * 100) / 100, this.unit())}`
+          : null;
       }
       case 'bodyweight-reps': {
         const prevReps = prev.set.type === 'bodyweight-reps' ? prev.set.reps.value : 0;

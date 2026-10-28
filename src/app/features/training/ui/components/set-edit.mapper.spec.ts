@@ -1,5 +1,5 @@
 import { applySetEdit, SetEditValues } from './set-edit.mapper';
-import { WorkedSet, WeightRepsSet, BodyweightRepsSet, TimeSet, DistanceTimeSet } from '../../domain/worked-set';
+import { WeightRepsSet, BodyweightRepsSet, TimeSet, DistanceTimeSet } from '../../domain/worked-set';
 import { Reps } from '@core/shared/domain/value-objects/reps';
 import { Weight } from '@core/shared/domain/value-objects/weight';
 

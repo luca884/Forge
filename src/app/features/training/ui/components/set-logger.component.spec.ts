@@ -76,12 +76,37 @@ describe('SetLoggerComponent', () => {
 
   // ── VISUAL REDESIGN TESTS (D-1) ────────────────────────────────────────────
 
-  it('root contains fg-card element', () => {
+  it('root is a bare form that sits in the sheet row (border-t border-line-soft), no nested card', () => {
     fixture.componentRef.setInput('sessionId', 's-1');
     fixture.componentRef.setInput('exerciseId', 'ex-1');
     fixture.detectChanges();
-    const card = (fixture.nativeElement as HTMLElement).querySelector('fg-card');
-    expect(card).toBeTruthy();
+    const root = (fixture.nativeElement as HTMLElement).firstElementChild as HTMLElement;
+    expect(root.tagName).toBe('FORM');
+    expect(root.classList).toContain('border-t');
+    expect(root.classList).toContain('border-line-soft');
+    expect((fixture.nativeElement as HTMLElement).querySelector('fg-card')).toBeNull();
+  });
+
+  it('uses only semantic Cuaderno classes (no forge-*, accent-<n>, ring-white, destructive-*)', () => {
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('exerciseId', 'ex-1');
+    fixture.componentRef.setInput('setNumber', 2);
+    fixture.componentRef.setInput('lastSet', '20 kg × 8');
+    fixture.detectChanges();
+    const html = (fixture.nativeElement as HTMLElement).innerHTML;
+    expect(html).not.toMatch(/forge-\d|accent-\d|ring-white|destructive-\d|--pr-warm/);
+  });
+
+  it('field boxes use the page surface with a line border and accent focus (no default blue ring)', () => {
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('exerciseId', 'ex-1');
+    fixture.componentRef.setInput('trackingType', 'weight-reps');
+    fixture.detectChanges();
+    const box = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('[data-field]');
+    expect(box).toBeTruthy();
+    expect(box!.classList).toContain('bg-page');
+    expect(box!.classList).toContain('border-line');
+    expect(box!.classList).toContain('focus-within:border-accent');
   });
 
   it('submit button has fg-button attribute in idle state (variant="primary")', () => {
@@ -145,14 +170,14 @@ describe('SetLoggerComponent', () => {
     expect(fixture.componentInstance.form.controls.reps.value).toBe(8);
   });
 
-  it('header shows SET label when setNumber input provided', () => {
+  it('header shows "Serie N" when setNumber input provided', () => {
     fixture.componentRef.setInput('sessionId', 's-1');
     fixture.componentRef.setInput('exerciseId', 'ex-1');
     fixture.componentRef.setInput('setNumber', 4);
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('SET 4');
+    expect(text).toContain('Serie 4');
   });
 
   it('lastSet section is not rendered when lastSet input is null', () => {
@@ -688,7 +713,7 @@ describe('SetLoggerComponent', () => {
       setupPlates();
       const input = (fixture.nativeElement as HTMLElement).querySelector(
         'input[aria-label="Placas"]',
-      ) as HTMLInputElement | null;
+      );
       expect(input).toBeTruthy();
     });
 
@@ -696,7 +721,7 @@ describe('SetLoggerComponent', () => {
       setupPlates();
       const input = (fixture.nativeElement as HTMLElement).querySelector(
         'input[aria-label="Placas"]',
-      ) as HTMLInputElement | null;
+      );
       expect(input).toBeTruthy();
       expect(input!.step).toBe('1');
     });
@@ -705,7 +730,7 @@ describe('SetLoggerComponent', () => {
       setupPlates();
       const input = (fixture.nativeElement as HTMLElement).querySelector(
         'input[aria-label="Placas"]',
-      ) as HTMLInputElement | null;
+      );
       expect(input).toBeTruthy();
       expect(input!.min).toBe('1');
     });
@@ -735,7 +760,7 @@ describe('SetLoggerComponent', () => {
 
       const input = (fixture.nativeElement as HTMLElement).querySelector(
         'input[aria-label="Peso en kg"]',
-      ) as HTMLInputElement | null;
+      );
       expect(input).toBeTruthy();
     });
   });

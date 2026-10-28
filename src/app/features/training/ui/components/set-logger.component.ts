@@ -18,15 +18,16 @@ import { TargetSet } from '@features/routines/domain/target-set';
 import { WorkedSet } from '../../domain/worked-set';
 import { applySetEdit } from './set-edit.mapper';
 import { FgButtonComponent } from '@core/shared/ui';
-import { FgCardComponent } from '@core/shared/ui';
 import { FgIconComponent } from '@core/shared/ui';
 import { FgWheelPickerComponent } from '@core/shared/ui';
 
 @Component({
   selector: 'fg-set-logger',
   standalone: true,
-  imports: [ReactiveFormsModule, FgButtonComponent, FgCardComponent, FgIconComponent, FgWheelPickerComponent],
+  imports: [ReactiveFormsModule, FgButtonComponent, FgIconComponent, FgWheelPickerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // Solo el reseteo del <input type="number"> (sin flechas del navegador) y los
+  // números grandes en mono; los colores salen de los tokens semánticos.
   styles: [`
     .set-num {
       width: 100%;
@@ -36,146 +37,149 @@ import { FgWheelPickerComponent } from '@core/shared/ui';
       border: none;
       outline: none;
       text-align: center;
-      color: rgb(var(--forge-50));
-      font-weight: 600;
-      font-size: 32px;
+      color: rgb(var(--color-ink));
+      font-family: var(--font-mono);
+      font-weight: 500;
+      font-size: 28px;
       line-height: 1;
       letter-spacing: -0.025em;
       font-variant-numeric: tabular-nums;
       font-feature-settings: "tnum";
     }
+    .set-num::placeholder { color: rgb(var(--color-ink-2) / 0.5); }
     .set-num::-webkit-outer-spin-button,
     .set-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   `],
   template: `
-    <form [formGroup]="form" (ngSubmit)="onSubmit()">
-      <fg-card [padding]="16" class="ring-1 ring-inset ring-white/8">
-        <header class="flex justify-between items-baseline mb-3">
-          @if (isEditing()) {
-            <span class="t-micro text-accent-300">EDITAR SET</span>
-          } @else {
-            <span class="t-micro text-forge-400">SET {{ setNumber() !== null ? setNumber() : '' }}</span>
-            <span class="t-caption text-forge-300 tabular-nums">{{ targetLabel() }}</span>
-          }
-        </header>
-
-        @switch (trackingType) {
-          @case ('weight-reps') {
-            <div class="grid grid-cols-2 gap-2.5 mb-3">
-              <label class="bg-forge-900 rounded-xl py-2.5 px-3 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
-                @if (weightUnit() === 'plates') {
-                  <span class="t-caption text-forge-500">Placas</span>
-                  <div class="flex items-baseline gap-1 w-full">
-                    <input type="number" inputmode="numeric" step="1" min="1" formControlName="weightKg" aria-label="Placas" class="set-num" (focus)="onNumberFocus('weightKg')" (blur)="onNumberBlur('weightKg')" />
-                    <span class="t-caption text-forge-600">placas</span>
-                  </div>
-                } @else {
-                  <span class="t-caption text-forge-500">Peso</span>
-                  <div class="flex items-baseline gap-1 w-full">
-                    <input type="number" inputmode="decimal" step="0.5" min="0" formControlName="weightKg" aria-label="Peso en kg" class="set-num" (focus)="onNumberFocus('weightKg')" (blur)="onNumberBlur('weightKg')" />
-                    <span class="t-caption text-forge-600">kg</span>
-                  </div>
-                }
-              </label>
-              <div class="bg-forge-900 rounded-xl py-2.5 px-2 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
-                <span class="t-caption text-forge-500">Reps</span>
-                <fg-wheel-picker class="w-full" formControlName="reps" [min]="1" [max]="50" ariaLabel="Repeticiones" />
-              </div>
-            </div>
-          }
-          @case ('bodyweight-reps') {
-            <div class="grid grid-cols-2 gap-2.5 mb-3">
-              <label class="bg-forge-900 rounded-xl py-2.5 px-3 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
-                <span class="t-caption text-forge-500">Extra (kg)</span>
-                <div class="flex items-baseline gap-1 w-full">
-                  <input type="number" inputmode="decimal" step="0.5" min="0" formControlName="extraWeightKg" aria-label="Peso extra en kg" class="set-num" placeholder="0" />
-                  <span class="t-caption text-forge-600">kg</span>
-                </div>
-              </label>
-              <div class="bg-forge-900 rounded-xl py-2.5 px-2 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
-                <span class="t-caption text-forge-500">Reps</span>
-                <fg-wheel-picker class="w-full" formControlName="reps" [min]="1" [max]="50" ariaLabel="Repeticiones" />
-              </div>
-            </div>
-          }
-          @case ('time') {
-            <div class="grid grid-cols-1 gap-2.5 mb-3">
-              <label class="bg-forge-900 rounded-xl py-2.5 px-3 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
-                <span class="t-caption text-forge-500">Duración</span>
-                <div class="flex items-baseline gap-1 w-full justify-center">
-                  <input type="number" inputmode="numeric" step="5" min="0" formControlName="durationSec" aria-label="Duración en segundos" class="set-num" (focus)="onNumberFocus('durationSec')" (blur)="onNumberBlur('durationSec')" />
-                  <span class="t-caption text-forge-600">seg</span>
-                </div>
-              </label>
-            </div>
-          }
-          @case ('distance-time') {
-            <div class="grid grid-cols-2 gap-2.5 mb-3">
-              <label class="bg-forge-900 rounded-xl py-2.5 px-3 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
-                <span class="t-caption text-forge-500">Distancia</span>
-                <div class="flex items-baseline gap-1 w-full">
-                  <input type="number" inputmode="decimal" step="0.1" min="0" formControlName="distanceKm" aria-label="Distancia en km" class="set-num" (focus)="onNumberFocus('distanceKm')" (blur)="onNumberBlur('distanceKm')" />
-                  <span class="t-caption text-forge-600">km</span>
-                </div>
-              </label>
-              <label class="bg-forge-900 rounded-xl py-2.5 px-3 ring-1 ring-inset ring-white/5 flex flex-col items-center gap-1">
-                <span class="t-caption text-forge-500">Duración</span>
-                <div class="flex items-baseline gap-1 w-full">
-                  <input type="number" inputmode="numeric" step="5" min="0" formControlName="durationSec" aria-label="Duración en segundos" class="set-num" (focus)="onNumberFocus('durationSec')" (blur)="onNumberBlur('durationSec')" />
-                  <span class="t-caption text-forge-600">seg</span>
-                </div>
-              </label>
-            </div>
-          }
-        }
-
-        @if (lastSet() && !isEditing()) {
-          <div class="t-body-sm text-forge-500 mb-2.5 flex items-center gap-1.5">
-            <fg-icon name="history" [size]="12"></fg-icon>
-            <span class="tabular-nums">{{ lastSet() }}</span>
-          </div>
-        }
+    <!-- Cuaderno: la fila activa de la planilla. Pegada al pie de la tarjeta, sin tarjeta propia. -->
+    <form [formGroup]="form" (ngSubmit)="onSubmit()" class="px-3 pt-3 pb-3 border-t border-line-soft">
+      <header class="flex justify-between items-baseline mb-2.5">
         @if (isEditing()) {
-          <button fg-button
-                  type="submit"
-                  variant="primary"
-                  size="lg"
-                  [full]="true"
-                  leadingIcon="check"
-                  [disabled]="form.invalid">
-            Guardar cambios
-          </button>
-          <div class="grid grid-cols-2 gap-2 mt-2">
-            <button fg-button
-                    type="button"
-                    variant="ghost"
-                    size="md"
-                    (click)="onCancel()"
-                    aria-label="Cancelar edición">
-              Cancelar
-            </button>
-            <button fg-button
-                    type="button"
-                    variant="destructive"
-                    size="md"
-                    leadingIcon="trash"
-                    (click)="onRemove()"
-                    aria-label="Borrar set">
-              Borrar
-            </button>
-          </div>
+          <span class="t-micro text-accent-ink">Editar serie</span>
         } @else {
-          <button fg-button
-                  type="submit"
-                  [variant]="state() === 'logged' ? 'accent_soft' : 'primary'"
-                  size="lg"
-                  [full]="true"
-                  leadingIcon="check"
-                  [disabled]="form.invalid">
-            {{ state() === 'logged' ? 'Set logueado · descanso 1:30' : 'Loguear set' }}
-          </button>
+          <span class="t-micro text-ink-2">Serie {{ setNumber() !== null ? setNumber() : '' }}</span>
+          <span class="t-caption text-ink-2 font-mono tabular-nums">{{ targetLabel() }}</span>
         }
-      </fg-card>
+      </header>
+
+      @switch (trackingType) {
+        @case ('weight-reps') {
+          <div class="grid grid-cols-2 gap-2.5 mb-3">
+            @if (weightUnit() === 'plates') {
+              <label data-field class="bg-page border border-line rounded-lg py-2.5 px-3 flex flex-col items-center gap-1 focus-within:border-accent focus-within:bg-accent-soft">
+                <span class="t-caption text-ink-2">Placas</span>
+                <div class="flex items-baseline gap-1 w-full">
+                  <input type="number" inputmode="numeric" step="1" min="1" formControlName="weightKg" aria-label="Placas" class="set-num" (focus)="onNumberFocus('weightKg')" (blur)="onNumberBlur('weightKg')" />
+                  <span class="t-caption text-ink-2">placas</span>
+                </div>
+              </label>
+            } @else {
+              <label data-field class="bg-page border border-line rounded-lg py-2.5 px-3 flex flex-col items-center gap-1 focus-within:border-accent focus-within:bg-accent-soft">
+                <span class="t-caption text-ink-2">Peso</span>
+                <div class="flex items-baseline gap-1 w-full">
+                  <input type="number" inputmode="decimal" step="0.5" min="0" formControlName="weightKg" aria-label="Peso en kg" class="set-num" (focus)="onNumberFocus('weightKg')" (blur)="onNumberBlur('weightKg')" />
+                  <span class="t-caption text-ink-2">kg</span>
+                </div>
+              </label>
+            }
+            <div data-field class="bg-page border border-line rounded-lg py-2.5 px-2 flex flex-col items-center gap-1">
+              <span class="t-caption text-ink-2">Reps</span>
+              <fg-wheel-picker class="w-full" formControlName="reps" [min]="1" [max]="50" ariaLabel="Repeticiones" />
+            </div>
+          </div>
+        }
+        @case ('bodyweight-reps') {
+          <div class="grid grid-cols-2 gap-2.5 mb-3">
+            <label data-field class="bg-page border border-line rounded-lg py-2.5 px-3 flex flex-col items-center gap-1 focus-within:border-accent focus-within:bg-accent-soft">
+              <span class="t-caption text-ink-2">Extra (kg)</span>
+              <div class="flex items-baseline gap-1 w-full">
+                <input type="number" inputmode="decimal" step="0.5" min="0" formControlName="extraWeightKg" aria-label="Peso extra en kg" class="set-num" placeholder="0" />
+                <span class="t-caption text-ink-2">kg</span>
+              </div>
+            </label>
+            <div data-field class="bg-page border border-line rounded-lg py-2.5 px-2 flex flex-col items-center gap-1">
+              <span class="t-caption text-ink-2">Reps</span>
+              <fg-wheel-picker class="w-full" formControlName="reps" [min]="1" [max]="50" ariaLabel="Repeticiones" />
+            </div>
+          </div>
+        }
+        @case ('time') {
+          <div class="grid grid-cols-1 gap-2.5 mb-3">
+            <label data-field class="bg-page border border-line rounded-lg py-2.5 px-3 flex flex-col items-center gap-1 focus-within:border-accent focus-within:bg-accent-soft">
+              <span class="t-caption text-ink-2">Duración</span>
+              <div class="flex items-baseline gap-1 w-full justify-center">
+                <input type="number" inputmode="numeric" step="5" min="0" formControlName="durationSec" aria-label="Duración en segundos" class="set-num" (focus)="onNumberFocus('durationSec')" (blur)="onNumberBlur('durationSec')" />
+                <span class="t-caption text-ink-2">seg</span>
+              </div>
+            </label>
+          </div>
+        }
+        @case ('distance-time') {
+          <div class="grid grid-cols-2 gap-2.5 mb-3">
+            <label data-field class="bg-page border border-line rounded-lg py-2.5 px-3 flex flex-col items-center gap-1 focus-within:border-accent focus-within:bg-accent-soft">
+              <span class="t-caption text-ink-2">Distancia</span>
+              <div class="flex items-baseline gap-1 w-full">
+                <input type="number" inputmode="decimal" step="0.1" min="0" formControlName="distanceKm" aria-label="Distancia en km" class="set-num" (focus)="onNumberFocus('distanceKm')" (blur)="onNumberBlur('distanceKm')" />
+                <span class="t-caption text-ink-2">km</span>
+              </div>
+            </label>
+            <label data-field class="bg-page border border-line rounded-lg py-2.5 px-3 flex flex-col items-center gap-1 focus-within:border-accent focus-within:bg-accent-soft">
+              <span class="t-caption text-ink-2">Duración</span>
+              <div class="flex items-baseline gap-1 w-full">
+                <input type="number" inputmode="numeric" step="5" min="0" formControlName="durationSec" aria-label="Duración en segundos" class="set-num" (focus)="onNumberFocus('durationSec')" (blur)="onNumberBlur('durationSec')" />
+                <span class="t-caption text-ink-2">seg</span>
+              </div>
+            </label>
+          </div>
+        }
+      }
+
+      @if (lastSet() && !isEditing()) {
+        <div class="t-body-sm text-ink-2 mb-2.5 flex items-center gap-1.5">
+          <fg-icon name="history" [size]="12"></fg-icon>
+          <span class="font-mono tabular-nums">{{ lastSet() }}</span>
+        </div>
+      }
+      @if (isEditing()) {
+        <button fg-button
+                type="submit"
+                variant="primary"
+                size="lg"
+                [full]="true"
+                leadingIcon="check"
+                [disabled]="form.invalid">
+          Guardar cambios
+        </button>
+        <div class="grid grid-cols-2 gap-2 mt-2">
+          <button fg-button
+                  type="button"
+                  variant="ghost"
+                  size="md"
+                  (click)="onCancel()"
+                  aria-label="Cancelar edición">
+            Cancelar
+          </button>
+          <button fg-button
+                  type="button"
+                  variant="destructive"
+                  size="md"
+                  leadingIcon="trash"
+                  (click)="onRemove()"
+                  aria-label="Borrar set">
+            Borrar
+          </button>
+        </div>
+      } @else {
+        <button fg-button
+                type="submit"
+                [variant]="state() === 'logged' ? 'accent_soft' : 'primary'"
+                size="lg"
+                [full]="true"
+                leadingIcon="check"
+                [disabled]="form.invalid">
+          {{ state() === 'logged' ? 'Set logueado · descanso 1:30' : 'Loguear set' }}
+        </button>
+      }
     </form>
   `,
 })

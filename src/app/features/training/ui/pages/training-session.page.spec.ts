@@ -43,6 +43,7 @@ import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-rec
 import { RestTimerService } from '../services/rest-timer.service';
 import { NotificationPermissionService } from '@core/notifications/notification-permission.service';
 import { PrCelebrationComponent } from '../components/pr-celebration.component';
+import { ExerciseSessionCardComponent } from '../components/exercise-session-card.component';
 import { ToastService, FgSkeletonComponent } from '@core/shared/ui';
 
 // ---------------------------------------------------------------------------
@@ -208,7 +209,7 @@ describe('TrainingSessionPage', () => {
 
   // --- D-1: Progress bar and sets text (V-D1-Spec-2) ---
 
-  it('progress bar [style.width.%] reflects loggedCount/targetCount and text shows "X de Y sets" (V-D1-Spec-2)', async () => {
+  it('progress bar [style.width.%] reflects loggedCount/targetCount and text shows "X de Y series" (V-D1-Spec-2)', async () => {
     const exerciseId = 'ex-1';
     const exercise = makeExercise(exerciseId, 'Sentadilla');
     const exInDay = makeExerciseInDay(exerciseId, 10); // 10 target sets
@@ -230,7 +231,7 @@ describe('TrainingSessionPage', () => {
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('3 de 10 sets');
+    expect(text).toContain('3 de 10 series');
 
     // Check progress bar width is 30%
     const progressBar = (fixture.nativeElement as HTMLElement).querySelector('[style*="width"]');
@@ -312,13 +313,14 @@ describe('TrainingSessionPage', () => {
 
     // Check signals directly
     expect(fixture.componentInstance.latestPrExerciseName()).toBe('Sentadilla');
-    expect(fixture.componentInstance.latestPrDelta()).toBe('+5 kg');
+    // Preferred unit is 'lb' in this suite: 5 kg -> 11.0 lb (no hardcoded "kg").
+    expect(fixture.componentInstance.latestPrDelta()).toBe('+11.0 lb');
 
     // Also check that PrCelebrationComponent receives the inputs
     const prComp = fixture.debugElement.query(By.directive(PrCelebrationComponent))?.componentInstance as PrCelebrationComponent | undefined;
     expect(prComp).toBeDefined();
     expect(prComp!.exerciseName()).toBe('Sentadilla');
-    expect(prComp!.delta()).toBe('+5 kg');
+    expect(prComp!.delta()).toBe('+11.0 lb');
   });
 
   // --- Step-by-step: focused single-exercise view + rail ---
@@ -378,6 +380,29 @@ describe('TrainingSessionPage', () => {
     expect(fixture.componentInstance.focusedItem()?.exercise.id).toBe(completedId);
   });
 
+  it('passes the exercise rest (or the 90 s default) and its note to the card', async () => {
+    fixture = TestBed.createComponent(TrainingSessionPage);
+    const withRest = { ...makeExerciseInDay('ex-a', 2), restSeconds: 180, note: 'Pausa abajo' };
+    fixture.componentInstance.initLoading.set(false);
+    fixture.componentInstance.exercisesWithData.set([
+      { exercise: makeExercise('ex-a', 'Sentadilla') as any, exerciseInDay: withRest as any },
+      { exercise: makeExercise('ex-b', 'Remo') as any, exerciseInDay: makeExerciseInDay('ex-b', 2) as any },
+    ]);
+    fixture.componentInstance.focus('ex-a');
+    fixture.detectChanges();
+
+    const card = () =>
+      fixture.debugElement.query(By.directive(ExerciseSessionCardComponent))
+        .componentInstance as ExerciseSessionCardComponent;
+    expect(card().restSeconds()).toBe(180);
+    expect(card().note()).toBe('Pausa abajo');
+
+    fixture.componentInstance.focus('ex-b');
+    fixture.detectChanges();
+    expect(card().restSeconds()).toBe(90);
+    expect(card().note()).toBeUndefined();
+  });
+
   it('moves focus to the next incomplete exercise after logging its final target set', async () => {
     const firstId = 'ex-first';
     const nextId = 'ex-next';
@@ -402,11 +427,32 @@ describe('TrainingSessionPage', () => {
 
   // --- D-1: CTA button text ---
 
-  it('CTA button shows "Terminar sesión"', () => {
+  it('header has a "Terminar" button whose accessible name is "Terminar sesión"', () => {
     fixture = TestBed.createComponent(TrainingSessionPage);
     fixture.detectChanges();
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('Terminar sesión');
+    const header = (fixture.nativeElement as HTMLElement).querySelector('header');
+    const btn = header?.querySelector<HTMLButtonElement>('button[aria-label="Terminar sesión"]');
+    expect(btn).toBeTruthy();
+    expect(btn!.textContent?.trim()).toBe('Terminar');
+    // Only one control with that name (journeys use getByRole strict mode).
+    const all = (fixture.nativeElement as HTMLElement).querySelectorAll('[aria-label="Terminar sesión"]');
+    expect(all.length).toBe(1);
+  });
+
+  it('header has a "Minimizar sesión" button that goes back to /training', () => {
+    fixture = TestBed.createComponent(TrainingSessionPage);
+    fixture.detectChanges();
+    const btn = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+      'header button[aria-label="Minimizar sesión"]',
+    );
+    expect(btn).toBeTruthy();
+  });
+
+  it('uses only semantic Cuaderno classes (no forge-*, accent-<n>, ring-white, destructive-*)', () => {
+    fixture = TestBed.createComponent(TrainingSessionPage);
+    fixture.detectChanges();
+    const html = (fixture.nativeElement as HTMLElement).innerHTML;
+    expect(html).not.toMatch(/forge-\d|accent-\d|ring-white|destructive-\d|--pr-warm/);
   });
 
   // --- CC-8: No raw hex in template ---

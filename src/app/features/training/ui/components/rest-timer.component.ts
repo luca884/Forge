@@ -6,84 +6,43 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { FgIconComponent } from '@core/shared/ui';
 import { RestTimerService } from '../services/rest-timer.service';
+
+/** Seconds added by the "+15s" button. */
+const EXTRA_REST_SECONDS = 15;
 
 @Component({
   selector: 'fg-rest-timer',
   standalone: true,
+  imports: [FgIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  styles: [`
-    .rest-timer-pinned {
-      background: rgba(18, 16, 14, 0.92);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-bottom: 1px solid rgb(var(--forge-800));
-      padding: 10px 16px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      position: relative;
-      z-index: var(--z-timer-pinned);
-    }
-
-    .dot-pulse {
-      width: 8px;
-      height: 8px;
-      border-radius: 9999px;
-      background: rgb(var(--accent-rgb));
-      animation: forge-pulse 1.2s ease-in-out infinite;
-    }
-
-    .skip-btn {
-      height: 32px;
-      padding: 0 12px;
-      border-radius: 8px;
-      border: none;
-      background: rgb(var(--forge-850));
-      color: rgb(var(--forge-300));
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-      font-family: inherit;
-    }
-
-    .progress-bar {
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      height: 2px;
-      background: rgb(var(--forge-800));
-    }
-
-    .progress-fill {
-      height: 100%;
-      background: rgb(var(--accent-rgb));
-      transition: width 0.5s linear;
-    }
-  `],
   template: `
     @if (timerService.remaining() !== null) {
-      <div class="rest-timer-pinned"
-           role="status"
-           aria-live="polite"
-           aria-label="Timer de descanso">
-        <div class="flex items-center gap-2 flex-1 min-w-0">
-          <div class="dot-pulse"></div>
-          <span class="t-caption text-forge-500">DESCANSO</span>
-          <span class="text-[22px] font-semibold text-forge-50 font-mono tabular-nums tracking-[-0.02em]">
-            {{ remainingFormatted() }}
+      <!-- Cuaderno: píldora de descanso en acento suave, pegada bajo el encabezado -->
+      <div class="bg-surface border-b border-line px-3 py-1.5">
+        <div class="flex items-center gap-2 h-9 pl-3 pr-1 rounded-full bg-accent-soft text-accent-ink"
+             role="timer"
+             [attr.aria-label]="ariaLabel()">
+          <fg-icon name="timer" [size]="16"></fg-icon>
+          <span class="text-[13px] font-semibold">Descanso</span>
+          <span class="font-mono tabular-nums text-[15px] font-medium">{{ remainingFormatted() }}</span>
+          <span class="progress-bar flex-1 h-[3px] rounded-sm bg-accent/20 overflow-hidden" aria-hidden="true">
+            <span class="progress-fill block h-[3px] bg-accent transition-[width] duration-500 ease-linear"
+                  [style.width.%]="remainingPct()"></span>
           </span>
-        </div>
-        <button type="button"
-                class="skip-btn"
-                (click)="onSkip()"
-                aria-label="Saltar descanso">
-          Saltar
-        </button>
-        <div class="progress-bar" aria-hidden="true">
-          <div class="progress-fill" [style.width.%]="progressPct()"></div>
+          <button type="button"
+                  class="h-7 px-2.5 rounded-full border border-accent bg-surface text-accent-ink font-mono text-[12px] font-medium cursor-pointer"
+                  (click)="onAddTime()"
+                  aria-label="Sumar 15 segundos al descanso">
+            +15s
+          </button>
+          <button type="button"
+                  class="h-7 px-2.5 rounded-full text-ink-2 text-[12px] font-semibold cursor-pointer"
+                  (click)="onSkip()"
+                  aria-label="Saltar descanso">
+            Saltar
+          </button>
         </div>
       </div>
     }
@@ -123,6 +82,21 @@ export class RestTimerComponent {
     return Math.max(0, Math.min(100, ((init - rem) / init) * 100));
   });
 
+  /** Share of the rest still to go — the width of the pill's track fill. */
+  readonly remainingPct = computed(() => 100 - this.progressPct());
+
+  /** "Descanso restante 1 minuto 24 segundos" — spoken form of the countdown. */
+  readonly ariaLabel = computed(() => {
+    const r = this.timerService.remaining();
+    if (r === null) return 'Descanso restante';
+    const m = Math.floor(r / 60);
+    const s = r % 60;
+    const parts: string[] = [];
+    if (m > 0) parts.push(`${m} ${m === 1 ? 'minuto' : 'minutos'}`);
+    if (s > 0 || m === 0) parts.push(`${s} ${s === 1 ? 'segundo' : 'segundos'}`);
+    return `Descanso restante ${parts.join(' ')}`;
+  });
+
   /** Preserved from original component. */
   formatRemaining(seconds: number): string {
     const m = Math.floor(seconds / 60);
@@ -132,5 +106,13 @@ export class RestTimerComponent {
 
   onSkip(): void {
     this.timerService.skip();
+  }
+
+  /** Adds 15 s to the running rest. Restarts the same worker countdown with the new total. */
+  onAddTime(): void {
+    const remaining = this.timerService.remaining();
+    if (remaining === null) return;
+    this.initialSeconds.update((init) => (init === null ? init : init + EXTRA_REST_SECONDS));
+    this.timerService.start(remaining + EXTRA_REST_SECONDS);
   }
 }
