@@ -83,7 +83,7 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
 - [x] T6 · S1 · ruta: delegada · Sesión planilla (`training-session.page.ts`, `exercise-session-card.component.ts`, `set-logger.component.ts`, `rest-timer.component.ts`) según `C-Session`. Se conservan el prefill de la última vez y el timer en web worker · Aceptación: capturas; e2e de training verde, incluido el prefill (J14) · Evidencia: `8bbdb8f`, ruta delegada (subagente Sonnet). RED: 31 tests en 4 suites; GREEN `npx jest src/app/features/training/ui` 278/278. `tsc -p tsconfig.app.json` limpio. `npm test` 1424/1424. `npm run e2e` 23/23, J14 incluido. `npm run e2e:visual` 18/18; solo cambiaron `sesion-*`. eslint limpio: se fueron los 7 errores previos de esos archivos. Revisé `sesion-dark` · Risk: item 6 (igual que T4)
 - [x] T7 · S1 · ruta: delegada · Rutinas y editor de día (`routine-list`, `routine-card`, `routine-editor`, `weekly-schedule-editor`, `training-day-editor`, `target-set-editor`) según `C-Routines` y `C-DayEditor`, más `e2e/journeys/routines.spec.ts` · Aceptación: capturas; e2e de rutinas verde · Evidencia: `856f9b3`, ruta delegada (subagente Sonnet). RED: card 8/17, lista 7/15, editor de día 12/21, numeración de series 1, card del editor de rutina 1. GREEN: `npx jest src/app/features/routines/ui` 124/124. `tsc` limpio. `npm test` 1450/1450. `npm run e2e` 24/24 (suma J6a.3). `npm run e2e:visual` 18/18; solo cambiaron `rutinas-*` y `editor-dia-*`. eslint limpio salvo `exercise-picker.page.ts:177`, que es previo y de T8. Revisé `rutinas-light` · Risk: item 6 (igual que T4)
 - [x] T8 · S1 · ruta: delegada · Biblioteca y ejercicios (`exercise-picker` con búsqueda, filtro por grupo, selección múltiple y la etiqueta "En el día"; `exercise-list`, `exercise-form`, `exercise-thumbnail`) según `C-Library`, más `e2e/journeys/exercises.spec.ts` · Aceptación: capturas; e2e de ejercicios y J4 de rutinas verdes · Evidencia: `2cf19c5`, ruta delegada (subagente Sonnet). RED: 34 de 64 tests. GREEN: 70/70. `tsc` limpio. `npm test` 1477/1477. `npm run e2e` 25/25 (suma J4.4). `npm run e2e:visual` 18/18; solo cambiaron las `biblioteca-*`. eslint limpio: se fueron los `no-misused-promises` previos del picker y de la lista. Revisé `biblioteca-dark` · Risk: item 6 (igual que T4)
-- [ ] T9 · S1 · ruta: inline · Progreso e historial (`progress-home`, `pr-list`, `exercise-history`, componentes de `progress/ui/components/`; quitar los hex de `line-chart.component.ts`) según `C-Progress` y `C-Exercise`, más `e2e/journeys/progress.spec.ts` · Aceptación: capturas; gráficos legibles en los dos temas; e2e de progreso verde · Evidencia: — · Risk: item 6 (igual que T4)
+- [x] T9 · S1 · ruta: delegada · Progreso e historial (`progress-home`, `pr-list`, `exercise-history`, componentes de `progress/ui/components/`; quitar los hex de `line-chart.component.ts`) según `C-Progress` y `C-Exercise`, más `e2e/journeys/progress.spec.ts` · Aceptación: capturas; gráficos legibles en los dos temas; e2e de progreso verde · Evidencia: `ecf9324`, ruta delegada (subagente Sonnet). RED observado primero en el redibujo por tema y acento (los colores fijos `#4CAF50` y `rgba(0,0,0,0.1)`) y en el redondeo del 1RM. GREEN: `npx jest src/app/features/progress/ui` 152/152. `tsc` limpio. `npm test` 1526/1526. `npm run e2e` 25/25. `npm run e2e:visual` 18/18; solo cambiaron `progreso-*` e `historial-ejercicio-*`. eslint limpio. `rg` sin hex. Revisé `progreso-dark` · Risk: item 6 (igual que T4)
 - [ ] T10 · S1, S2, S6 · ruta: inline · Perfil según `C-Profile`: secciones Apariencia (Tema, Color de acento, conectados al servicio de T2), Entrenamiento (Unidad de peso) y Datos (Borrar historial sin cambio de comportamiento), más `e2e/journeys/profile.spec.ts`. Preguntar D3 antes · Aceptación: S2 y S6 de punta a punta; J13.1 verde · Evidencia: — · Risk: none (solo vista; reutiliza el servicio de T2 y los casos de uso de perfil)
 - [ ] T11 · S4, S9 · ruta: inline · Servicio de Wake Lock en `src/app/core/`, preferencia en `forge.appearance`, uso desde la sesión activa, fila en Perfil. Test-first en Jest con `navigator.wakeLock` simulado: pedir, volver a pedir en `visibilitychange`, liberar al terminar, sin soporte · Aceptación: S4 · Evidencia: — · Risk: item 4 (pedido y liberación asíncronos del lock con `visibilitychange`)
 - [ ] T12 · S5 · ruta: inline · Preguntar D2 antes. Caso de uso que arma el CSV desde sesiones y series (repositorios existentes, sin escribir datos), descarga con `Blob`, botón en Perfil. Test-first en Jest · Aceptación: S5 · Evidencia: — · Risk: none (solo lectura; formato nuevo que todavía nadie consume)
@@ -196,3 +196,26 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
     - "· kg" en la meta, porque la unidad es una preferencia; solo se muestra "placas".
     - El checkbox `<input>` real, que se reemplaza por una celda visual dentro del botón para conservar el nombre accesible.
   - Próximo paso: T9 (Progreso e historial).
+- L15 (2026-10-27) T9 cerrada:
+  - Gráficos: `helpers/chart-palette.ts` lee `--color-*` con `getComputedStyle` y los pasa a `rgb(r, g, b)`, porque Chart.js no resuelve `rgb(var(--x))`. `line-chart` y `exercise-history-chart` se redibujan cuando cambian `AppearanceService.resolvedTheme()` o `accent()`. `weekly-trend-chart` pasa a dos gráficos de barras en CSS (volumen y sesiones).
+  - Pesos: `helpers/weight-display.ts` delega en `DisplayWeightPipe`, y `format-tracking-value.ts` también. El tile de 1RM se redondea a 1 decimal.
+  - Filtros de métrica y rango del historial, y filtros de `pr-list`, ahora son `button[aria-pressed]` en vez de `fg-chip`.
+  - Textos cambiados:
+    - "ÚLTIMAS 12 SEMANAS" → "Constancia".
+    - "ÚLTIMOS PRS" → "Récords personales".
+    - "Ver todos los PRs" → "Ver todos" / "Ver los N".
+    - "Sets" → "Series".
+    - "ÚLTIMOS SETS" → "Historial".
+    - El h1 del historial pasa a ser el nombre del ejercicio.
+    - Tiles: "1RM est.", "Mejor serie" y "Sesiones".
+    - Botones del gráfico: "Peso máx." y "1RM est.".
+    - J9.1, J9.2 y J11 actualizados.
+  - Omitido del canvas:
+    - "Exportar historial" en el encabezado de Progreso: llega con T12 en Perfil.
+    - La columna "12 sem" y la "racha".
+    - El calendario de 52 semanas: el caso de uso da 12.
+    - El equipo en la meta.
+    - La etiqueta del último punto del gráfico.
+    - La acción "Calendario" sin destino.
+  - "Mejor serie" ("97.5 kg × 5") se parte en 2 líneas a 390 px. Se dejó así.
+  - Próximo paso: T10 (Perfil). Antes hay que preguntar D3.
