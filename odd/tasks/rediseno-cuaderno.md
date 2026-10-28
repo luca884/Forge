@@ -109,16 +109,17 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
   - Risk: none (solo lectura; formato nuevo que todavía nadie consume)
 - [ ] T13 · S3, S8 · ruta: inline · Preguntar D1 antes. Feature `onboarding`: pantalla Primer uso según `C-Welcome`, catálogo de plantillas, caso de uso que crea la rutina con los casos de uso de `routines` existentes (respeta "una sola rutina activa", J6a.2). Ajustar el e2e "muestra \"Sin rutina activa\"…" y sumar uno de primer uso · Aceptación: S3 · Evidencia: — · Risk: none (crea registros nuevos con los casos de uso existentes)
 - [ ] T14 · S1 · ruta: inline · Limpieza: borrar la rampa `forge-*`, `accent-50..700`, `--pr-warm*` si queda sin uso, los bloques viejos `.forge-dark`/`.forge-light`, las Geist y sus `preload`; regenerar todas las baselines. En `public/manifest.webmanifest` cambian solo los colores: `id`, `start_url`, `scope` y `name` quedan igual, así la app instalada sigue siendo la misma (S10) · Aceptación: `rg` de S1 sin resultados; build verde · Evidencia: — · Risk: item 6 (igual que T4)
-- [ ] T16 · S10 · ruta: delegada (auditoría en workflow) e inline (chequeo diferencial) · Continuidad de datos:
+- [x] T16 · S10 · ruta: delegada (auditoría en workflow) e inline (chequeo diferencial) · Continuidad de datos:
   - Auditoría de solo lectura de antes (`081e4d3`) y después: capa de persistencia y cada pantalla, con verificación adversarial de cada hallazgo.
   - Chequeo diferencial en scratch: la build de `081e4d3` escribe datos con su propia UI y la build nueva los muestra en el mismo origen.
-  - Corregir lo que se haya perdido sin decisión del usuario.
-  - Aceptación: S10 · Evidencia: — · Risk: none (verificación de solo lectura; si hay correcciones, se reevalúa)
+  - Corregir lo que se haya perdido sin decisión del usuario: pasó a T17 (L22).
+  - Aceptación: S10 · Evidencia: auditoría `wf_20f26eae-8cb` (L22) y diferencial `wf_0bfe533d-a45` (L23) · Risk: none (verificación de solo lectura)
 - [ ] T17 · S10 · ruta: delegada (Writer trigger: 3 unidades con superficies disjuntas, en paralelo, cada una en su worktree, Sonnet) · Correcciones de la auditoría de T16 según las decisiones de L22:
   - Unidad A: Hoy y Resumen (`src/app/features/training/ui`).
   - Unidad B: Rutinas (`src/app/features/routines/ui`).
   - Unidad C: Progreso (`src/app/features/progress/ui`).
   - Los hallazgos de placas esperan D4.
+  - Estado (L23): las tres unidades están implementadas y commiteadas como WIP en ramas propias, sin integrar: A `worktree-wf_4b271193-2d2-1` (`bd87b54`), B `worktree-wf_4b271193-2d2-2` (`c327d46`), C `worktree-wf_4b271193-2d2-3` (`86f2293`), las tres sobre `2245fd9`. Las tres revisiones dieron "con correcciones"; la lista está en L23.
   - Aceptación: cada hallazgo confirmado tiene su test RED→GREEN; `npm test`, `npm run e2e` y `npm run e2e:visual` verdes; capturas revisadas · Evidencia: — · Risk: item 6 (cambios visuales en varias pantallas)
 - [ ] T15 · S1–S10 · ruta: delegada (Verification trigger: items 4, 5 y 6 en T1, T4–T9, T11, T14) · Cierre: `npm test`, `npm run lint`, `npm run build`, `npm run e2e`, `npm run e2e:pwa` (fuentes offline), y un `odd-verifier` (opus) sobre toda la feature desde `081e4d3` · Aceptación: todo verde o un único **Needs your decision** · Evidencia: — · Risk: —
 
@@ -354,3 +355,28 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
       - C6 [progreso F7]: "Récords personales" muestra un ejercicio por fila con su mejor marca, ordenados por el récord más reciente, hasta 5. El botón del gráfico vuelve a decir "Peso", porque sigue habiendo un punto por serie.
       - C7 [progreso M-2]: el Historial avisa "Últimas 10 de N" y tiene "Ver todas".
   - Próximo paso: lanzar las tres unidades de T17. Cuando termine el chequeo diferencial, sumar sus hallazgos. Al final, preguntar D4.
+- L23 (2026-10-28) T16 cerrada y T17 resguardada sin integrar. Pedido del usuario, textual:
+  > cuando termines esos workflows, hace la conclusion y cerra sesion deja todo para la proxima
+  - Chequeo diferencial (workflow `wf_0bfe533d-a45`): la build de `081e4d3` escribió datos con su propia UI y la build de HEAD los leyó en el mismo origen. Los datos: perfil en lb con nombre y avatar, el ejercicio propio "Remo, polea baja", una sesión terminada y una en curso.
+    - Las 8 tablas quedaron idénticas byte a byte después de solo leer.
+    - 34 de 37 chequeos OK. Las 3 fallas son de unidad: el volumen del Diario y el de Resumen salen en kg (los corrige A2), y los campos de carga en kg, que ya eran así en `081e4d3`.
+    - El CSV trajo 11 de 11 filas, con BOM. Cambiar la unidad a kg conservó nombre y avatar.
+    - El revisor dio "con reparos" por cobertura: faltan placas, tiempo, distancia, lastre y una actualización real con el service worker; el set de datos es chico.
+  - T17 (workflow `wf_4b271193-2d2`): 3 writers y 3 revisores, sin errores. Los worktrees nacieron en `081e4d3` y no en la rama; cada writer hizo fast-forward a `2245fd9` antes de trabajar. Unidad A reportó `npx jest` 1607/1607, tsc y eslint OK. Ninguna unidad corrió e2e ni capturas.
+  - Correcciones pendientes de la revisión (importantes):
+    - A2: en Resumen, el volumen en lb (y en kg con decimales desde 5 cifras) no entra en la celda Volumen de Totales; desde 10000 lb invade la celda Series.
+    - B2: los rangos de tiempo y distancia ("3 × 30–60 s") no entran en la columna Objetivo, de 72 px, y la unidad baja a una segunda línea. Ningún test ni la seed visual lo cubren.
+    - C2: "Mejor serie" sale de las series, pero "1RM est." sigue saliendo de la fila de PR; con varios PR al mismo peso, los dos tiles se contradicen.
+    - C5: la cabecera fija "Series ({unit} × reps)" sigue apareciendo en ejercicios de tiempo, distancia o peso corporal (segunda parte de F6).
+    - Faltan los e2e (J9.1, J11 y los de entrenamiento) y regenerar y revisar las capturas de hoy, resumen, rutinas, editor-dia, progreso e historial.
+  - Correcciones pendientes de la revisión (menores):
+    - A2: el test de Resumen en lb fija la unidad antes de crear el componente y no prueba la reactividad.
+    - A4: una descripción hecha solo de espacios deja un hueco de unos 14 px en "Hoy toca".
+    - B4: el respaldo numérico pega el número a siglas que ya terminan en dígito ("Día 10" sale "D12").
+    - C2: en peso corporal, "Mejor serie" ordena primero por lastre y el dominio ordena primero por reps.
+    - C4: con `role=group` el lector de pantalla lee las marcas del eje y las etiquetas sueltas; el espaciado entre barras queda por debajo de 24 px (23.7 a 390 px).
+    - C4 y D4: la línea "Semana del …" muestra un volumen que suma placas como kg.
+    - C6: ningún test separa "récord más reciente" de "fecha de la mejor marca".
+    - C1: el comentario de cabecera de `LineChartComponent` describe el ciclo de vida anterior.
+  - Scratch: se quitaron los worktrees `wt-base` y `wt-head`.
+  - Próximo paso: integrar las tres ramas WIP en `feat/rediseno-cuaderno` (cherry-pick o merge, son superficies disjuntas), aplicar las correcciones importantes con su test, correr `npm test`, `npm run e2e` y `npm run e2e:visual:update`, revisar las capturas y commitear T17. Después, preguntar D4, y seguir con T13, T14 y T15.
