@@ -502,3 +502,9 @@ Decisiones abiertas (preguntar una por vez al llegar a la tarea, antes de implem
   - Avisos previos que siguen: hay dos formateadores de placas, la progresión dice "placa 6 × 12", la seed visual no tiene placas, siguen sin aplicar las correcciones menores de L23, y `tsc -p tsconfig.spec.json` falla en 18 archivos en la base y en 20 en HEAD (no es un chequeo del proyecto).
   - Las ramas `worktree-wf_4b271193-2d2-{1,2,3}` y sus worktrees siguen existiendo; su contenido ya está integrado.
   - Feature completa. Próximo paso: lo decide el usuario (avisos, limpieza de worktrees, PR).
+- L34 (2026-10-28) Corregido el aviso de Wake Lock de L33. Respuesta del usuario, textual:
+  > dale
+  - `667e814`: `TrainingSessionPage` marca `destroyed` en `ngOnDestroy`, y `init()` no llama a `hold()` si la página ya se destruyó.
+  - Test-first: el test nuevo destruye la página mientras `loadActive()` sigue pendiente. RED observado: `hold()` se llamaba 1 vez.
+  - Checks: `npm test` 1772/1772, lint limpio, build verde, e2e 34/34 en el puerto 4300.
+  - Los demás avisos de L33 siguen abiertos.
