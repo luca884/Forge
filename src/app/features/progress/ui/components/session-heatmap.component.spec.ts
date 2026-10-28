@@ -25,7 +25,7 @@ describe('SessionHeatmapComponent', () => {
     expect(cells.length).toBe(84);
   });
 
-  // ── R15: count=0 cells use bg-forge-850 + ring — NO bg-forge-800 / bg-green-* ──
+  // ── R15: count=0 cells use the empty token (ring-zero) — NO bg-forge-800 / bg-green-* ──
   it('count=0 cell does NOT have bg-forge-800 class (R15)', () => {
     // All cells are count=0 by default (empty heatmapData)
     const el = fixture.nativeElement as HTMLElement;
@@ -56,14 +56,14 @@ describe('SessionHeatmapComponent', () => {
     });
   });
 
-  // ── R15: count>0 cells use rgb(var(--accent-rgb) / ...) — verified via cellBg() method ──
+  // ── R15: count>0 cells use rgb(var(--color-accent) / ...) — verified via cellBg() method ──
   // NOTE: jsdom does not process CSS variables in inline styles — style.background and
   // getAttribute('style') both return empty/null for values containing var(...).
   // We verify the method output directly (unit-level) and check the DOM reflects count data.
-  it('cellBg(count>0) returns rgb(var(--accent-rgb) / ...) — method verified (R15)', () => {
+  it('cellBg(count>0) returns rgb(var(--color-accent) / ...) — method verified (R15)', () => {
     const result = component.cellBg(3);
     // Method returns the string that Angular binds to [style.background]
-    expect(result).toMatch(/rgb\(var\(--accent-rgb\) \//);
+    expect(result).toMatch(/rgb\(var\(--color-accent\) \//);
   });
 
   it('count>0 cell does NOT have bg-green-* class (R15)', () => {
@@ -96,17 +96,19 @@ describe('SessionHeatmapComponent', () => {
   });
 
   // ── Legend ───────────────────────────────────────────────────────────────
-  it('legend renders 4 swatches', () => {
+  it('legend renders 4 swatches: the empty one plus three accent levels', () => {
     const el = fixture.nativeElement as HTMLElement;
     const legendSwatches = el.querySelectorAll<HTMLDivElement>('.heatmap__legend-swatch');
     expect(legendSwatches.length).toBe(4);
+    expect(legendSwatches[0]!.classList.contains('ring-zero')).toBe(true);
+    expect(legendSwatches[1]!.classList.contains('ring-zero')).toBe(false);
   });
 
-  it('legendBg() returns rgb(var(--accent-rgb) / ...) for each alpha — method verified', () => {
+  it('legendBg() returns rgb(var(--color-accent) / ...) for each level — method verified', () => {
     // Verify the method output (what gets bound to [style.background])
-    const alphas = [0.15, 0.4, 0.65, 1] as const;
+    const alphas = [0.3, 0.6, 1] as const;
     alphas.forEach(a => {
-      expect(component.legendBg(a)).toMatch(/rgb\(var\(--accent-rgb\) \//);
+      expect(component.legendBg(a)).toMatch(/rgb\(var\(--color-accent\) \//);
     });
   });
 
@@ -168,7 +170,7 @@ describe('SessionHeatmapComponent', () => {
     expect(todayCell.count).toBe(1);
     const bg = component.cellBg(todayCell.count);
     expect(bg).toBeDefined();
-    expect(bg).toMatch(/rgb\(var\(--accent-rgb\) \//);
+    expect(bg).toMatch(/rgb\(var\(--color-accent\) \//);
 
     // The DOM cell should NOT have ring-zero class (ring-zero is only for count=0)
     const domCell = cells[todayCellIndex] as HTMLDivElement;
@@ -199,7 +201,7 @@ describe('SessionHeatmapComponent', () => {
   it('cellBg(count>0) returns rgb string with correct alpha formula', () => {
     // With heatmapData empty (maxCount=1), count=1 → intensity=1 → alpha=1.0
     const result = component.cellBg(1);
-    expect(result).toMatch(/rgb\(var\(--accent-rgb\) \/ 1\.00\)/);
+    expect(result).toMatch(/rgb\(var\(--color-accent\) \/ 1\.00\)/);
   });
 
   it('cellBg uses relative intensity: low count → lower alpha', () => {
@@ -213,9 +215,9 @@ describe('SessionHeatmapComponent', () => {
 
     const lowCountResult = component.cellBg(1);
     const highCountResult = component.cellBg(3);
-    // Both should contain rgb(var(--accent-rgb) /
-    expect(lowCountResult).toMatch(/rgb\(var\(--accent-rgb\) \//);
-    expect(highCountResult).toMatch(/rgb\(var\(--accent-rgb\) \//);
+    // Both should contain rgb(var(--color-accent) /
+    expect(lowCountResult).toMatch(/rgb\(var\(--color-accent\) \//);
+    expect(highCountResult).toMatch(/rgb\(var\(--color-accent\) \//);
     // High count should have higher alpha (closer to 1) than low count
     const extractAlpha = (s: string) => parseFloat(s.match(/[\d.]+\)$/)?.[0] ?? '0');
     expect(extractAlpha(highCountResult!)).toBeGreaterThan(extractAlpha(lowCountResult!));

@@ -37,4 +37,34 @@ describe('DashboardOverviewComponent', () => {
     expect(element.querySelector('.delta-negative')).toBeTruthy();
     expect(element.querySelector('.delta-neutral')).toBeTruthy();
   });
+
+  it('labels the three figures Sesiones, Series and Volumen under a "Últimos 30 días" heading', () => {
+    fixture.componentRef.setInput('overview', overview);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('h2')?.textContent?.trim()).toBe('Últimos 30 días');
+    const text = element.textContent ?? '';
+    expect(text).toContain('Sesiones');
+    expect(text).toContain('Series');
+    expect(text).not.toContain('Sets');
+    expect(text).not.toContain('Volumen kg');
+  });
+
+  it('shows the volume in kg by default, through DisplayWeightPipe', () => {
+    fixture.componentRef.setInput('overview', overview);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('4500 kg');
+  });
+
+  it('shows the volume in lb when the preferred unit is lb', () => {
+    fixture.componentRef.setInput('overview', overview);
+    fixture.componentRef.setInput('unit', 'lb');
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('9920.8 lb');
+    expect(text).not.toContain('kg');
+  });
 });

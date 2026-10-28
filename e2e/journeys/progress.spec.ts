@@ -150,26 +150,26 @@ test.describe('J9 — Progress home', () => {
     await page.waitForLoadState('networkidle');
 
     // Page title (fg-page-header now uses <h1> — a11y fix commit ce5c47d)
-    await expect(page.getByRole('heading', { name: 'Progreso' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Progreso', exact: true })).toBeVisible();
 
-    // Heatmap section
-    await expect(page.getByText('ÚLTIMAS 12 SEMANAS')).toBeVisible();
+    // Heatmap section (C-Progress: "Constancia")
+    await expect(page.getByRole('heading', { name: 'Constancia' })).toBeVisible();
 
     // Dashboard sections
-    await expect(page.getByText('ÚLTIMOS 30 DÍAS')).toBeVisible();
-    await expect(page.getByText('VOLUMEN SEMANAL')).toBeVisible();
-    await expect(page.getByText('PROGRESO POR EJERCICIO')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Últimos 30 días' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Volumen semanal' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Progreso por ejercicio' })).toBeVisible();
     await expect(page.getByText('Mejora')).toBeVisible();
 
     // Stat cards
     await expect(page.getByText('PRs totales')).toBeVisible();
     await expect(page.getByText('PRs esta semana')).toBeVisible();
 
-    // Recent PRs section
-    await expect(page.getByText('ÚLTIMOS PRS')).toBeVisible();
+    // Récords personales table (C-Progress)
+    await expect(page.getByRole('heading', { name: 'Récords personales' })).toBeVisible();
 
-    // "Ver todos los PRs" CTA button
-    await expect(page.getByRole('button', { name: 'Ver todos los PRs' })).toBeVisible();
+    // "Ver todos" link (with several PRs the canvas shows "Ver los N")
+    await expect(page.getByRole('button', { name: 'Ver todos' })).toBeVisible();
   });
 
   test('J9.2 — progress home vacío sin PRs muestra empty state', async ({ page }) => {
@@ -178,7 +178,7 @@ test.describe('J9 — Progress home', () => {
     await page.waitForLoadState('networkidle');
 
     // Page title
-    await expect(page.getByRole('heading', { name: 'Progreso' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Progreso', exact: true })).toBeVisible();
 
     // Empty state copy (progress-home.page.ts:77-78)
     await expect(page.getByText('Aún no tenés PRs')).toBeVisible();
@@ -188,9 +188,9 @@ test.describe('J9 — Progress home', () => {
     await expect(page.getByText('PRs totales')).toBeVisible();
 
     // Dashboard remains informative with no history.
-    await expect(page.getByText('ÚLTIMOS 30 DÍAS')).toBeVisible();
-    await expect(page.getByText('VOLUMEN SEMANAL')).toBeVisible();
-    await expect(page.getByText('PROGRESO POR EJERCICIO')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Últimos 30 días' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Volumen semanal' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Progreso por ejercicio' })).toBeVisible();
     await expect(page.getByText('Todavía no hay progreso comparable')).toBeVisible();
   });
 });
@@ -394,18 +394,23 @@ test.describe('J11 — Exercise history', () => {
     await page.goto('/progress/exercise/ex-1');
     await page.waitForLoadState('networkidle');
 
-    // Page title (fg-page-header with <h1>)
-    await expect(page.getByRole('heading', { name: 'Historial' })).toBeVisible();
+    // Page title (C-Exercise: the h1 is the exercise name)
+    await expect(page.getByRole('heading', { name: 'Sentadilla' })).toBeVisible();
 
     // Chart canvas (exercise-history-chart.component → line-chart → <canvas>)
     await expect(page.locator('fg-exercise-history-chart canvas')).toBeVisible();
 
-    // 3-stat tiles
-    await expect(page.getByText('Mejor', { exact: true })).toBeVisible();
-    await expect(page.getByText('Mejor reps')).toBeVisible();
-    await expect(page.getByText('1RM est.')).toBeVisible();
+    // Metric and range selectors above the chart
+    await expect(page.getByRole('button', { name: 'Peso máx.' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: '3M' })).toBeVisible();
 
-    // ÚLTIMOS SETS section
-    await expect(page.getByText('ÚLTIMOS SETS')).toBeVisible();
+    // 3-stat tiles
+    const tiles = page.getByLabel('Resumen del ejercicio');
+    await expect(tiles.getByText('1RM est.')).toBeVisible();
+    await expect(tiles.getByText('Mejor serie')).toBeVisible();
+    await expect(tiles.getByText('Sesiones')).toBeVisible();
+
+    // Historial section (session-grouped sets)
+    await expect(page.getByRole('heading', { name: 'Historial' })).toBeVisible();
   });
 });
