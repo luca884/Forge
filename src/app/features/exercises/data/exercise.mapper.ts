@@ -12,6 +12,8 @@ export function toExercise(row: ExerciseRow): Exercise {
     trackingType: row.trackingType as TrackingType,
     // Backward-compat: rows without weightUnit default to 'kg'
     weightUnit: (row.weightUnit as WeightUnit | undefined) ?? 'kg',
+    // Rows saved before S11 have no plate weight: the domain falls back to the default.
+    plateWeightKg: row.plateWeightKg,
     isCustom: row.isCustom,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -26,6 +28,8 @@ export function toExerciseRow(exercise: Exercise): ExerciseRow {
     equipment: exercise.equipment,
     trackingType: exercise.trackingType,
     weightUnit: exercise.weightUnit,
+    // Only when set, so the rows of every other exercise keep their shape (S10).
+    ...(exercise.plateWeightKg !== undefined && { plateWeightKg: exercise.plateWeightKg }),
     isCustom: exercise.isCustom,
     createdAt: exercise.createdAt,
     updatedAt: exercise.updatedAt,

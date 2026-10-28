@@ -205,3 +205,113 @@ describe('ExerciseFormPage — return-to-picker context (returnRoutineId + retur
     expect(navigateSpy).toHaveBeenCalledWith(['/exercises']);
   });
 });
+
+// ── S11: plate weight ─────────────────────────────────────────────────────────
+
+describe('ExerciseFormPage — plate weight (S11)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  async function setup(loaded: Exercise | null = null) {
+    const createMock = { execute: jest.fn().mockResolvedValue({ id: 'new-ex-id' }) };
+    const editMock = { execute: jest.fn().mockResolvedValue(undefined) };
+    await TestBed.configureTestingModule({
+      imports: [ExerciseFormPage],
+      providers: [
+        provideRouter([]),
+        { provide: Router, useValue: { navigate: jest.fn().mockResolvedValue(true) } },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              paramMap: { get: jest.fn().mockReturnValue(loaded ? loaded.id : null) },
+              queryParamMap: { get: jest.fn().mockReturnValue(null) },
+            },
+          },
+        },
+        {
+          provide: ExerciseRepository,
+          useValue: { getAll: jest.fn().mockResolvedValue([]), getById: jest.fn().mockResolvedValue(loaded) },
+        },
+        { provide: SessionRepository, useValue: {} },
+        { provide: PersonalRecordRepository, useValue: {} },
+        { provide: TrainingDayRepository, useValue: {} },
+      ],
+    })
+      .overrideComponent(ExerciseFormPage, {
+        set: {
+          providers: [
+            { provide: DeleteCustomExerciseUseCase, useValue: { execute: jest.fn() } },
+            { provide: CreateCustomExerciseUseCase, useValue: createMock },
+            { provide: EditCustomExerciseUseCase, useValue: editMock },
+          ],
+        },
+      })
+      .compileComponents();
+    const fixture = TestBed.createComponent(ExerciseFormPage);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const plateInput = (): HTMLInputElement | null =>
+      (fixture.nativeElement as HTMLElement).querySelector('input[formControlName="plateWeightKg"]');
+    return { fixture, component: fixture.componentInstance, createMock, editMock, plateInput };
+  }
+
+  const machine: Exercise = {
+    id: 'ex-9',
+    name: 'Prensa máquina',
+    muscleGroup: 'legs',
+    trackingType: 'weight-reps',
+    weightUnit: 'plates',
+    plateWeightKg: 10,
+    isCustom: true,
+    createdAt: new Date('2026-01-01'),
+    updatedAt: new Date('2026-01-01'),
+  };
+
+  it('shows the optional "Peso por placa" field only for plates exercises, with 5 kg as the hint', async () => {
+    const { fixture, component, plateInput } = await setup();
+    expect(plateInput()).toBeNull();
+
+    component.exerciseForm.patchValue({ weightUnit: 'plates' });
+    fixture.detectChanges();
+
+    expect(plateInput()).not.toBeNull();
+    expect(plateInput()!.placeholder).toBe('5');
+    expect(plateInput()!.closest('label')?.textContent).toContain('Peso por placa');
+  });
+
+  it('creates a plates exercise with the plate weight typed in', async () => {
+    const { component, createMock } = await setup();
+    component.exerciseForm.patchValue({ name: 'Prensa', trackingType: 'weight-reps', weightUnit: 'plates', plateWeightKg: 10 });
+    await component.onSubmit();
+    expect(createMock.execute).toHaveBeenCalledWith(expect.objectContaining({ weightUnit: 'plates', plateWeightKg: 10 }));
+  });
+
+  it('creates a plates exercise without a plate weight when the field is empty', async () => {
+    const { component, createMock } = await setup();
+    component.exerciseForm.patchValue({ name: 'Prensa', trackingType: 'weight-reps', weightUnit: 'plates', plateWeightKg: null });
+    await component.onSubmit();
+    expect(createMock.execute.mock.calls[0][0].plateWeightKg).toBeUndefined();
+  });
+
+  it('never sends a plate weight for a kg exercise', async () => {
+    const { component, createMock } = await setup();
+    component.exerciseForm.patchValue({ name: 'Curl', trackingType: 'weight-reps', weightUnit: 'kg', plateWeightKg: 10 });
+    await component.onSubmit();
+    expect(createMock.execute.mock.calls[0][0].plateWeightKg).toBeUndefined();
+  });
+
+  it('loads the saved plate weight when editing', async () => {
+    const { plateInput } = await setup(machine);
+    expect(plateInput()!.value).toBe('10');
+  });
+
+  it('clears the plate weight when the field is emptied while editing, so the default applies again', async () => {
+    const { component, editMock } = await setup(machine);
+    component.exerciseForm.patchValue({ plateWeightKg: null });
+    await component.onSubmit();
+    const input = editMock.execute.mock.calls[0][0];
+    expect(Object.keys(input)).toContain('plateWeightKg');
+    expect(input.plateWeightKg).toBeUndefined();
+  });
+});
