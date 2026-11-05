@@ -195,7 +195,7 @@ interface PrRow {
 
       <!-- CTA — always visible -->
       <button fg-button variant="primary" size="lg" [full]="true" class="mt-auto" (click)="goHome()">
-        Guardar sesión
+        Listo
       </button>
     </div>
   `,

@@ -707,6 +707,90 @@ describe('TrainingSessionPage', () => {
     expect(all.length).toBe(1);
   });
 
+  describe('"Terminar" asks for confirmation', () => {
+    const host = () => fixture.nativeElement as HTMLElement;
+    const finishBtn = () => host().querySelector<HTMLButtonElement>('button[aria-label="Terminar sesión"]')!;
+    const prompt = () => host().querySelector<HTMLElement>('[data-testid="confirm-complete"]');
+    const buttonByText = (text: string) =>
+      Array.from(prompt()?.querySelectorAll<HTMLButtonElement>('button') ?? []).find(
+        (b) => b.textContent?.trim() === text,
+      );
+
+    let completeSpy: jest.SpyInstance;
+
+    beforeEach(async () => {
+      mockDayRepo.getById.mockResolvedValue({ id: 'day-1', exercises: [makeExerciseInDay('ex-a', 3)] });
+      mockExerciseRepo.getAll.mockResolvedValue([makeExercise('ex-a', 'Sentadilla')]);
+      activeSessionSignal.set(makeSession());
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      completeSpy = jest.spyOn(fixture.componentInstance, 'completeSession').mockResolvedValue();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      for (let i = 0; i < 4; i++) await Promise.resolve();
+      fixture.detectChanges();
+    });
+
+    it('tapping "Terminar" shows the prompt and does not complete the session', () => {
+      finishBtn().click();
+      fixture.detectChanges();
+
+      expect(prompt()?.textContent).toContain('¿Terminar el entrenamiento?');
+      expect(completeSpy).not.toHaveBeenCalled();
+    });
+
+    it('the prompt is pinned inside the sticky header block', () => {
+      finishBtn().click();
+      fixture.detectChanges();
+
+      expect(host().querySelector('[data-testid="session-sticky"]')!.contains(prompt())).toBe(true);
+    });
+
+    it('"Sí, terminar" completes the session', async () => {
+      finishBtn().click();
+      fixture.detectChanges();
+
+      buttonByText('Sí, terminar')!.click();
+      await fixture.whenStable();
+
+      expect(completeSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('"Seguir entrenando" closes the prompt without completing', () => {
+      finishBtn().click();
+      fixture.detectChanges();
+
+      buttonByText('Seguir entrenando')!.click();
+      fixture.detectChanges();
+
+      expect(prompt()).toBeNull();
+      expect(completeSpy).not.toHaveBeenCalled();
+    });
+
+    it('says how many sets are still missing', () => {
+      const missing = fixture.componentInstance.totalTargetCount() - fixture.componentInstance.totalLoggedCount();
+      finishBtn().click();
+      fixture.detectChanges();
+
+      expect(missing).toBeGreaterThan(1);
+      expect((prompt()!.textContent ?? '').replace(/\s+/g, ' ')).toContain(`Te faltan ${missing} series`);
+    });
+
+    it('opening it closes the cancel confirmation, and vice versa', () => {
+      fixture.componentInstance.confirmingCancel.set(true);
+      fixture.detectChanges();
+      finishBtn().click();
+      fixture.detectChanges();
+      expect(fixture.componentInstance.confirmingCancel()).toBe(false);
+
+      const cancelBtn = Array.from(host().querySelectorAll<HTMLButtonElement>('button')).find(
+        (b) => b.textContent?.trim() === 'Cancelar entrenamiento',
+      )!;
+      cancelBtn.click();
+      fixture.detectChanges();
+      expect(prompt()).toBeNull();
+    });
+  });
+
   it('header has a "Minimizar sesión" button that goes back to /training', () => {
     fixture = TestBed.createComponent(TrainingSessionPage);
     fixture.detectChanges();

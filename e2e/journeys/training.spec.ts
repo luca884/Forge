@@ -229,6 +229,7 @@ test.describe('J8 — Finalizar sesión y summary', () => {
 
     // STEP 8: Click "Terminar sesión" — text button (not aria-label)
     await page.getByRole('button', { name: 'Terminar sesión' }).click();
+    await page.getByRole('button', { name: 'Sí, terminar' }).click();
 
     // STEP 9: URL navigates to summary
     await expect(page).toHaveURL(/\/training\/session\/summary$/, { timeout: 5000 });
@@ -248,7 +249,7 @@ test.describe('J8 — Finalizar sesión y summary', () => {
     await expect(page.locator('[data-exercise-row]').first()).toContainText('5 reps');
     // Bug #585 fix: exercise name must appear, not raw UUID
     await expect(page.getByText('Sentadilla').first()).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Guardar sesión' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Listo', exact: true })).toBeVisible();
   });
 
   test('J8.2 — los totales entran en su celda con volumen grande en lb y más de una hora', async ({
@@ -328,6 +329,7 @@ test.describe('J8 — Finalizar sesión y summary', () => {
     await page.goto('/training/session');
     await expect(page.getByText(/10 de 10 series/)).toBeVisible();
     await page.getByRole('button', { name: 'Terminar sesión' }).click();
+    await page.getByRole('button', { name: 'Sí, terminar' }).click();
     await expect(page).toHaveURL(/\/training\/session\/summary$/);
 
     const totals = page.getByRole('region', { name: 'Totales' });
@@ -552,6 +554,7 @@ test.describe('J15 — Ejercicio en placas', () => {
     await page.goto('/training/session');
     await expect(page.getByText(/3 de 3 series/)).toBeVisible();
     await page.getByRole('button', { name: 'Terminar sesión' }).click();
+    await page.getByRole('button', { name: 'Sí, terminar' }).click();
     await expect(page).toHaveURL(/\/training\/session\/summary$/);
 
     const totals = page.getByRole('region', { name: 'Totales' });

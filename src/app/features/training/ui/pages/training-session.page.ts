@@ -110,7 +110,7 @@ function formatHMS(totalSeconds: number): string {
             </span>
           </div>
           <button fg-button variant="primary" size="md" aria-label="Terminar sesión"
-                  (click)="completeSession()" [disabled]="completing() || cancelling()">
+                  (click)="askToComplete()" [disabled]="completing() || cancelling()">
             {{ completing() ? 'Guardando…' : 'Terminar' }}
           </button>
         </div>
@@ -121,6 +121,33 @@ function formatHMS(totalSeconds: number): string {
           </div>
         </div>
       </header>
+
+      <!-- Finish confirmation — pinned with the header so it shows wherever you scrolled -->
+      @if (confirmingComplete()) {
+        <div class="bg-surface border-b border-line px-3 py-3 flex flex-col gap-2"
+             role="alertdialog" aria-labelledby="confirm-complete-title"
+             data-testid="confirm-complete">
+          <span id="confirm-complete-title" class="t-body-sm text-ink">
+            ¿Terminar el entrenamiento?
+            @if (missingSetsCount() > 0) {
+              <span class="text-ink-2">
+                Te {{ missingSetsCount() === 1 ? 'falta' : 'faltan' }} {{ missingSetsCount() }}
+                {{ missingSetsCount() === 1 ? 'serie' : 'series' }}.
+              </span>
+            }
+          </span>
+          <div class="flex gap-2">
+            <button fg-button variant="secondary" size="sm" class="flex-1"
+                    (click)="confirmingComplete.set(false)" [disabled]="completing()">
+              Seguir entrenando
+            </button>
+            <button fg-button variant="primary" size="sm" class="flex-1"
+                    (click)="completeSession()" [disabled]="completing()">
+              {{ completing() ? 'Guardando…' : 'Sí, terminar' }}
+            </button>
+          </div>
+        </div>
+      }
 
       <!-- Rest timer — pinned right under the header -->
       <fg-rest-timer></fg-rest-timer>
@@ -262,7 +289,7 @@ function formatHMS(totalSeconds: number): string {
           <div class="pt-3 border-t border-line">
             @if (!confirmingCancel()) {
               <button fg-button variant="destructive" size="md" [full]="true" leadingIcon="x"
-                      (click)="confirmingCancel.set(true)"
+                      (click)="confirmingCancel.set(true); confirmingComplete.set(false)"
                       [disabled]="completing() || cancelling()">
                 Cancelar entrenamiento
               </button>
@@ -319,6 +346,7 @@ export class TrainingSessionPage implements OnInit, OnDestroy {
   readonly completing = signal(false);
   readonly cancelling = signal(false);
   readonly confirmingCancel = signal(false);
+  readonly confirmingComplete = signal(false);
   /** True while the "Ordenar" list replaces the rail and the focused card. */
   readonly reordering = signal(false);
   /** Day exercises whose library entry was deleted: not shown, but kept in the day when reordering. */
@@ -365,6 +393,11 @@ export class TrainingSessionPage implements OnInit, OnDestroy {
   /** Total target sets across all exercises in the routine day. */
   readonly totalTargetCount = computed(() =>
     this.exercisesWithData().reduce((sum, item) => sum + item.exerciseInDay.targetSets.length, 0)
+  );
+
+  /** Planned sets not logged yet; extra sets never make it negative. */
+  readonly missingSetsCount = computed(() =>
+    Math.max(0, this.totalTargetCount() - this.totalLoggedCount())
   );
 
   /** Progress as percentage 0–100. */
@@ -536,6 +569,12 @@ export class TrainingSessionPage implements OnInit, OnDestroy {
     } catch {
       this.toast.error('No se pudo borrar la serie', 'Intentá de nuevo');
     }
+  }
+
+  /** "Terminar" is one tap from the logging flow, so it asks before finishing (like "Cancelar"). */
+  askToComplete(): void {
+    this.confirmingCancel.set(false);
+    this.confirmingComplete.set(true);
   }
 
   async completeSession(): Promise<void> {
