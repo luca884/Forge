@@ -9,6 +9,15 @@ import type { WorkedSet } from '../../domain/worked-set';
 import type { Exercise } from '../../../exercises/domain/exercise.entity';
 import type { TargetSet } from '../../../routines/domain/target-set';
 
+/** Header labels as a screen reader reads them: aria-hidden copies (the short "Ant.") are left out. */
+function headerLabels(head: HTMLElement): (string | undefined)[] {
+  return Array.from(head.children).map((cell) => {
+    const copy = cell.cloneNode(true) as HTMLElement;
+    copy.querySelectorAll('[aria-hidden="true"]').forEach((el) => el.remove());
+    return copy.textContent?.trim();
+  });
+}
+
 const mockExercise: Exercise = {
   id: 'ex-1',
   name: 'Sentadilla',
@@ -194,8 +203,7 @@ describe('ExerciseSessionCardComponent', () => {
     fixture.detectChanges();
     const head = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('[data-sheet-head]');
     expect(head).toBeTruthy();
-    const labels = Array.from(head!.children).map((c) => c.textContent?.trim());
-    expect(labels).toEqual(['Serie', 'Anterior', 'Peso', 'Reps', 'Hecha']);
+    expect(headerLabels(head!)).toEqual(['Serie', 'Anterior', 'Peso', 'Reps', 'Hecha']);
   });
 
   it('planilla: bodyweight-reps header says Extra instead of Peso', () => {
@@ -206,8 +214,7 @@ describe('ExerciseSessionCardComponent', () => {
     fixture.componentRef.setInput('sessionId', 's-1');
     fixture.detectChanges();
     const head = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('[data-sheet-head]')!;
-    const labels = Array.from(head.children).map((c) => c.textContent?.trim());
-    expect(labels).toEqual(['Serie', 'Anterior', 'Extra', 'Reps', 'Hecha']);
+    expect(headerLabels(head)).toEqual(['Serie', 'Anterior', 'Extra', 'Reps', 'Hecha']);
   });
 
   it('planilla: done row shows number, weight through the preferred unit, reps and a check', () => {

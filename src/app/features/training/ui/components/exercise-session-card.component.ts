@@ -58,7 +58,11 @@ interface PendingRow {
           <div data-sheet-head
                class="grid grid-cols-[40px_minmax(0,1fr)_76px_60px_44px] gap-x-1.5 items-center pl-3.5 pr-2 pb-1 t-micro text-ink-2">
             <span>Serie</span>
-            <span>Anterior</span>
+            <!-- Below 360px the full label does not fit its column: show "Ant.", keep "Anterior" for screen readers -->
+            <span class="relative">
+              <span class="max-[359px]:sr-only">Anterior</span>
+              <span class="hidden max-[359px]:inline" aria-hidden="true">Ant.</span>
+            </span>
             <span class="text-center">{{ columns()[0] }}</span>
             <span class="text-center">{{ columns()[1] }}</span>
             <span class="text-center">Hecha</span>
