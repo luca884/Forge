@@ -32,6 +32,7 @@ import {
   Title,
   Tooltip,
   Legend,
+  Filler,
   type ChartData,
   type ChartOptions,
 } from 'chart.js';
@@ -50,6 +51,8 @@ Chart.register(
   Title,
   Tooltip,
   Legend,
+  // Draws the accent gradient under the first line (`fill`); without it the fill is silently skipped.
+  Filler,
 );
 
 @Component({

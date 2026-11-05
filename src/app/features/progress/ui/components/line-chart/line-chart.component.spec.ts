@@ -92,6 +92,10 @@ describe('LineChartComponent', () => {
     expect(() => fixture.detectChanges()).not.toThrow();
   });
 
+  it('registers the Filler plugin, without which the accent gradient under the line is never drawn', () => {
+    expect(Chart.registry.plugins.get('filler')).toBeDefined();
+  });
+
   it('does not import ng2-charts — only chart.js (CC-18 isolation)', () => {
     // This test verifies the pattern at import level.
     // If ng2-charts were imported, the test setup would have failed to resolve it.
