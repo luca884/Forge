@@ -15,12 +15,22 @@ import {
 } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
+  CdkDrag,
+  CdkDragHandle,
+  CdkDragPlaceholder,
+  CdkDragPreview,
+  CdkDropList,
+  moveItemInArray,
+  type CdkDragDrop,
+} from '@angular/cdk/drag-drop';
+import {
   FgInputComponent,
   FgCardComponent,
   FgEmptyStateComponent,
   FgButtonComponent,
   FgIconComponent,
   FgSkeletonComponent,
+  ToastService,
 } from '@core/shared/ui';
 import {
   GetTrainingDayWithExercisesUseCase,
@@ -31,6 +41,7 @@ import { EditTrainingDayUseCase } from '../../domain/use-cases/edit-training-day
 import { RemoveExerciseFromDayUseCase } from '../../domain/use-cases/remove-exercise-from-day.use-case';
 import { SetTargetSetsUseCase } from '../../domain/use-cases/set-target-sets.use-case';
 import { SetRestSecondsUseCase } from '../../domain/use-cases/set-rest-seconds.use-case';
+import { ReorderExercisesInDayUseCase } from '../../domain/use-cases/reorder-exercises-in-day.use-case';
 import { TargetSetEditorComponent } from '../components/target-set-editor.component';
 import { TargetSet } from '../../domain/target-set';
 import { RoutineRepository } from '../../domain/routine.repository';
@@ -99,6 +110,11 @@ function formatRest(seconds: number): string {
     FgIconComponent,
     FgSkeletonComponent,
     TargetSetEditorComponent,
+    CdkDropList,
+    CdkDrag,
+    CdkDragHandle,
+    CdkDragPlaceholder,
+    CdkDragPreview,
   ],
   providers: [
     GetTrainingDayWithExercisesUseCase,
@@ -106,6 +122,7 @@ function formatRest(seconds: number): string {
     RemoveExerciseFromDayUseCase,
     SetTargetSetsUseCase,
     SetRestSecondsUseCase,
+    ReorderExercisesInDayUseCase,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -165,24 +182,32 @@ function formatRest(seconds: number): string {
         } @else {
           <fg-card [padding]="0">
             <!-- One grid shared through subgrid, so Objetivo grows to its longest label and stays aligned with its header.
-                 A subgrid's padding comes out of its edge tracks: 36px = 24px + pl-3, 50px = 44px + pr-1.5. -->
-            <div class="grid grid-cols-[36px_minmax(0,1fr)_minmax(72px,max-content)_50px] gap-x-1.5">
+                 A subgrid's padding comes out of its edge tracks: 36px = 24px + pl-3, 50px = 44px handle + pr-1.5.
+                 The grid is also the drop list: rows are dragged by their ≡ handle and only move vertically. -->
             <div
-              class="col-span-4 grid grid-cols-subgrid pt-2.5 pb-1.5 pl-3 pr-1.5 text-[10px] leading-3 font-semibold tracking-[0.06em] uppercase text-ink-2 border-b border-line"
+              class="grid grid-cols-[36px_minmax(0,1fr)_minmax(72px,max-content)_44px_50px] gap-x-1.5"
+              cdkDropList
+              cdkDropListLockAxis="y"
+              (cdkDropListDropped)="onDrop($event)"
+            >
+            <div
+              class="col-span-5 grid grid-cols-subgrid pt-2.5 pb-1.5 pl-3 pr-1.5 text-[10px] leading-3 font-semibold tracking-[0.06em] uppercase text-ink-2 border-b border-line"
               aria-hidden="true"
             >
-              <span>#</span><span>Ejercicio</span><span>Objetivo</span><span></span>
+              <span>#</span><span>Ejercicio</span><span>Objetivo</span><span></span><span></span>
             </div>
             @for (exercise of day()?.exercises ?? []; track exercise.exerciseId; let i = $index) {
               @let expanded = expandedExerciseId() === exercise.exerciseId;
               <div
                 data-exercise-row
-                class="col-span-4 grid grid-cols-subgrid border-b border-line-soft last:border-b-0"
+                cdkDrag
+                (cdkDragStarted)="onDragStarted()"
+                class="col-span-5 grid grid-cols-subgrid bg-surface border-b border-line-soft last:border-b-0"
                 [class.bg-accent-soft]="expanded"
               >
                 <button
                   type="button"
-                  class="col-span-4 grid grid-cols-subgrid items-center min-h-[48px] pl-3 pr-1.5 text-left"
+                  class="col-span-4 grid grid-cols-subgrid items-center min-h-[48px] pl-3 text-left"
                   [attr.aria-label]="'Editar series de ' + exercise.exerciseName"
                   [attr.aria-expanded]="expanded"
                   (click)="toggleExpand(exercise.exerciseId)"
@@ -204,9 +229,30 @@ function formatRest(seconds: number): string {
                     <fg-icon name="chevron-down" [size]="18"></fg-icon>
                   </span>
                 </button>
+                <button
+                  type="button"
+                  cdkDragHandle
+                  class="w-11 min-h-[48px] self-stretch flex items-center justify-center text-ink-2 touch-none cursor-grab"
+                  [attr.aria-label]="'Mover ' + exercise.exerciseName"
+                >
+                  <fg-icon name="grip" [size]="18"></fg-icon>
+                </button>
+
+                <!-- While dragging: the slot left in the list, and a flat copy of the row under the finger
+                     (the real row is a subgrid item and loses its columns outside the grid). -->
+                <div *cdkDragPlaceholder class="col-span-5 min-h-[48px] bg-accent-soft border-y border-dashed border-accent"></div>
+                <ng-template cdkDragPreview [matchSize]="true">
+                  <div class="flex items-center gap-3 min-h-[48px] pl-3 pr-1.5 rounded-xl bg-surface border border-accent shadow-lg text-ink">
+                    <span class="font-mono text-[13px] text-ink-2">{{ rowNumber(i) }}</span>
+                    <span class="flex-1 min-w-0 text-[15px] font-medium truncate">{{ exercise.exerciseName }}</span>
+                    <span class="w-11 h-11 flex items-center justify-center text-ink-2">
+                      <fg-icon name="grip" [size]="18"></fg-icon>
+                    </span>
+                  </div>
+                </ng-template>
 
                 @if (expanded) {
-                  <div class="col-span-4 flex flex-col gap-3 px-3 pt-1 pb-3">
+                  <div class="col-span-5 flex flex-col gap-3 px-3 pt-1 pb-3">
                     <fg-target-set-editor
                       [trackingType]="exercise.trackingType"
                       [weightUnit]="exercise.weightUnit"
@@ -266,6 +312,8 @@ export class TrainingDayEditorPage implements OnInit {
   private readonly removeExerciseFromDay = inject(RemoveExerciseFromDayUseCase);
   private readonly setTargetSets = inject(SetTargetSetsUseCase);
   private readonly setRestSeconds = inject(SetRestSecondsUseCase);
+  private readonly reorderExercises = inject(ReorderExercisesInDayUseCase);
+  private readonly toast = inject(ToastService);
   private readonly routineRepo = inject(RoutineRepository);
   private readonly restPreferences = inject(RestPreferencesService);
 
@@ -384,6 +432,31 @@ export class TrainingDayEditorPage implements OnInit {
       restSeconds,
     });
     await this.loadDay();
+  }
+
+  /** An open row would be dragged with its whole set editor: close it first. */
+  onDragStarted(): void {
+    this.expandedExerciseId.set(null);
+  }
+
+  /** Shows the new order at once and saves it in the routine; on failure, reloads the saved order. */
+  async onDrop(event: CdkDragDrop<unknown>): Promise<void> {
+    const current = this.day();
+    if (!current || event.previousIndex === event.currentIndex) return;
+
+    const exercises = [...current.exercises];
+    moveItemInArray(exercises, event.previousIndex, event.currentIndex);
+    this.day.set({ ...current, exercises: exercises.map((e, order) => ({ ...e, order })) });
+
+    try {
+      await this.reorderExercises.execute({
+        dayId: this.dayId(),
+        exerciseIds: exercises.map(e => e.exerciseId),
+      });
+    } catch {
+      this.toast.error('No se pudo cambiar el orden', 'Intentá de nuevo');
+      await this.loadDay();
+    }
   }
 
   async removeExercise(exercise: ExerciseInDayView): Promise<void> {

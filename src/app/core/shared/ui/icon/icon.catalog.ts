@@ -8,6 +8,7 @@
  *
  * Source of truth: Design/Forge/icons.jsx — 36 icons, más 4 de la barra inferior
  * del canvas C Cuaderno (clock, list, bars, person), copiados del tablero C-Hoy.
+ * Más `grip`, la manija ≡ para arrastrar y reordenar ejercicios.
  * DO NOT edit the first 36 values without updating the source design file.
  */
 export const ICONS = {
@@ -58,6 +59,9 @@ export const ICONS = {
   list:     'M9 6h11 M9 12h11 M9 18h11 M4 6h.01 M4 12h.01 M4 18h.01',
   bars:     'M4 20V10 M10 20V4 M16 20v-7 M22 20H2',
   person:   'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6',
+
+  /* ── Reordenar (manija ≡ para arrastrar) ─────────────────────────── */
+  grip:     'M5 8h14 M5 12h14 M5 16h14',
 } as const;
 
 export type IconName = keyof typeof ICONS;
