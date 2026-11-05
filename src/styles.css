@@ -166,10 +166,10 @@ html { background: rgb(var(--color-page)); overscroll-behavior-y: none; }
 }
 
 /* ─── Reordenar con arrastre (@angular/cdk drag-drop) ─────────────── */
-/* Rows that make room slide instead of jumping, and the dropped row eases into its slot. */
-.cdk-drop-list-dragging .cdk-drag:not(.cdk-drag-placeholder),
-.cdk-drag-animating { transition: transform 200ms cubic-bezier(0, 0, 0.2, 1); }
+/* Rows that make room slide instead of jumping. No transition on .cdk-drag-animating on purpose:
+   CDK waits for that drop animation before emitting `dropped`, and tapping "Listo" in the session
+   during that wait closed the list and lost the new order. */
+.cdk-drop-list-dragging .cdk-drag:not(.cdk-drag-placeholder) { transition: transform 200ms cubic-bezier(0, 0, 0.2, 1); }
 @media (prefers-reduced-motion: reduce) {
-  .cdk-drop-list-dragging .cdk-drag:not(.cdk-drag-placeholder),
-  .cdk-drag-animating { transition: none; }
+  .cdk-drop-list-dragging .cdk-drag:not(.cdk-drag-placeholder) { transition: none; }
 }

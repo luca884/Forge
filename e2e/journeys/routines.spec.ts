@@ -3,6 +3,7 @@ import {
   seedExercises,
   seedRoutines,
   seedTrainingDays,
+  waitForStoredDayOrder,
 } from '../fixtures/seed';
 
 // ─── J2 — Create routine ──────────────────────────────────────────────────────
@@ -261,9 +262,9 @@ test.describe('J4 — Pick exercise (full UI)', () => {
 
     const layout = await page.evaluate(() => {
       const header = Array.from(document.querySelectorAll('span')).find((s) => s.textContent === 'Objetivo')!;
-      const cells = Array.from(document.querySelectorAll('[data-exercise-row] button > [data-cell]:nth-child(3)'));
+      const cells = Array.from(document.querySelectorAll('[data-exercise-row] button[aria-expanded] > [data-cell]:nth-child(3)'));
       // Right edge of the row number's text and left edge of the exercise name, per row.
-      const numberGaps = Array.from(document.querySelectorAll('[data-exercise-row] button')).map((button) => {
+      const numberGaps = Array.from(document.querySelectorAll('[data-exercise-row] button[aria-expanded]')).map((button) => {
         const [number, name] = Array.from(button.querySelectorAll(':scope > [data-cell]'));
         const range = document.createRange();
         range.selectNodeContents(number!);
@@ -462,6 +463,7 @@ test.describe('J17 — Reordenar ejercicios en el editor de día', () => {
     await dragHandle(page, 'Mover Sentadilla', 'Mover Peso Muerto');
 
     await expect.poll(order).toEqual(['Press de banca', 'Peso Muerto', 'Sentadilla']);
+    await waitForStoredDayOrder(page, 'd-1', ['ex-2', 'ex-3', 'ex-1']);
     await page.reload();
     await page.waitForLoadState('networkidle');
     await expect.poll(order).toEqual(['Press de banca', 'Peso Muerto', 'Sentadilla']);

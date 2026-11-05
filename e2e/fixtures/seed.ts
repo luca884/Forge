@@ -158,6 +158,36 @@ async function putRows<T>(page: Page, storeName: string, rows: readonly T[]): Pr
   );
 }
 
+/**
+ * Waits until the stored training day lists `exerciseIds` in that order. For syncing only:
+ * a test that reloads right after a UI change must not abort the app's IndexedDB write.
+ * Assertions stay on the UI.
+ */
+export async function waitForStoredDayOrder(
+  page: Page,
+  dayId: string,
+  exerciseIds: readonly string[],
+): Promise<void> {
+  await page.waitForFunction(
+    async (arg: { dayId: string; exerciseIds: readonly string[] }) => {
+      const db: IDBDatabase = await new Promise((resolve, reject) => {
+        const req = indexedDB.open('forge');
+        req.onsuccess = (): void => resolve(req.result);
+        req.onerror = (): void => reject(new Error(`[wait] IDB open error: ${String(req.error)}`));
+      });
+      type StoredDay = { exercises: { exerciseId: string }[] } | undefined;
+      const day = await new Promise<StoredDay>((resolve) => {
+        const get = db.transaction('trainingDays').objectStore('trainingDays').get(arg.dayId);
+        get.onsuccess = (): void => resolve(get.result as StoredDay);
+      });
+      db.close();
+      return JSON.stringify(day?.exercises.map((e) => e.exerciseId)) === JSON.stringify(arg.exerciseIds);
+    },
+    { dayId, exerciseIds },
+    { polling: 100 },
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Public seed helpers
 // ---------------------------------------------------------------------------
