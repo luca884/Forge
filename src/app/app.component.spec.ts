@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { AppComponent } from './app.component';
 
 describe('AppComponent', () => {
@@ -23,8 +23,9 @@ describe('AppComponent', () => {
     expect(compiled.querySelector('fg-app-layout')).toBeTruthy();
   });
 
-  it('should render the bottom navigation', () => {
+  it('should render the bottom navigation once the first navigation ends', async () => {
     const fixture = TestBed.createComponent(AppComponent);
+    await TestBed.inject(Router).navigateByUrl('/');
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('fg-bottom-nav')).toBeTruthy();

@@ -19,8 +19,8 @@ const EXTRA_REST_SECONDS = 15;
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (timerService.remaining() !== null) {
-      <!-- Cuaderno: píldora de descanso en acento suave, pegada bajo el encabezado -->
-      <div class="bg-surface border-b border-line px-3 py-1.5">
+      <!-- Cuaderno: píldora de descanso en acento suave, pegada al pie de la sesión -->
+      <div class="bg-surface border-t border-line px-3 pt-1.5 pb-[max(6px,env(safe-area-inset-bottom))]">
         <div class="flex items-center gap-2 h-9 pl-3 pr-1 rounded-full bg-accent-soft text-accent-ink"
              role="timer"
              [attr.aria-label]="ariaLabel()">

@@ -677,15 +677,18 @@ test.describe('J18 — Ordenar con lista larga en la sesión', () => {
     await page.getByRole('button', { name: 'Ordenar ejercicios' }).click();
 
     const handle = await page.getByRole('button', { name: 'Mover Ejercicio 1', exact: true }).boundingBox();
-    const viewport = page.viewportSize();
-    if (!handle || !viewport) throw new Error('handle not visible');
+    // The page scrolls in the layout's content area: its bottom edge is where CDK auto-scrolls,
+    // whatever sits below it (the session hides the bottom nav).
+    const scroller = await page.locator('.app-layout__content').boundingBox();
+    if (!handle || !scroller) throw new Error('handle not visible');
+    const edge = scroller.y + scroller.height;
     const x = handle.x + handle.width / 2;
     await page.mouse.move(x, handle.y + handle.height / 2);
     await page.mouse.down();
     await page.mouse.move(x, handle.y + handle.height / 2 + 10, { steps: 5 });
-    await page.mouse.move(x, viewport.height - 90, { steps: 20 });
+    await page.mouse.move(x, edge - 20, { steps: 20 });
     await page.waitForTimeout(5000); // CDK scrolls ~2px per frame
-    await page.mouse.move(x, viewport.height - 88, { steps: 2 });
+    await page.mouse.move(x, edge - 18, { steps: 2 });
     await page.mouse.up();
 
     await waitForStoredDayOrder(page, 'day-1', [...ids.slice(1), 'ex-1']);

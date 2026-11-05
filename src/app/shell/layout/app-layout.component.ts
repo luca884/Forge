@@ -1,8 +1,15 @@
-import { Component } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Component, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRouteSnapshot, NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { CdkScrollable } from '@angular/cdk/scrolling';
+import { filter, map } from 'rxjs';
 import { BottomNavComponent } from '../navigation/bottom-nav.component';
 import { FgToastOutletComponent } from '@core/shared/ui';
+
+/** Deepest active route: route `data` is not inherited by lazy children, so read the leaf. */
+function leaf(route: ActivatedRouteSnapshot): ActivatedRouteSnapshot {
+  return route.firstChild ? leaf(route.firstChild) : route;
+}
 
 @Component({
   selector: 'fg-app-layout',
@@ -14,9 +21,11 @@ import { FgToastOutletComponent } from '@core/shared/ui';
       <main class="app-layout__content" cdkScrollable>
         <router-outlet />
       </main>
-      <footer class="app-layout__footer">
-        <fg-bottom-nav />
-      </footer>
+      @if (hideBottomNav() === false) {
+        <footer class="app-layout__footer">
+          <fg-bottom-nav />
+        </footer>
+      }
       <fg-toast-outlet />
     </div>
   `,
@@ -41,4 +50,19 @@ import { FgToastOutletComponent } from '@core/shared/ui';
     }
   `,
 })
-export class AppLayoutComponent {}
+export class AppLayoutComponent {
+  private readonly router = inject(Router);
+
+  /**
+   * A route opts out of the bottom nav with `data: { hideBottomNav: true }`. Null until the first
+   * navigation ends: the layout is created before the route is known, and showing the nav by default
+   * would flash it on a reload of a route that hides it.
+   */
+  readonly hideBottomNav = toSignal(
+    this.router.events.pipe(
+      filter((e) => e instanceof NavigationEnd),
+      map(() => leaf(this.router.routerState.snapshot.root).data['hideBottomNav'] === true),
+    ),
+    { initialValue: null },
+  );
+}

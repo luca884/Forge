@@ -37,6 +37,8 @@ export default [
         path: 'session',
         loadComponent: () =>
           import('./pages/training-session.page').then(m => m.TrainingSessionPage),
+        // Focus mode: "Minimizar" is the way out, and the rest timer takes the nav's place.
+        data: { hideBottomNav: true },
       },
       {
         path: 'session/summary',
