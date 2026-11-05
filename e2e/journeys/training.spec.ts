@@ -640,3 +640,51 @@ test.describe('J18 — Ordenar ejercicios en la sesión', () => {
       .toEqual(['Mover Curl', 'Mover Sentadilla', 'Mover Remo']);
   });
 });
+
+test.describe('J18 — Ordenar con lista larga en la sesión', () => {
+  test('J18.2 — con 16 ejercicios, arrastrar el primero al borde de abajo desplaza la lista y llega al último lugar', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    const now = new Date();
+    const ids = Array.from({ length: 16 }, (_, i) => `ex-${i + 1}`);
+    await seedExercises(
+      page,
+      ids.map((id, i) => ({ id, name: `Ejercicio ${i + 1}`, muscleGroup: 'legs', trackingType: 'weight-reps', isCustom: false, createdAt: now, updatedAt: now })),
+    );
+    await seedRoutines(page, [
+      { id: 'rt-1', name: 'Rutina test', isActive: true, schedule: null, createdAt: now, updatedAt: now },
+    ]);
+    const target = [{ type: 'weight-reps' as const, reps: 5, weightKg: 60 }];
+    await seedTrainingDays(page, [
+      {
+        id: 'day-1',
+        routineId: 'rt-1',
+        name: 'Día 1',
+        label: 'A',
+        exercises: ids.map((exerciseId, order) => ({ exerciseId, order, targetSets: target })),
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+    await page.goto('/training');
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('button', { name: 'Empezar sesión de Día 1' }).click();
+    await page.getByRole('button', { name: 'Ordenar ejercicios' }).click();
+
+    const handle = await page.getByRole('button', { name: 'Mover Ejercicio 1', exact: true }).boundingBox();
+    const viewport = page.viewportSize();
+    if (!handle || !viewport) throw new Error('handle not visible');
+    const x = handle.x + handle.width / 2;
+    await page.mouse.move(x, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(x, handle.y + handle.height / 2 + 10, { steps: 5 });
+    await page.mouse.move(x, viewport.height - 90, { steps: 20 });
+    await page.waitForTimeout(5000); // CDK scrolls ~2px per frame
+    await page.mouse.move(x, viewport.height - 88, { steps: 2 });
+    await page.mouse.up();
+
+    await waitForStoredDayOrder(page, 'day-1', [...ids.slice(1), 'ex-1']);
+  });
+});
