@@ -7,6 +7,7 @@ import {
   seedSessions,
   seedTrainingDays,
   seedWorkedSets,
+  waitForStoredDayOrder,
   type SeedExercise,
   type SeedRoutine,
   type SeedTrainingDay,
@@ -627,6 +628,7 @@ test.describe('J18 — Ordenar ejercicios en la sesión', () => {
 
     await expect(chips).toHaveText([/Curl/, /Sentadilla/, /Remo/]);
 
+    await waitForStoredDayOrder(page, 'day-1', ['ex-3', 'ex-1', 'ex-2']);
     await page.goto('/routines/rt-1/days/day-1');
     await page.waitForLoadState('networkidle');
     await expect
