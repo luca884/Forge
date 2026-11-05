@@ -515,6 +515,49 @@ test.describe('J17 — Reordenar ejercicios en el editor de día', () => {
   });
 });
 
+test.describe('J17 — Reordenar con lista larga', () => {
+  test('J17.3 — con 16 ejercicios, arrastrar el primero al borde de abajo desplaza la pantalla y llega al último lugar', async ({ page }) => {
+    // Verifier advisory (L7): the page scrolls inside .app-layout__content, so CDK needs it as cdkScrollable.
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    const ids = Array.from({ length: 16 }, (_, i) => `ex-${i + 1}`);
+    await seedExercises(
+      page,
+      ids.map((id, i) => ({ id, name: `Ejercicio ${i + 1}`, muscleGroup: 'legs', trackingType: 'weight-reps', isCustom: false, createdAt: new Date(), updatedAt: new Date() })),
+    );
+    await seedRoutines(page, [
+      { id: 'r-1', name: 'Rutina test', isActive: true, schedule: null, createdAt: new Date(), updatedAt: new Date() },
+    ]);
+    await seedTrainingDays(page, [
+      {
+        id: 'd-1',
+        routineId: 'r-1',
+        name: 'Día largo',
+        exercises: ids.map((exerciseId, order) => ({ exerciseId, order, targetSets: [] })),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+    await page.goto('/routines/r-1/days/d-1');
+    await page.waitForLoadState('networkidle');
+
+    const handle = await page.getByRole('button', { name: 'Mover Ejercicio 1', exact: true }).boundingBox();
+    const viewport = page.viewportSize();
+    if (!handle || !viewport) throw new Error('handle not visible');
+    const x = handle.x + handle.width / 2;
+    await page.mouse.move(x, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(x, handle.y + handle.height / 2 + 10, { steps: 5 });
+    // Hold the finger just above the bottom nav so the list auto-scrolls to its end.
+    await page.mouse.move(x, viewport.height - 90, { steps: 20 });
+    await page.waitForTimeout(5000); // CDK scrolls ~2px per frame: ~3.6s to reach the end
+    await page.mouse.move(x, viewport.height - 88, { steps: 2 });
+    await page.mouse.up();
+
+    await waitForStoredDayOrder(page, 'd-1', [...ids.slice(1), 'ex-1']);
+  });
+});
+
 /** Drags a ≡ handle with small pointer steps (CDK needs real movement) and drops it just past the target row's handle. */
 async function dragHandle(page: import('@playwright/test').Page, from: string, to: string): Promise<void> {
   const a = await page.getByRole('button', { name: from }).boundingBox();

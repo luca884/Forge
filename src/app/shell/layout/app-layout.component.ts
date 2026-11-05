@@ -1,15 +1,17 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { CdkScrollable } from '@angular/cdk/scrolling';
 import { BottomNavComponent } from '../navigation/bottom-nav.component';
 import { FgToastOutletComponent } from '@core/shared/ui';
 
 @Component({
   selector: 'fg-app-layout',
   standalone: true,
-  imports: [RouterOutlet, BottomNavComponent, FgToastOutletComponent],
+  imports: [RouterOutlet, CdkScrollable, BottomNavComponent, FgToastOutletComponent],
   template: `
     <div class="app-layout">
-      <main class="app-layout__content">
+      <!-- cdkScrollable: pages scroll here, not in the window, so drag-and-drop lists auto-scroll it. -->
+      <main class="app-layout__content" cdkScrollable>
         <router-outlet />
       </main>
       <footer class="app-layout__footer">
