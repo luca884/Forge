@@ -18,7 +18,16 @@ export class DexieTrainingDayRepository extends TrainingDayRepository {
       .where('routineId')
       .equals(routineId)
       .toArray();
-    return rows.map(toTrainingDay);
+    // The index orders by id (a UUID), which is arbitrary. Days keep the order they were created in;
+    // a template creates several within one millisecond, so ties fall back to the name (A, B, C).
+    return rows
+      .map(toTrainingDay)
+      .sort(
+        (a, b) =>
+          // new Date(): IndexedDB can hand back a Date from another realm (as in Jest).
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() ||
+          a.name.localeCompare(b.name, 'es', { numeric: true }),
+      );
   }
 
   async save(day: TrainingDay): Promise<void> {
