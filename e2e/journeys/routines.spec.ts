@@ -422,10 +422,10 @@ test.describe('J6a — Auto-activate first routine', () => {
   });
 });
 
-// ─── J14 — Reordenar ejercicios del día (S3) ─────────────────────────────────
+// ─── J17 — Reordenar ejercicios del día (S3) ─────────────────────────────────
 
-test.describe('J14 — Reordenar ejercicios en el editor de día', () => {
-  test('J14.1 — arrastrar la manija ≡ cambia el orden y queda guardado al recargar', async ({ page }) => {
+test.describe('J17 — Reordenar ejercicios en el editor de día', () => {
+  test('J17.1 — arrastrar la manija ≡ cambia el orden y queda guardado al recargar', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
     await seedExercises(page, [

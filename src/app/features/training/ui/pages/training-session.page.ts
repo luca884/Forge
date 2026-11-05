@@ -1,9 +1,19 @@
 import { Component, OnDestroy, OnInit, inject, signal, computed, effect } from '@angular/core';
 import { NgClass } from '@angular/common';
 import { Router } from '@angular/router';
+import {
+  CdkDrag,
+  CdkDragHandle,
+  CdkDragPlaceholder,
+  CdkDragPreview,
+  CdkDropList,
+  moveItemInArray,
+  type CdkDragDrop,
+} from '@angular/cdk/drag-drop';
 import { Exercise } from '../../../exercises/domain/exercise.entity';
 import { ExerciseInDay } from '../../../routines/domain/training-day.entity';
 import { TrainingDayRepository } from '../../../routines/domain/training-day.repository';
+import { ReorderExercisesInDayUseCase } from '../../../routines/domain/use-cases/reorder-exercises-in-day.use-case';
 import { ExerciseRepository } from '../../../exercises/domain/exercise.repository';
 import { LogSetUseCase, LogSetInput } from '../../domain/use-cases/log-set.use-case';
 import { CompleteSessionUseCase } from '../../domain/use-cases/complete-session.use-case';
@@ -65,6 +75,11 @@ function formatHMS(totalSeconds: number): string {
     FgIconComponent,
     FgCardComponent,
     FgSkeletonComponent,
+    CdkDropList,
+    CdkDrag,
+    CdkDragHandle,
+    CdkDragPlaceholder,
+    CdkDragPreview,
   ],
   providers: [
     LogSetUseCase,
@@ -75,6 +90,7 @@ function formatHMS(totalSeconds: number): string {
     GetProgressionTargetUseCase,
     GetPreviousSessionSetsUseCase,
     ProgressionTargetCalculator,
+    ReorderExercisesInDayUseCase,
   ],
   template: `
     <div class="min-h-screen bg-page text-ink flex flex-col">
@@ -136,56 +152,103 @@ function formatHMS(totalSeconds: number): string {
         }
         @if (!initLoading()) {
           @if (exercisesWithData().length > 0) {
-            <!-- Rail: tap any exercise to focus / edit it -->
-            <div class="flex gap-2 overflow-x-auto pb-1 -mx-3 px-3" role="tablist" aria-label="Ejercicios">
-              @for (item of exercisesWithData(); track item.exercise.id) {
-                @let focused = item.exercise.id === focusedId();
-                <button
-                  type="button"
-                  role="tab"
-                  [attr.aria-selected]="focused"
-                  (click)="focus(item.exercise.id)"
-                  class="flex-shrink-0 max-w-[160px] px-3 py-2 rounded-xl text-left border transition-colors"
-                  [ngClass]="focused ? 'bg-accent-soft border-accent' : 'bg-surface border-line'"
-                >
-                  <div class="flex items-center gap-1.5">
-                    @if (isComplete(item)) {
-                      <fg-icon name="check-circle" [size]="13" class="text-accent-ink flex-shrink-0"></fg-icon>
-                    } @else {
-                      <span class="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                            [class.bg-accent]="focused"
-                            [class.bg-dash]="!focused"></span>
-                    }
-                    <span class="t-body-sm truncate"
-                          [class.text-ink]="focused"
-                          [class.text-ink-2]="!focused">
-                      {{ item.exercise.name }}
-                    </span>
-                  </div>
-                  <div class="font-mono text-[12px] leading-4 text-ink-2 tabular-nums mt-0.5">
-                    {{ loggedCountFor(item) }}/{{ item.exerciseInDay.targetSets.length }}
-                  </div>
+            @if (reordering()) {
+              <!-- Ordenar: drag the ≡ handles. The new order is saved in the routine day (S2). -->
+              <fg-card [padding]="0" data-reorder-list>
+                <div class="flex items-center justify-between h-12 pl-3 pr-1.5 border-b border-line">
+                  <h2 class="text-[15px] font-semibold">Ordenar ejercicios</h2>
+                  <button fg-button variant="secondary" size="sm" (click)="reordering.set(false)">Listo</button>
+                </div>
+                <div cdkDropList cdkDropListLockAxis="y" (cdkDropListDropped)="onReorderDrop($event)">
+                  @for (item of exercisesWithData(); track item.exercise.id; let i = $index) {
+                    <div cdkDrag class="flex items-center gap-3 min-h-[52px] pl-3 pr-1.5 border-b border-line-soft last:border-b-0">
+                      <span class="w-6 font-mono text-[13px] text-ink-2 tabular-nums">{{ rowNumber(i) }}</span>
+                      <span class="flex-1 min-w-0 flex flex-col">
+                        <span class="text-[15px] font-medium truncate">{{ item.exercise.name }}</span>
+                        <span class="font-mono text-[12px] leading-4 text-ink-2 tabular-nums">
+                          {{ loggedCountFor(item) }}/{{ item.exerciseInDay.targetSets.length }} series
+                        </span>
+                      </span>
+                      <button type="button" cdkDragHandle
+                              class="w-11 h-11 flex items-center justify-center text-ink-2 touch-none cursor-grab"
+                              [attr.aria-label]="'Mover ' + item.exercise.name">
+                        <fg-icon name="grip" [size]="18"></fg-icon>
+                      </button>
+                      <div *cdkDragPlaceholder class="min-h-[52px] bg-accent-soft border-y border-dashed border-accent"></div>
+                      <ng-template cdkDragPreview [matchSize]="true">
+                        <div class="flex items-center gap-3 min-h-[52px] pl-3 pr-1.5 rounded-xl bg-surface border border-accent shadow-lg text-ink">
+                          <span class="w-6 font-mono text-[13px] text-ink-2 tabular-nums">{{ rowNumber(i) }}</span>
+                          <span class="flex-1 min-w-0 text-[15px] font-medium truncate">{{ item.exercise.name }}</span>
+                          <span class="w-11 h-11 flex items-center justify-center text-ink-2">
+                            <fg-icon name="grip" [size]="18"></fg-icon>
+                          </span>
+                        </div>
+                      </ng-template>
+                    </div>
+                  }
+                </div>
+              </fg-card>
+            } @else {
+            <div class="flex gap-2 -mx-3 pl-3">
+              @if (exercisesWithData().length > 1) {
+                <button type="button" aria-label="Ordenar ejercicios" (click)="reordering.set(true)"
+                        class="flex-shrink-0 mb-1 w-16 flex flex-col items-center justify-center gap-0.5 rounded-xl border border-line bg-surface text-ink-2 cursor-pointer">
+                  <fg-icon name="grip" [size]="16"></fg-icon>
+                  <span class="text-[11px] leading-4 font-medium">Ordenar</span>
                 </button>
               }
-            </div>
+              <!-- Rail: tap any exercise to focus / edit it -->
+              <div class="flex flex-1 min-w-0 gap-2 overflow-x-auto pb-1 pr-3" role="tablist" aria-label="Ejercicios">
+                @for (item of exercisesWithData(); track item.exercise.id) {
+                  @let focused = item.exercise.id === focusedId();
+                  <button
+                    type="button"
+                    role="tab"
+                    [attr.aria-selected]="focused"
+                    (click)="focus(item.exercise.id)"
+                    class="flex-shrink-0 max-w-[160px] px-3 py-2 rounded-xl text-left border transition-colors"
+                    [ngClass]="focused ? 'bg-accent-soft border-accent' : 'bg-surface border-line'"
+                  >
+                    <div class="flex items-center gap-1.5">
+                      @if (isComplete(item)) {
+                        <fg-icon name="check-circle" [size]="13" class="text-accent-ink flex-shrink-0"></fg-icon>
+                      } @else {
+                        <span class="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                              [class.bg-accent]="focused"
+                              [class.bg-dash]="!focused"></span>
+                      }
+                      <span class="t-body-sm truncate"
+                            [class.text-ink]="focused"
+                            [class.text-ink-2]="!focused">
+                        {{ item.exercise.name }}
+                      </span>
+                    </div>
+                    <div class="font-mono text-[12px] leading-4 text-ink-2 tabular-nums mt-0.5">
+                      {{ loggedCountFor(item) }}/{{ item.exerciseInDay.targetSets.length }}
+                    </div>
+                  </button>
+                }
+              </div>
+              </div>
 
-            <!-- Focused exercise only -->
-            @if (focusedItem(); as item) {
-              <fg-exercise-session-card
-                [exercise]="item.exercise"
-                [targetSets]="item.exerciseInDay.targetSets"
-                [loggedSets]="store.setsByExercise().get(item.exercise.id) ?? []"
-                [sessionId]="store.activeSession()?.id ?? ''"
-                [unit]="unit()"
-                [expanded]="true"
-                [restSeconds]="item.exerciseInDay.restSeconds ?? defaultRestSeconds()"
-                [note]="item.exerciseInDay.note"
-                [progressionTargetData]="progressionTargetData()"
-                [previousSessionSets]="previousSessionSets()"
-                (setLogged)="onSetLogged($event)"
-                (setEdited)="onWorkedSetEdited($event)"
-                (setRemoved)="onWorkedSetRemoved($event)">
-              </fg-exercise-session-card>
+              <!-- Focused exercise only -->
+              @if (focusedItem(); as item) {
+                <fg-exercise-session-card
+                  [exercise]="item.exercise"
+                  [targetSets]="item.exerciseInDay.targetSets"
+                  [loggedSets]="store.setsByExercise().get(item.exercise.id) ?? []"
+                  [sessionId]="store.activeSession()?.id ?? ''"
+                  [unit]="unit()"
+                  [expanded]="true"
+                  [restSeconds]="item.exerciseInDay.restSeconds ?? defaultRestSeconds()"
+                  [note]="item.exerciseInDay.note"
+                  [progressionTargetData]="progressionTargetData()"
+                  [previousSessionSets]="previousSessionSets()"
+                  (setLogged)="onSetLogged($event)"
+                  (setEdited)="onWorkedSetEdited($event)"
+                  (setRemoved)="onWorkedSetRemoved($event)">
+                </fg-exercise-session-card>
+              }
             }
           } @else {
             <p class="t-body text-ink-2 text-center py-12">
@@ -241,6 +304,7 @@ export class TrainingSessionPage implements OnInit, OnDestroy {
   private readonly prRepo = inject(PersonalRecordRepository);
   private readonly toast = inject(ToastService);
   private readonly restTimer = inject(RestTimerService);
+  private readonly reorderExercises = inject(ReorderExercisesInDayUseCase);
 
   /** Preferred weight unit — propagated to ExerciseSessionCard and PrCelebration (D-5, ADR-22). */
   readonly unit = this.userPrefs.unit;
@@ -255,6 +319,10 @@ export class TrainingSessionPage implements OnInit, OnDestroy {
   readonly completing = signal(false);
   readonly cancelling = signal(false);
   readonly confirmingCancel = signal(false);
+  /** True while the "Ordenar" list replaces the rail and the focused card. */
+  readonly reordering = signal(false);
+  /** Day exercises whose library entry was deleted: not shown, but kept in the day when reordering. */
+  private hiddenExerciseIds: string[] = [];
   readonly prVisible = signal(false);
   readonly latestPrSet = signal<WorkedSet | null>(null);
   readonly latestPrExerciseName = signal('');
@@ -388,12 +456,16 @@ export class TrainingSessionPage implements OnInit, OnDestroy {
       const exerciseById = new Map(allExercises.map(e => [e.id, e]));
 
       const exercisesWithData: ExerciseWithData[] = [];
+      const hidden: string[] = [];
       for (const exInDay of day.exercises) {
         const exercise = exerciseById.get(exInDay.exerciseId);
         if (exercise) {
           exercisesWithData.push({ exercise, exerciseInDay: exInDay });
+        } else {
+          hidden.push(exInDay.exerciseId);
         }
       }
+      this.hiddenExerciseIds = hidden;
       this.exercisesWithData.set(exercisesWithData);
 
       // Step-by-step: start focused on the first exercise that still has sets pending.
@@ -512,6 +584,37 @@ export class TrainingSessionPage implements OnInit, OnDestroy {
   /** Focuses an exercise (rail tap) — shows it as the single active card. */
   focus(exerciseId: string): void {
     this.focusedExerciseId.set(exerciseId);
+  }
+
+  /** Two-digit position shown in the "Ordenar" list (01, 02…), like the day editor. */
+  rowNumber(index: number): string {
+    return String(index + 1).padStart(2, '0');
+  }
+
+  /**
+   * Moves an exercise in the "Ordenar" list and saves the new order in the routine day (S2),
+   * so the next sessions of this day follow it too. Focus and logged sets are untouched.
+   * On failure the previous order comes back.
+   */
+  async onReorderDrop(event: CdkDragDrop<unknown>): Promise<void> {
+    const session = this.store.activeSession();
+    const before = this.exercisesWithData();
+    if (!session || event.previousIndex === event.currentIndex) return;
+
+    const items = [...before];
+    moveItemInArray(items, event.previousIndex, event.currentIndex);
+    this.focusedExerciseId.set(this.focusedId());
+    this.exercisesWithData.set(items);
+
+    try {
+      await this.reorderExercises.execute({
+        dayId: session.dayId,
+        exerciseIds: [...items.map((i) => i.exercise.id), ...this.hiddenExerciseIds],
+      });
+    } catch {
+      this.exercisesWithData.set(before);
+      this.toast.error('No se pudo cambiar el orden', 'Intentá de nuevo');
+    }
   }
 
   /** Logged sets count for an exercise in the current session. */

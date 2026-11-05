@@ -47,6 +47,8 @@ import { NotificationPermissionService } from '@core/notifications/notification-
 import { PrCelebrationComponent } from '../components/pr-celebration.component';
 import { ExerciseSessionCardComponent } from '../components/exercise-session-card.component';
 import { ToastService, FgSkeletonComponent } from '@core/shared/ui';
+import { CdkDropList, type CdkDragDrop } from '@angular/cdk/drag-drop';
+import { ReorderExercisesInDayUseCase } from '../../../routines/domain/use-cases/reorder-exercises-in-day.use-case';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -317,6 +319,7 @@ describe('TrainingSessionPage', () => {
           { provide: GetProgressionTargetUseCase, useValue: { execute: jest.fn().mockResolvedValue(null) } },
           { provide: GetPreviousSessionSetsUseCase, useValue: { execute: jest.fn().mockResolvedValue([]) } },
           ProgressionTargetCalculator,
+          { provide: ReorderExercisesInDayUseCase, useValue: { execute: jest.fn() } },
         ],
       },
     });
@@ -396,6 +399,7 @@ describe('TrainingSessionPage', () => {
           { provide: GetProgressionTargetUseCase, useValue: { execute: jest.fn().mockResolvedValue(null) } },
           { provide: GetPreviousSessionSetsUseCase, useValue: { execute: jest.fn().mockResolvedValue([]) } },
           ProgressionTargetCalculator,
+          { provide: ReorderExercisesInDayUseCase, useValue: { execute: jest.fn() } },
         ],
       },
     });
@@ -484,6 +488,148 @@ describe('TrainingSessionPage', () => {
     fixture.detectChanges();
 
     expect(fixture.componentInstance.focusedItem()?.exercise.id).toBe(completedId);
+  });
+
+  // --- S4: ordenar ejercicios durante la sesión (se guarda en la rutina, S2) ---
+
+  describe('S4: botón "Ordenar" junto a los chips', () => {
+    let saveDay: jest.Mock;
+
+    async function arrangeThree(opts: { withDeletedExercise?: boolean } = {}): Promise<void> {
+      const inDay = [
+        makeExerciseInDay('ex-a', 2),
+        makeExerciseInDay('ex-b', 2),
+        ...(opts.withDeletedExercise ? [makeExerciseInDay('ex-gone', 1)] : []),
+        makeExerciseInDay('ex-c', 2),
+      ];
+      saveDay = jest.fn().mockResolvedValue(undefined);
+      Object.assign(mockDayRepo, { save: saveDay });
+      mockDayRepo.getById.mockResolvedValue({ id: 'day-1', routineId: 'routine-1', name: 'Torso', exercises: inDay });
+      mockExerciseRepo.getAll.mockResolvedValue([
+        makeExercise('ex-a', 'Sentadilla'),
+        makeExercise('ex-b', 'Remo'),
+        makeExercise('ex-c', 'Curl'),
+      ]);
+      activeSessionSignal.set(makeSession());
+      setsByExerciseSignal.set(new Map<string, unknown[]>([
+        ['ex-a', [makeWorkedSet('ex-a'), makeWorkedSet('ex-a')]],
+        ['ex-b', [makeWorkedSet('ex-b')]],
+      ]));
+
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      await settle();
+    }
+
+    async function settle(): Promise<void> {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      for (let i = 0; i < 4; i++) await Promise.resolve();
+      fixture.detectChanges();
+    }
+
+    const ordenar = (): HTMLButtonElement | null =>
+      fixture.debugElement.query(By.css('button[aria-label="Ordenar ejercicios"]'))?.nativeElement ?? null;
+
+    const handles = (): string[] =>
+      fixture.debugElement
+        .queryAll(By.css('[data-reorder-list] [cdkDragHandle]'))
+        .map((h) => (h.nativeElement as HTMLElement).getAttribute('aria-label') ?? '');
+
+    const chips = (): string[] =>
+      fixture.debugElement
+        .queryAll(By.css('[role="tab"]'))
+        .map((c) => ((c.nativeElement as HTMLElement).textContent ?? '').replace(/\s+/g, ' ').trim());
+
+    function drop(previousIndex: number, currentIndex: number): void {
+      const list = fixture.debugElement.query(By.directive(CdkDropList)).injector.get(CdkDropList);
+      list.dropped.emit({ previousIndex, currentIndex } as CdkDragDrop<unknown>);
+    }
+
+    it('"Ordenar" abre la lista con una manija por ejercicio, en el orden actual, en lugar de los chips y la tarjeta', async () => {
+      await arrangeThree();
+      expect(chips()).toEqual(['Sentadilla 2/2', 'Remo 1/2', 'Curl 0/2']);
+
+      ordenar()!.click();
+      fixture.detectChanges();
+
+      expect(handles()).toEqual(['Mover Sentadilla', 'Mover Remo', 'Mover Curl']);
+      expect(chips()).toEqual([]);
+      expect(fixture.debugElement.query(By.css('fg-exercise-session-card'))).toBeNull();
+    });
+
+    it('al soltar guarda el orden nuevo en el día de la rutina; con "Listo" los chips muestran el orden nuevo y el foco y las series no cambian', async () => {
+      await arrangeThree();
+      const focusedBefore = fixture.componentInstance.focusedItem()?.exercise.id;
+      ordenar()!.click();
+      fixture.detectChanges();
+
+      drop(2, 0);
+      await settle();
+
+      expect(saveDay).toHaveBeenCalledTimes(1);
+      const saved = saveDay.mock.calls[0][0] as { id: string; exercises: { exerciseId: string; order: number }[] };
+      expect(saved.id).toBe('day-1');
+      expect(saved.exercises.map((e) => [e.exerciseId, e.order])).toEqual([['ex-c', 0], ['ex-a', 1], ['ex-b', 2]]);
+      expect(handles()).toEqual(['Mover Curl', 'Mover Sentadilla', 'Mover Remo']);
+
+      fixture.debugElement
+        .queryAll(By.css('button'))
+        .find((b) => ((b.nativeElement as HTMLElement).textContent ?? '').trim() === 'Listo')!
+        .nativeElement.click();
+      fixture.detectChanges();
+
+      expect(chips()).toEqual(['Curl 0/2', 'Sentadilla 2/2', 'Remo 1/2']);
+      expect(fixture.componentInstance.focusedItem()?.exercise.id).toBe(focusedBefore);
+      expect(fixture.debugElement.query(By.css('fg-exercise-session-card'))).not.toBeNull();
+    });
+
+    it('al soltar en la misma posición no guarda nada', async () => {
+      await arrangeThree();
+      ordenar()!.click();
+      fixture.detectChanges();
+
+      drop(1, 1);
+      await settle();
+
+      expect(saveDay).not.toHaveBeenCalled();
+    });
+
+    it('un ejercicio borrado de la biblioteca (no se muestra en la sesión) se conserva en el día al reordenar', async () => {
+      await arrangeThree({ withDeletedExercise: true });
+      ordenar()!.click();
+      fixture.detectChanges();
+
+      drop(0, 2);
+      await settle();
+
+      const saved = saveDay.mock.calls[0][0] as { exercises: { exerciseId: string }[] };
+      expect(saved.exercises.map((e) => e.exerciseId)).toEqual(['ex-b', 'ex-c', 'ex-a', 'ex-gone']);
+    });
+
+    it('si no se puede guardar el orden, vuelve al orden anterior y avisa', async () => {
+      await arrangeThree();
+      saveDay.mockRejectedValueOnce(new Error('IndexedDB'));
+      const toastError = jest.spyOn(TestBed.inject(ToastService), 'error');
+      ordenar()!.click();
+      fixture.detectChanges();
+
+      drop(0, 2);
+      await settle();
+
+      expect(handles()).toEqual(['Mover Sentadilla', 'Mover Remo', 'Mover Curl']);
+      expect(toastError).toHaveBeenCalledWith('No se pudo cambiar el orden', 'Intentá de nuevo');
+    });
+
+    it('con un solo ejercicio no muestra "Ordenar"', async () => {
+      mockDayRepo.getById.mockResolvedValue({ id: 'day-1', exercises: [makeExerciseInDay('ex-a', 2)] });
+      mockExerciseRepo.getAll.mockResolvedValue([makeExercise('ex-a', 'Sentadilla')]);
+      activeSessionSignal.set(makeSession());
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      await settle();
+
+      expect(chips()).toEqual(['Sentadilla 0/2']);
+      expect(ordenar()).toBeNull();
+    });
   });
 
   it('passes the exercise rest (or the 90 s default) and its note to the card', async () => {
@@ -634,6 +780,7 @@ describe('TrainingSessionPage', () => {
               { provide: GetProgressionTargetUseCase, useValue: { execute: jest.fn().mockResolvedValue(null) } },
               { provide: GetPreviousSessionSetsUseCase, useValue: { execute: jest.fn().mockResolvedValue([]) } },
               ProgressionTargetCalculator,
+              { provide: ReorderExercisesInDayUseCase, useValue: { execute: jest.fn() } },
             ],
           },
         })
@@ -751,6 +898,7 @@ describe('TrainingSessionPage', () => {
               { provide: GetProgressionTargetUseCase, useValue: { execute: jest.fn().mockResolvedValue(null) } },
               { provide: GetPreviousSessionSetsUseCase, useValue: { execute: jest.fn().mockResolvedValue([]) } },
               ProgressionTargetCalculator,
+              { provide: ReorderExercisesInDayUseCase, useValue: { execute: jest.fn() } },
             ],
           },
         })
@@ -828,6 +976,7 @@ describe('TrainingSessionPage', () => {
               { provide: GetProgressionTargetUseCase, useValue: { execute: jest.fn().mockResolvedValue(null) } },
               { provide: GetPreviousSessionSetsUseCase, useValue: { execute: jest.fn().mockResolvedValue([]) } },
               ProgressionTargetCalculator,
+              { provide: ReorderExercisesInDayUseCase, useValue: { execute: jest.fn() } },
             ],
           },
         })
@@ -939,6 +1088,7 @@ describe('TrainingSessionPage', () => {
               { provide: GetProgressionTargetUseCase, useValue: mockGetProgressionTarget },
               { provide: GetPreviousSessionSetsUseCase, useValue: { execute: jest.fn().mockResolvedValue([]) } },
               ProgressionTargetCalculator,
+              { provide: ReorderExercisesInDayUseCase, useValue: { execute: jest.fn() } },
             ],
           },
         })
@@ -1024,6 +1174,7 @@ describe('TrainingSessionPage', () => {
               { provide: GetProgressionTargetUseCase, useValue: { execute: jest.fn().mockResolvedValue(null) } },
               { provide: GetPreviousSessionSetsUseCase, useValue: mockGetPreviousSets },
               ProgressionTargetCalculator,
+              { provide: ReorderExercisesInDayUseCase, useValue: { execute: jest.fn() } },
             ],
           },
         })
@@ -1112,6 +1263,7 @@ describe('TrainingSessionPage', () => {
               { provide: GetProgressionTargetUseCase, useValue: { execute: jest.fn().mockResolvedValue(null) } },
               { provide: GetPreviousSessionSetsUseCase, useValue: { execute: jest.fn().mockResolvedValue([]) } },
               ProgressionTargetCalculator,
+              { provide: ReorderExercisesInDayUseCase, useValue: { execute: jest.fn() } },
             ],
           },
         })
