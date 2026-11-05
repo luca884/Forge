@@ -421,3 +421,62 @@ test.describe('J6a — Auto-activate first routine', () => {
     await expect(existing.getByRole('button', { name: 'Activar rutina Existing' })).toBeVisible();
   });
 });
+
+// ─── J14 — Reordenar ejercicios del día (S3) ─────────────────────────────────
+
+test.describe('J14 — Reordenar ejercicios en el editor de día', () => {
+  test('J14.1 — arrastrar la manija ≡ cambia el orden y queda guardado al recargar', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await seedExercises(page, [
+      { id: 'ex-1', name: 'Sentadilla', muscleGroup: 'legs', trackingType: 'weight-reps', isCustom: false, createdAt: new Date(), updatedAt: new Date() },
+      { id: 'ex-2', name: 'Press de banca', muscleGroup: 'chest', trackingType: 'weight-reps', isCustom: false, createdAt: new Date(), updatedAt: new Date() },
+      { id: 'ex-3', name: 'Peso Muerto', muscleGroup: 'back', trackingType: 'weight-reps', isCustom: false, createdAt: new Date(), updatedAt: new Date() },
+    ]);
+    await seedRoutines(page, [
+      { id: 'r-1', name: 'Rutina test', isActive: true, schedule: null, createdAt: new Date(), updatedAt: new Date() },
+    ]);
+    await seedTrainingDays(page, [
+      {
+        id: 'd-1',
+        routineId: 'r-1',
+        name: 'Día A',
+        exercises: [
+          { exerciseId: 'ex-1', order: 0, targetSets: [] },
+          { exerciseId: 'ex-2', order: 1, targetSets: [] },
+          { exerciseId: 'ex-3', order: 2, targetSets: [] },
+        ],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+
+    await page.goto('/routines/r-1/days/d-1');
+    await page.waitForLoadState('networkidle');
+    const order = (): Promise<string[]> =>
+      page
+        .getByRole('button', { name: /^Mover / })
+        .evaluateAll((handles) => handles.map((h) => (h.getAttribute('aria-label') ?? '').replace('Mover ', '')));
+    await expect.poll(order).toEqual(['Sentadilla', 'Press de banca', 'Peso Muerto']);
+
+    await dragHandle(page, 'Mover Sentadilla', 'Mover Peso Muerto');
+
+    await expect.poll(order).toEqual(['Press de banca', 'Peso Muerto', 'Sentadilla']);
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await expect.poll(order).toEqual(['Press de banca', 'Peso Muerto', 'Sentadilla']);
+  });
+});
+
+/** Drags a ≡ handle with small pointer steps (CDK needs real movement) and drops it just past the target row's handle. */
+async function dragHandle(page: import('@playwright/test').Page, from: string, to: string): Promise<void> {
+  const a = await page.getByRole('button', { name: from }).boundingBox();
+  const b = await page.getByRole('button', { name: to }).boundingBox();
+  if (!a || !b) throw new Error('handle not visible');
+  const x = a.x + a.width / 2;
+  await page.mouse.move(x, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(x, a.y + a.height / 2 + 10, { steps: 5 });
+  await page.mouse.move(x, b.y + b.height / 2 + 8, { steps: 20 });
+  await page.mouse.up();
+}

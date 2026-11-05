@@ -11,6 +11,9 @@ import { EditTrainingDayUseCase } from '../../domain/use-cases/edit-training-day
 import { RemoveExerciseFromDayUseCase } from '../../domain/use-cases/remove-exercise-from-day.use-case';
 import { SetTargetSetsUseCase } from '../../domain/use-cases/set-target-sets.use-case';
 import { SetRestSecondsUseCase } from '../../domain/use-cases/set-rest-seconds.use-case';
+import { ReorderExercisesInDayUseCase } from '../../domain/use-cases/reorder-exercises-in-day.use-case';
+import { CdkDropList, type CdkDragDrop } from '@angular/cdk/drag-drop';
+import { ToastService } from '@core/shared/ui';
 import { TargetSet } from '../../domain/target-set';
 import { RoutineRepository } from '../../domain/routine.repository';
 import { Routine } from '../../domain/routine.entity';
@@ -78,6 +81,7 @@ function makeFixture(opts: {
   removeSpy: jest.Mock;
   setTargetSetsSpy: jest.Mock;
   setRestSecondsSpy: jest.Mock;
+  reorderSpy: jest.Mock;
 } {
   const navigateSpy = jest.fn().mockResolvedValue(true);
   const getDayViewSpy = jest.fn().mockResolvedValue(
@@ -87,6 +91,7 @@ function makeFixture(opts: {
   const removeSpy = jest.fn().mockResolvedValue(undefined);
   const setTargetSetsSpy = jest.fn().mockResolvedValue(undefined);
   const setRestSecondsSpy = jest.fn().mockResolvedValue(undefined);
+  const reorderSpy = jest.fn().mockResolvedValue(undefined);
   const routineRepo = { getById: jest.fn().mockResolvedValue(routine) };
 
   const paramMap = {
@@ -127,13 +132,17 @@ function makeFixture(opts: {
             provide: SetRestSecondsUseCase,
             useValue: { execute: setRestSecondsSpy },
           },
+          {
+            provide: ReorderExercisesInDayUseCase,
+            useValue: { execute: reorderSpy },
+          },
         ],
       },
     })
     .compileComponents();
 
   const fixture = TestBed.createComponent(TrainingDayEditorPage);
-  return { fixture, navigateSpy, getDayViewSpy, editSpy, removeSpy, setTargetSetsSpy, setRestSecondsSpy };
+  return { fixture, navigateSpy, getDayViewSpy, editSpy, removeSpy, setTargetSetsSpy, setRestSecondsSpy, reorderSpy };
 }
 
 // ---- Tests ----
@@ -610,6 +619,86 @@ describe('TrainingDayEditorPage', () => {
       TestBed.inject(RestPreferencesService).setDefaultSeconds(150);
 
       expect(restPlaceholder(fixture)).toBe('150');
+    });
+  });
+
+  describe('S3: ordenar ejercicios arrastrando la manija', () => {
+    const view = makeView({
+      exercises: [
+        { exerciseId: 'ex-1', exerciseName: 'Squat', order: 0, targetSets: [], trackingType: 'weight-reps' },
+        { exerciseId: 'ex-2', exerciseName: 'Row', order: 1, targetSets: [], trackingType: 'weight-reps' },
+        { exerciseId: 'ex-3', exerciseName: 'Curl', order: 2, targetSets: [], trackingType: 'weight-reps' },
+      ],
+    });
+
+    function drop(fixture: ComponentFixture<TrainingDayEditorPage>, previousIndex: number, currentIndex: number): void {
+      const list = fixture.debugElement.query(By.directive(CdkDropList)).injector.get(CdkDropList);
+      list.dropped.emit({ previousIndex, currentIndex } as CdkDragDrop<unknown>);
+    }
+
+    function rows(fixture: ComponentFixture<TrainingDayEditorPage>): string[] {
+      return fixture.debugElement
+        .queryAll(By.css('[data-exercise-row] [data-cell]'))
+        .map((c) => ((c.nativeElement as HTMLElement).textContent ?? '').trim())
+        .filter((_, i) => i % 3 < 2);
+    }
+
+    it('cada fila tiene una manija ≡ con nombre accesible', async () => {
+      const { fixture } = makeFixture({ view });
+      await flush(fixture);
+
+      const handles = fixture.debugElement
+        .queryAll(By.css('[data-exercise-row] [cdkDragHandle]'))
+        .map((h) => (h.nativeElement as HTMLElement).getAttribute('aria-label'));
+      expect(handles).toEqual(['Mover Squat', 'Mover Row', 'Mover Curl']);
+    });
+
+    it('al soltar en otra posición guarda el orden nuevo en la rutina y renumera las filas', async () => {
+      const { fixture, reorderSpy } = makeFixture({ view });
+      await flush(fixture);
+
+      drop(fixture, 0, 2);
+      await flush(fixture);
+
+      expect(reorderSpy).toHaveBeenCalledWith({ dayId: 'd-1', exerciseIds: ['ex-2', 'ex-3', 'ex-1'] });
+      expect(rows(fixture)).toEqual(['01', 'Row', '02', 'Curl', '03', 'Squat']);
+    });
+
+    it('al soltar en la misma posición no guarda nada', async () => {
+      const { fixture, reorderSpy } = makeFixture({ view });
+      await flush(fixture);
+
+      drop(fixture, 1, 1);
+      await flush(fixture);
+
+      expect(reorderSpy).not.toHaveBeenCalled();
+      expect(rows(fixture)).toEqual(['01', 'Squat', '02', 'Row', '03', 'Curl']);
+    });
+
+    it('si no se puede guardar el orden, vuelve al orden guardado y avisa', async () => {
+      const { fixture, reorderSpy, getDayViewSpy } = makeFixture({ view });
+      await flush(fixture);
+      reorderSpy.mockRejectedValueOnce(new Error('stale'));
+      const toastError = jest.spyOn(TestBed.inject(ToastService), 'error');
+
+      drop(fixture, 0, 2);
+      await flush(fixture);
+
+      expect(getDayViewSpy).toHaveBeenCalledTimes(2);
+      expect(rows(fixture)).toEqual(['01', 'Squat', '02', 'Row', '03', 'Curl']);
+      expect(toastError).toHaveBeenCalledWith('No se pudo cambiar el orden', 'Intentá de nuevo');
+    });
+
+    it('cierra el ejercicio abierto al empezar a arrastrar', async () => {
+      const { fixture } = makeFixture({ view });
+      await flush(fixture);
+      fixture.componentInstance.toggleExpand('ex-2');
+      fixture.detectChanges();
+
+      fixture.componentInstance.onDragStarted();
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.expandedExerciseId()).toBeNull();
     });
   });
 });
