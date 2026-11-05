@@ -717,6 +717,132 @@ describe('TrainingHomePage', () => {
   });
 
   // ── S8: Primer uso replaces the empty state only when there are no routines at all ──
+  describe('tira semanal accesible', () => {
+    const NAMES = { monday: 'Lunes', tuesday: 'Martes', wednesday: 'Miércoles', thursday: 'Jueves', friday: 'Viernes', saturday: 'Sábado', sunday: 'Domingo' } as const;
+    const cell = (dow: keyof typeof NAMES) => root().querySelector<HTMLElement>(`[data-week-cell="${dow}"]`)!;
+    const label = (dow: keyof typeof NAMES) => cell(dow).getAttribute('aria-label') ?? '';
+    const num = (dow: keyof typeof NAMES) => cell(dow).textContent!.replace(/\D/g, '');
+    const scheduled: Routine = { ...mockRoutine, schedule: { monday: 'd-1', wednesday: 'd-2' } } as Routine;
+
+    it('names every day in Spanish with its date, never the internal key', async () => {
+      await setup({ routine: scheduled, days: [mockDay, otherDay] });
+
+      for (const [dow, name] of Object.entries(NAMES) as [keyof typeof NAMES, string][]) {
+        expect(label(dow).startsWith(`${name} ${num(dow)}`)).toBe(true);
+        expect(label(dow)).not.toContain(dow);
+      }
+    });
+
+    it('says the scheduled day or "descanso"', async () => {
+      await setup({ routine: scheduled, days: [mockDay, otherDay] });
+
+      expect(label('monday')).toContain('día A');
+      expect(label('wednesday')).toContain('día B');
+      expect(label('tuesday')).toContain('descanso');
+    });
+
+    it('marks today and a day already trained', async () => {
+      const today = new Date();
+      const key = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      await setup({ routine: scheduled, days: [mockDay, otherDay], sessions: [completedSession('s', key, 'd-1')] });
+
+      const todayCell = root().querySelector<HTMLElement>('[data-week-cell][data-week-state="done"]')!;
+      const todayLabel = todayCell.getAttribute('aria-label') ?? '';
+      expect(todayLabel).toContain('hoy');
+      expect(todayLabel).toContain('entrenado');
+      expect(todayLabel).not.toContain('descanso');
+    });
+  });
+
+  describe('hoy ya entrenado', () => {
+    /** Local calendar day, as `completedSession` builds startedAt at local noon. */
+    function localDay(offsetDays = 0): string {
+      const d = new Date();
+      d.setDate(d.getDate() + offsetDays);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+    const hero = () => root().querySelector<HTMLElement>('[data-hero]')!;
+    const heroTitle = () => hero().querySelector('#plan-title')?.textContent?.trim();
+
+    it('on a rest day with a session done today, the hero says "Entrenado" with that day and its stats', async () => {
+      await setup({
+        days: [mockDay, otherDay],
+        suggestedDay: { day: null, reason: 'rest-day' },
+        sessions: [completedSession('s-today', localDay(), 'd-2', 40)],
+        setsBySession: { 's-today': [weightSet('a', 's-today', 100, 10), weightSet('b', 's-today', 50, 10)] },
+      });
+
+      expect(hero().textContent).toContain('Entrenado');
+      expect(heroTitle()).toBe('Torso');
+      expect(hero().textContent).toContain('40 min · 1500 kg · 2 series');
+      expect(hero().textContent).not.toContain('Día de descanso');
+    });
+
+    it('on a scheduled day already done, it no longer offers "Empezá" for it', async () => {
+      await setup({
+        days: [mockDay, otherDay],
+        suggestedDay: { day: mockDay, reason: 'scheduled' },
+        sessions: [completedSession('s-today', localDay(), 'd-1', 52)],
+      });
+
+      expect(hero().textContent).toContain('Entrenado');
+      expect(heroTitle()).toBe('Piernas');
+      expect(hero().querySelector('[aria-label="Empezar sesión de Piernas"]')).toBeNull();
+      expect(hero().querySelector('[data-plan-row]')).toBeNull();
+    });
+
+    it('"Días de la rutina" lists every day again, so another one can be started', async () => {
+      await setup({
+        days: [mockDay, otherDay],
+        suggestedDay: { day: mockDay, reason: 'scheduled' },
+        sessions: [completedSession('s-today', localDay(), 'd-1')],
+      });
+
+      const list = root().querySelector('[data-days-list]')!;
+      expect(list.textContent).toContain('Días de la rutina');
+      const buttons = Array.from(list.querySelectorAll('button')).map((b) => b.getAttribute('aria-label'));
+      expect(buttons).toEqual(['Empezar sesión de Piernas', 'Empezar sesión de Torso']);
+    });
+
+    it('"Entrenar otro día" takes you to the days list', async () => {
+      await setup({
+        suggestedDay: { day: mockDay, reason: 'scheduled' },
+        sessions: [completedSession('s-today', localDay(), 'd-1')],
+      });
+      const list = root().querySelector<HTMLElement>('[data-days-list]')!;
+      const scrollSpy = jest.fn();
+      list.scrollIntoView = scrollSpy;
+
+      const link = Array.from(hero().querySelectorAll('button')).find(
+        (b) => b.textContent?.trim() === 'Entrenar otro día',
+      )!;
+      link.click();
+
+      expect(scrollSpy).toHaveBeenCalled();
+    });
+
+    it('a session from yesterday does not count as today', async () => {
+      await setup({
+        suggestedDay: { day: null, reason: 'rest-day' },
+        sessions: [completedSession('s-yday', localDay(-1), 'd-1')],
+      });
+
+      expect(heroTitle()).toBe('Día de descanso');
+      expect(hero().textContent).not.toContain('Entrenado');
+    });
+
+    it('with two sessions today, it shows the latest', async () => {
+      const first = completedSession('s-am', localDay(), 'd-1', 30);
+      const second = completedSession('s-pm', localDay(), 'd-2', 45);
+      second.startedAt = new Date(first.startedAt.getTime() + 3 * 3_600_000);
+      second.endedAt = new Date(second.startedAt.getTime() + 45 * 60_000);
+      await setup({ suggestedDay: { day: mockDay, reason: 'scheduled' }, sessions: [first, second] });
+
+      expect(heroTitle()).toBe('Torso');
+      expect(hero().textContent).toContain('45 min');
+    });
+  });
+
   describe('Primer uso (S8)', () => {
     function firstUse(): HTMLElement | null {
       return root().querySelector('fg-first-use');
