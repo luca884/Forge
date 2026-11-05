@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Router } from '@angular/router';
 import { Routine } from '../../../routines/domain/routine.entity';
@@ -37,10 +37,10 @@ interface WeekCell {
   label: string;
   /** Day of the month, e.g. "27" */
   num: string;
-  /** TrainingDay.label for days in schedule, null for rest days */
-  dayLabel: string | null;
   isToday: boolean;
   state: WeekCellState;
+  /** Screen reader text, e.g. "Jueves 5, hoy, día A, entrenado" */
+  ariaLabel: string;
 }
 
 interface PlanRow {
@@ -245,7 +245,7 @@ function formatTarget(sets: readonly TargetSet[]): string {
                 <div
                   [attr.data-week-cell]="cell.dow"
                   [attr.data-week-state]="cell.state"
-                  [attr.aria-label]="cell.dow + (cell.dayLabel ? ', día ' + cell.dayLabel : ', descanso')"
+                  [attr.aria-label]="cell.ariaLabel"
                 >
                   <div
                     class="flex flex-col items-center gap-1 py-1.5 rounded-lg"
@@ -283,6 +283,10 @@ function formatTarget(sets: readonly TargetSet[]): string {
         <fg-card data-hero [padding]="0" class="flex flex-col">
           <div class="flex items-baseline justify-between gap-2 px-4 pt-3.5 pb-2.5">
             <div class="flex flex-col gap-0.5 min-w-0">
+              @if (doneToday(); as done) {
+                <span class="text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase text-accent-ink">Hoy · Entrenado</span>
+                <h2 id="plan-title" class="text-[22px] leading-7 font-semibold tracking-[-0.02em] text-ink">{{ done.day }}</h2>
+              } @else {
               @if (suggestedDay(); as s) {
                 @switch (s.reason) {
                   @case ('scheduled') {
@@ -305,6 +309,7 @@ function formatTarget(sets: readonly TargetSet[]): string {
               } @else {
                 <span class="text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase text-ink-2">Cargando</span>
               }
+              }
             </div>
             <span data-routine-card class="text-[13px] leading-[18px] text-ink-2 text-right">{{ activeRoutine()!.name }}</span>
           </div>
@@ -312,6 +317,13 @@ function formatTarget(sets: readonly TargetSet[]): string {
             <p data-routine-description class="-mt-1 px-4 pb-2.5 text-[13px] leading-[18px] text-ink-2">{{ activeRoutine()!.description }}</p>
           }
 
+          @if (doneToday(); as done) {
+            <div class="flex items-center justify-between gap-3 px-4 pb-4">
+              <span class="font-mono tabular-nums text-[13px] text-ink-2">{{ done.stats }}</span>
+              <button type="button" class="text-[13px] font-medium text-accent-ink min-h-11 px-1 cursor-pointer"
+                      (click)="scrollToDays()">Entrenar otro día</button>
+            </div>
+          } @else {
           @if (suggestedDay(); as s) {
             @switch (s.reason) {
               @case ('scheduled') {
@@ -354,6 +366,7 @@ function formatTarget(sets: readonly TargetSet[]): string {
                 </div>
               }
             }
+          }
           }
         </fg-card>
 
@@ -458,6 +471,7 @@ export class TrainingHomePage implements OnInit {
   private readonly getLastSetUseCase = inject(GetLastWorkedSetForExerciseUseCase);
   private readonly userPrefs = inject(UserPreferencesService);
   private readonly weightPipe = new DisplayWeightPipe();
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly activeRoutine = signal<Routine | null>(null);
   /**
@@ -513,13 +527,21 @@ export class TrainingHomePage implements OnInit {
           : day
             ? 'planned'
             : 'rest';
+      const ariaLabel = [
+        `${WEEKDAYS_ES[date.getDay()]} ${date.getDate()}`,
+        isToday ? 'hoy' : null,
+        day ? `día ${day.label || day.name}` : state === 'done' ? null : 'descanso',
+        state === 'done' ? 'entrenado' : null,
+      ]
+        .filter((part): part is string => part !== null)
+        .join(', ');
       return {
         dow,
         label: DOW_LABELS[dow],
         num: String(date.getDate()),
-        dayLabel: day?.label ?? null,
         isToday,
         state,
+        ariaLabel,
       };
     });
   });
@@ -549,13 +571,33 @@ export class TrainingHomePage implements OnInit {
     (this.suggestedDay()?.day?.exercises ?? []).reduce((acc, ex) => acc + ex.targetSets.length, 0),
   );
 
-  /** Days under "Otros días": every day of the routine except today's suggestion. */
-  readonly listedDays = computed(() => {
-    const todayId = this.suggestedDay()?.day?.id;
-    return this.trainingDays().filter((d) => d.id !== todayId);
+  /**
+   * Today's latest completed session, as its "Diario" row. When set, the hero says it is done
+   * instead of offering the scheduled day (or calling today a rest day).
+   */
+  readonly doneToday = computed<JournalRow | null>(() => {
+    const latest = this.completedSessions()[0];
+    if (!latest || toLocalDateKey(latest.startedAt) !== toLocalDateKey(new Date())) return null;
+    return this.journal().find((row) => row.id === latest.id) ?? null;
   });
 
-  readonly daysListTitle = computed(() => (this.suggestedDay()?.day ? 'Otros días' : 'Días de la rutina'));
+  /** The day offered in the hero, if any: none once today is done. */
+  private readonly heroDayId = computed(() => (this.doneToday() ? undefined : this.suggestedDay()?.day?.id));
+
+  /** Days under "Otros días": every day of the routine except the one the hero offers. */
+  readonly listedDays = computed(() => {
+    const heroId = this.heroDayId();
+    return this.trainingDays().filter((d) => d.id !== heroId);
+  });
+
+  readonly daysListTitle = computed(() => (this.heroDayId() ? 'Otros días' : 'Días de la rutina'));
+
+  /** "Entrenar otro día": the days list already starts any day. */
+  scrollToDays(): void {
+    this.host.nativeElement
+      .querySelector<HTMLElement>('[data-days-list]')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   private readonly journalEntries = signal<JournalEntry[]>([]);
 
