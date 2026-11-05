@@ -57,6 +57,24 @@ describe('DexieTrainingDayRepository', () => {
     expect(result).toHaveLength(2);
   });
 
+  it('returns a routine\'s days in creation order, whatever their ids', async () => {
+    // Ids are UUIDs: the index order of (routineId, id) is arbitrary.
+    await repo.save(makeDay({ id: 'zzz', name: 'A', createdAt: new Date('2024-01-01T10:00:00Z') }));
+    await repo.save(makeDay({ id: 'aaa', name: 'B', createdAt: new Date('2024-01-01T10:00:01Z') }));
+    await repo.save(makeDay({ id: 'mmm', name: 'C', createdAt: new Date('2024-01-01T10:00:02Z') }));
+
+    expect((await repo.getByRoutineId('r1')).map((d) => d.name)).toEqual(['A', 'B', 'C']);
+  });
+
+  it('breaks creation-time ties by name, as a template creates its days within the same millisecond', async () => {
+    const same = new Date('2024-01-01T10:00:00Z');
+    await repo.save(makeDay({ id: 'c1', name: 'Día 10', createdAt: same }));
+    await repo.save(makeDay({ id: 'a1', name: 'Día 2', createdAt: same }));
+    await repo.save(makeDay({ id: 'b1', name: 'Día 1', createdAt: same }));
+
+    expect((await repo.getByRoutineId('r1')).map((d) => d.name)).toEqual(['Día 1', 'Día 2', 'Día 10']);
+  });
+
   it('should upsert on repeated save with same id', async () => {
     const day = makeDay();
     await repo.save(day);
