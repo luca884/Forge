@@ -15,7 +15,8 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
-  sm: 'h-9 px-3 text-[13px]',
+  // 36 px tall: touch-target keeps that look but takes taps in 44 px.
+  sm: 'h-9 px-3 text-[13px] touch-target',
   md: 'h-11 px-4 text-[15px]',
   lg: 'h-14 px-5 text-[17px]',
 };

@@ -166,7 +166,7 @@ export class PRListPage implements OnInit {
   }
 
   protected filterClass(f: PRFilter): string {
-    return `h-[30px] px-2.5 border-0 rounded-md text-xs cursor-pointer ${
+    return `h-[30px] px-2.5 border-0 rounded-md text-xs cursor-pointer touch-target-y ${
       this.activeFilter() === f ? 'bg-accent-soft text-accent-ink font-semibold' : 'bg-transparent text-ink-2 font-medium'
     }`;
   }

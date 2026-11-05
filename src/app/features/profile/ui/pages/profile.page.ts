@@ -67,7 +67,7 @@ function localDateStamp(date: Date): string {
                   type="button"
                   role="radio"
                   [attr.aria-checked]="appearance.theme() === option.id"
-                  class="h-8 px-3 rounded-sm text-[13px]"
+                  class="h-8 px-3 rounded-sm text-[13px] touch-target-y"
                   [class]="appearance.theme() === option.id
                     ? 'bg-surface text-accent-ink font-semibold'
                     : 'bg-transparent text-ink-2 font-medium'"
@@ -85,7 +85,7 @@ function localDateStamp(date: Date): string {
                   role="radio"
                   [attr.aria-checked]="appearance.accent() === option.id"
                   [attr.aria-label]="option.label"
-                  class="w-10 h-10 rounded-full flex items-center justify-center"
+                  class="w-10 h-10 rounded-full flex items-center justify-center touch-target"
                   (click)="appearance.setAccent(option.id)"
                 >
                   <span
@@ -116,7 +116,7 @@ function localDateStamp(date: Date): string {
                   type="button"
                   role="radio"
                   [attr.aria-checked]="unit() === option"
-                  class="h-8 min-w-11 px-2.5 rounded-sm font-mono text-[13px]"
+                  class="h-8 min-w-11 px-2.5 rounded-sm font-mono text-[13px] touch-target-y"
                   [class]="unit() === option ? 'bg-surface text-accent-ink font-medium' : 'bg-transparent text-ink-2'"
                   (click)="onUnitChange(option)"
                 >{{ option }}</button>
@@ -178,7 +178,7 @@ function localDateStamp(date: Date): string {
               aria-label="Pantalla siempre encendida"
               [attr.aria-checked]="wakeLock.enabled()"
               [disabled]="!wakeLock.supported"
-              class="w-[46px] h-7 flex-none rounded-full p-[3px] flex disabled:opacity-40"
+              class="w-[46px] h-7 flex-none rounded-full p-[3px] flex touch-target disabled:opacity-40"
               [class]="wakeLock.enabled() ? 'bg-accent justify-end' : 'bg-dash justify-start'"
               (click)="wakeLock.setEnabled(!wakeLock.enabled())"
             >
@@ -197,7 +197,7 @@ function localDateStamp(date: Date): string {
                 role="switch"
                 aria-label="Aviso al terminar el descanso"
                 [attr.aria-checked]="rest.alertOnEnd()"
-                class="w-[46px] h-7 flex-none rounded-full p-[3px] flex"
+                class="w-[46px] h-7 flex-none rounded-full p-[3px] flex touch-target"
                 [class]="rest.alertOnEnd() ? 'bg-accent justify-end' : 'bg-dash justify-start'"
                 (click)="rest.setAlertOnEnd(!rest.alertOnEnd())"
               >

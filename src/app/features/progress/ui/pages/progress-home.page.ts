@@ -95,7 +95,7 @@ import {
               <h2 id="records-title" class="m-0 text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase text-ink-2">Récords personales</h2>
               <button
                 type="button"
-                class="py-1 text-[13px] font-medium text-accent-ink"
+                class="py-1 text-[13px] font-medium text-accent-ink touch-target"
                 (click)="navigateToPRList()"
               >{{ seeAllLabel() }}</button>
             </div>

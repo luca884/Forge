@@ -32,13 +32,13 @@ const EXTRA_REST_SECONDS = 15;
                   [style.width.%]="remainingPct()"></span>
           </span>
           <button type="button"
-                  class="h-7 px-2.5 rounded-full border border-accent bg-surface text-accent-ink font-mono text-[12px] font-medium cursor-pointer"
+                  class="h-7 px-2.5 rounded-full border border-accent bg-surface text-accent-ink font-mono text-[12px] font-medium cursor-pointer touch-target"
                   (click)="onAddTime()"
                   aria-label="Sumar 15 segundos al descanso">
             +15s
           </button>
           <button type="button"
-                  class="h-7 px-2.5 rounded-full text-ink-2 text-[12px] font-semibold cursor-pointer"
+                  class="h-7 px-2.5 rounded-full text-ink-2 text-[12px] font-semibold cursor-pointer touch-target"
                   (click)="onSkip()"
                   aria-label="Saltar descanso">
             Saltar

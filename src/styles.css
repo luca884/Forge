@@ -22,6 +22,42 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Touch target: a small control keeps its look but takes taps in at least 44 x 44 px.
+ * The invisible ::after is centred on the control and part of it, so a tap on it is a tap on the
+ * control. A scrolling parent clips it: give that parent room (padding offset by a negative margin).
+ */
+@layer utilities {
+  .touch-target {
+    position: relative;
+  }
+
+  .touch-target::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+
+  /* Height only: for segmented controls, whose items sit side by side and must not overlap. */
+  .touch-target-y {
+    position: relative;
+  }
+
+  .touch-target-y::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: max(100%, 44px);
+    transform: translateY(-50%);
+  }
+}
+
 /* ─── Design tokens ─── */
 
 :root {

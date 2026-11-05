@@ -248,7 +248,7 @@ function pluralDays(n: number): string {
         </button>
         <button
           type="button"
-          class="h-9 px-3 rounded-lg text-[13px] font-semibold text-accent-ink"
+          class="h-9 px-3 rounded-lg text-[13px] font-semibold text-accent-ink touch-target"
           [attr.aria-label]="'Activar rutina ' + routine().name"
           (click)="activate.emit(routine())"
         >Activar</button>

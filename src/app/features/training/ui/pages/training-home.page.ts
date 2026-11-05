@@ -404,7 +404,7 @@ function formatTarget(sets: readonly TargetSet[]): string {
         <section data-journal class="flex flex-col gap-1.5">
           <div class="flex items-baseline justify-between">
             <h2 class="text-[11px] leading-[14px] font-semibold tracking-[0.08em] uppercase text-ink-2">Diario</h2>
-            <a routerLink="/progress" class="text-[13px] font-medium text-accent-ink py-1.5">Ver todo</a>
+            <a routerLink="/progress" class="text-[13px] font-medium text-accent-ink py-1.5 touch-target">Ver todo</a>
           </div>
           <fg-card [padding]="0">
             @for (row of journal(); track row.id; let last = $last) {

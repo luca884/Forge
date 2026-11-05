@@ -29,11 +29,11 @@ const MUSCLE_GROUPS: readonly MuscleGroup[] = [
     <div
       role="group"
       aria-label="Filtrar por grupo muscular"
-      class="flex gap-1.5 overflow-x-auto -mx-4 px-4 pb-1"
+      class="flex gap-1.5 overflow-x-auto -mx-4 px-4 pt-[5px] pb-[9px] -my-[5px]"
     >
       <button
         type="button"
-        class="shrink-0 h-[34px] px-3 rounded-full border text-[13px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        class="shrink-0 h-[34px] px-3 rounded-full border text-[13px] font-semibold outline-none touch-target-y focus-visible:ring-2 focus-visible:ring-accent"
         [class]="pillClasses(selected() === undefined)"
         [attr.aria-pressed]="selected() === undefined"
         (click)="pick.emit(undefined)"
@@ -41,7 +41,7 @@ const MUSCLE_GROUPS: readonly MuscleGroup[] = [
       @for (group of groups; track group) {
         <button
           type="button"
-          class="shrink-0 h-[34px] px-3 rounded-full border text-[13px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          class="shrink-0 h-[34px] px-3 rounded-full border text-[13px] font-semibold outline-none touch-target-y focus-visible:ring-2 focus-visible:ring-accent"
           [class]="pillClasses(selected() === group)"
           [attr.aria-pressed]="selected() === group"
           (click)="pick.emit(group)"

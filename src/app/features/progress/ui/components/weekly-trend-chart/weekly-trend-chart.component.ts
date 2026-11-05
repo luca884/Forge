@@ -131,11 +131,12 @@ function buildChart(
           <span class="absolute inset-x-0 top-[51px] border-t border-dashed border-line"></span>
           <div class="absolute inset-0 grid grid-flow-col auto-cols-fr items-end gap-x-1.5">
             @for (bar of chart.bars; track bar.weekStart) {
-              <!-- The whole column is the tap target; the chosen week gets a soft accent background. -->
+              <!-- The whole column is the tap target, plus half the 6 px gap on each side (::after), so
+                   a tap between bars never falls through. The chosen week gets a soft accent background. -->
               <button
                 type="button"
                 data-bar
-                class="flex h-full items-end rounded-t-sm p-0 border-0"
+                class="relative flex h-full items-end rounded-t-sm p-0 border-0 after:absolute after:inset-y-0 after:-inset-x-[3px] after:content-['']"
                 [class]="bar.weekStart === selectedWeek() ? 'bg-accent-soft' : 'bg-transparent'"
                 [attr.aria-pressed]="bar.weekStart === selectedWeek()"
                 [attr.aria-label]="bar.text"
