@@ -1074,7 +1074,7 @@ describe('TrainingSessionPage', () => {
       expect(text).toContain('Cancelar entrenamiento');
     });
 
-    it('rest timer is pinned with the header in a sticky wrapper (follows scroll)', () => {
+    it('the header is pinned at the top in a sticky wrapper (follows scroll)', () => {
       fixture = TestBed.createComponent(TrainingSessionPage);
       fixture.detectChanges();
       const sticky = (fixture.nativeElement as HTMLElement).querySelector(
@@ -1082,9 +1082,19 @@ describe('TrainingSessionPage', () => {
       );
       expect(sticky).toBeTruthy();
       expect((sticky as HTMLElement).classList.contains('sticky')).toBe(true);
-      // both the header and the rest-timer live inside the sticky wrapper
       expect(sticky!.querySelector('header')).toBeTruthy();
-      expect(sticky!.querySelector('fg-rest-timer')).toBeTruthy();
+    });
+
+    it('rest timer is pinned at the bottom, out of the top block, so it never pushes the content down', () => {
+      fixture = TestBed.createComponent(TrainingSessionPage);
+      fixture.detectChanges();
+      const host = fixture.nativeElement as HTMLElement;
+      const bottom = host.querySelector<HTMLElement>('[data-testid="session-bottom"]');
+      expect(bottom).toBeTruthy();
+      expect(bottom!.classList.contains('sticky')).toBe(true);
+      expect(bottom!.classList.contains('bottom-0')).toBe(true);
+      expect(bottom!.querySelector('fg-rest-timer')).toBeTruthy();
+      expect(host.querySelector('[data-testid="session-sticky"] fg-rest-timer')).toBeNull();
     });
 
     it('shows confirmation prompt after clicking "Cancelar entrenamiento"', () => {

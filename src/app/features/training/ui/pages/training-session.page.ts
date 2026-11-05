@@ -148,9 +148,6 @@ function formatHMS(totalSeconds: number): string {
           </div>
         </div>
       }
-
-      <!-- Rest timer — pinned right under the header -->
-      <fg-rest-timer></fg-rest-timer>
       </div>
 
       <!-- Scroll area -->
@@ -311,6 +308,12 @@ function formatHMS(totalSeconds: number): string {
           </div>
         </div>
       </main>
+
+      <!-- Rest timer — pinned at the bottom, where the nav would be: it overlays instead of
+           pushing the sets down, and +15s / Saltar stay under the thumb. -->
+      <div class="sticky bottom-0 z-10" data-testid="session-bottom">
+        <fg-rest-timer></fg-rest-timer>
+      </div>
     </div>
   `,
 })
