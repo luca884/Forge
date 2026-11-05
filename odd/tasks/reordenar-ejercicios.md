@@ -23,9 +23,9 @@ Requisitos:
 
 ## Tasks
 
-- [ ] T1 · S2, S5 · ruta: inline · Aceptación: `ReorderExercisesInDayUseCase` reordena, renumera `order` 0..n-1, conserva el resto de los campos, actualiza `updatedAt` y rechaza listas que no coinciden · Evidencia: — · Risk: none
-- [ ] T2 · S3 · ruta: inline · Aceptación: `@angular/cdk` 19.2.x instalado; `npm run build` pasa; diferencia de tamaño del bundle registrada · Evidencia: — · Risk: item 5 (dependencia nueva)
-- [ ] T3 · S1, S3 · ruta: inline · Aceptación: manija ≡ y arrastre en el editor de día; Jest + e2e · Evidencia: — · Risk: none
+- [x] T1 · S2, S5 · ruta: inline · Aceptación: `ReorderExercisesInDayUseCase` reordena, renumera `order` 0..n-1, conserva el resto de los campos, actualiza `updatedAt` y rechaza listas que no coinciden · Evidencia: RED (módulo inexistente) → GREEN 6/6, commit `7f24f3c` · Risk: none
+- [x] T2 · S3 · ruta: inline · Aceptación: `@angular/cdk` 19.2.x instalado; `npm run build` pasa; diferencia de tamaño del bundle registrada · Evidencia: `@angular/cdk@19.2.19` (peer `@angular/core ^19 || ^20`), build OK sin cambio de tamaño (Initial total 372.86 kB, aún sin importar), commit `511d6c5` · Risk: item 5 (dependencia nueva)
+- [x] T3 · S1, S3 · ruta: inline · Aceptación: manija ≡ y arrastre en el editor de día; Jest + e2e · Evidencia: Jest RED 5/5 → GREEN (editor 31/31, routines+icon 348/348); e2e J14.1 verde (escrito junto con la implementación, RED no observado); commit `c0b781c` · Risk: none
 - [ ] T4 · S1, S2, S4 · ruta: inline · Aceptación: botón "Ordenar" y lista con manijas en la sesión; Jest + e2e · Evidencia: — · Risk: none
 - [ ] T5 · S1–S5 · ruta: inline · Aceptación: suite Jest, e2e, build y capturas visuales actualizadas; prueba manual en formato iPhone · Evidencia: — · Risk: —
 
@@ -38,3 +38,4 @@ Requisitos:
 - L3 (2026-11-05) Decisión del usuario sobre reordenar durante la sesión, textual:
   > que se guarde también en la rutina
 - L4 (2026-11-05) Interacción elegida: "Arrastrar con manija ≡" (con la vista de "En la sesión: botón \"Ordenar\" junto a los chips → lista con manijas."). Ruteo caso 5 aprobado, textual: "dale]". Próximo paso: T1.
+- L5 (2026-11-05) T1–T3 hechos. El lock de npm trae ruido de metadatos (banderas `peer` y dos entradas opcionales de `chokidar` 5 bajo `@angular-eslint`) por la versión de npm; se instaló con npm 11.6.2 (el de Node 24, `.nvmrc`) y el build pasa. Ícono nuevo `grip` (≡) en el catálogo (41 íconos). `*cdkDragPreview` con `[matchSize]` no compila en AOT: se usa `<ng-template cdkDragPreview>`; Jest (JIT) no lo detecta, el build sí. Líneas del autor: ~430 (pasa de 400; single-pr, no se parte). Próximo paso: T4.
