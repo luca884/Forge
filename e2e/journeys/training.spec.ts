@@ -566,3 +566,75 @@ test.describe('J15 — Ejercicio en placas', () => {
     await expect(page.getByLabel('Peso por placa (opcional)')).toHaveValue('10');
   });
 });
+
+// ─── J18 — Ordenar ejercicios durante la sesión (S2, S4) ─────────────────────
+
+test.describe('J18 — Ordenar ejercicios en la sesión', () => {
+  test('J18.1 — "Ordenar" + arrastrar la manija cambia los chips y el orden queda guardado en la rutina', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    const now = new Date();
+    const exercise = (id: string, name: string): SeedExercise => ({
+      id,
+      name,
+      muscleGroup: 'legs',
+      trackingType: 'weight-reps',
+      isCustom: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await seedExercises(page, [exercise('ex-1', 'Sentadilla'), exercise('ex-2', 'Remo'), exercise('ex-3', 'Curl')]);
+    await seedRoutines(page, [
+      { id: 'rt-1', name: 'Rutina test', isActive: true, schedule: null, createdAt: now, updatedAt: now },
+    ]);
+    const target = [{ type: 'weight-reps' as const, reps: 5, weightKg: 60 }];
+    await seedTrainingDays(page, [
+      {
+        id: 'day-1',
+        routineId: 'rt-1',
+        name: 'Día 1',
+        label: 'A',
+        exercises: [
+          { exerciseId: 'ex-1', order: 0, targetSets: target },
+          { exerciseId: 'ex-2', order: 1, targetSets: target },
+          { exerciseId: 'ex-3', order: 2, targetSets: target },
+        ],
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+
+    await page.goto('/training');
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('button', { name: 'Empezar sesión de Día 1' }).click();
+    await expect(page).toHaveURL(/\/training\/session$/);
+    const chips = page.getByRole('tablist', { name: 'Ejercicios' }).getByRole('tab');
+    await expect(chips).toHaveText([/Sentadilla/, /Remo/, /Curl/]);
+
+    await page.getByRole('button', { name: 'Ordenar ejercicios' }).click();
+    const a = await page.getByRole('button', { name: 'Mover Curl' }).boundingBox();
+    const b = await page.getByRole('button', { name: 'Mover Sentadilla' }).boundingBox();
+    if (!a || !b) throw new Error('handle not visible');
+    const x = a.x + a.width / 2;
+    await page.mouse.move(x, a.y + a.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(x, a.y + a.height / 2 - 10, { steps: 5 });
+    await page.mouse.move(x, b.y + b.height / 2 - 8, { steps: 20 });
+    await page.mouse.up();
+    await page.getByRole('button', { name: 'Listo' }).click();
+
+    await expect(chips).toHaveText([/Curl/, /Sentadilla/, /Remo/]);
+
+    await page.goto('/routines/rt-1/days/day-1');
+    await page.waitForLoadState('networkidle');
+    await expect
+      .poll(() =>
+        page
+          .getByRole('button', { name: /^Mover / })
+          .evaluateAll((handles) => handles.map((h) => h.getAttribute('aria-label'))),
+      )
+      .toEqual(['Mover Curl', 'Mover Sentadilla', 'Mover Remo']);
+  });
+});

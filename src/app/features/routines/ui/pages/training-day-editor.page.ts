@@ -202,7 +202,7 @@ function formatRest(seconds: number): string {
                 data-exercise-row
                 cdkDrag
                 (cdkDragStarted)="onDragStarted()"
-                class="col-span-5 grid grid-cols-subgrid bg-surface border-b border-line-soft last:border-b-0"
+                class="col-span-5 grid grid-cols-subgrid border-b border-line-soft last:border-b-0"
                 [class.bg-accent-soft]="expanded"
               >
                 <button
