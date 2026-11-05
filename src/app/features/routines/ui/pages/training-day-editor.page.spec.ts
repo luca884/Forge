@@ -12,7 +12,7 @@ import { RemoveExerciseFromDayUseCase } from '../../domain/use-cases/remove-exer
 import { SetTargetSetsUseCase } from '../../domain/use-cases/set-target-sets.use-case';
 import { SetRestSecondsUseCase } from '../../domain/use-cases/set-rest-seconds.use-case';
 import { ReorderExercisesInDayUseCase } from '../../domain/use-cases/reorder-exercises-in-day.use-case';
-import { CdkDropList, type CdkDragDrop } from '@angular/cdk/drag-drop';
+import { CdkDrag, CdkDropList, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { ToastService } from '@core/shared/ui';
 import { TargetSet } from '../../domain/target-set';
 import { RoutineRepository } from '../../domain/routine.repository';
@@ -689,16 +689,27 @@ describe('TrainingDayEditorPage', () => {
       expect(toastError).toHaveBeenCalledWith('No se pudo cambiar el orden', 'Intentá de nuevo');
     });
 
-    it('cierra el ejercicio abierto al empezar a arrastrar', async () => {
+    it('con un ejercicio abierto no se puede arrastrar (manijas deshabilitadas); al cerrarlo vuelve a funcionar', async () => {
+      // Closing the open row at drag start moved the rows after CDK had measured them, so the
+      // exercise landed elsewhere (verifier blocker, L7). Dragging waits until the row is closed.
       const { fixture } = makeFixture({ view });
       await flush(fixture);
+      const state = (): { handles: boolean[]; drags: boolean[] } => ({
+        handles: fixture.debugElement
+          .queryAll(By.css('[data-exercise-row] [cdkDragHandle]'))
+          .map((h) => (h.nativeElement as HTMLButtonElement).disabled),
+        drags: fixture.debugElement
+          .queryAll(By.directive(CdkDrag))
+          .map((d) => d.injector.get(CdkDrag).disabled),
+      });
+
       fixture.componentInstance.toggleExpand('ex-2');
       fixture.detectChanges();
+      expect(state()).toEqual({ handles: [true, true, true], drags: [true, true, true] });
 
-      fixture.componentInstance.onDragStarted();
+      fixture.componentInstance.toggleExpand('ex-2');
       fixture.detectChanges();
-
-      expect(fixture.componentInstance.expandedExerciseId()).toBeNull();
+      expect(state()).toEqual({ handles: [false, false, false], drags: [false, false, false] });
     });
   });
 });

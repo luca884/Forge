@@ -468,6 +468,51 @@ test.describe('J17 — Reordenar ejercicios en el editor de día', () => {
     await page.waitForLoadState('networkidle');
     await expect.poll(order).toEqual(['Press de banca', 'Peso Muerto', 'Sentadilla']);
   });
+
+  test('J17.2 — con un ejercicio abierto las manijas no arrastran; al cerrarlo, el ejercicio cae donde se suelta', async ({ page }) => {
+    // Verifier blocker (L7): closing the open row at drag start dropped the exercise in the wrong place.
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await seedExercises(page, [
+      { id: 'ex-1', name: 'Sentadilla', muscleGroup: 'legs', trackingType: 'weight-reps', isCustom: false, createdAt: new Date(), updatedAt: new Date() },
+      { id: 'ex-2', name: 'Press de banca', muscleGroup: 'chest', trackingType: 'weight-reps', isCustom: false, createdAt: new Date(), updatedAt: new Date() },
+      { id: 'ex-3', name: 'Peso Muerto', muscleGroup: 'back', trackingType: 'weight-reps', isCustom: false, createdAt: new Date(), updatedAt: new Date() },
+    ]);
+    await seedRoutines(page, [
+      { id: 'r-1', name: 'Rutina test', isActive: true, schedule: null, createdAt: new Date(), updatedAt: new Date() },
+    ]);
+    const target = [{ type: 'weight-reps' as const, reps: 8 }];
+    await seedTrainingDays(page, [
+      {
+        id: 'd-1',
+        routineId: 'r-1',
+        name: 'Día A',
+        exercises: [
+          { exerciseId: 'ex-1', order: 0, targetSets: [...target, ...target, ...target] },
+          { exerciseId: 'ex-2', order: 1, targetSets: target },
+          { exerciseId: 'ex-3', order: 2, targetSets: target },
+        ],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+    await page.goto('/routines/r-1/days/d-1');
+    await page.waitForLoadState('networkidle');
+    const handles = page.getByRole('button', { name: /^Mover / });
+
+    await page.getByRole('button', { name: 'Editar series de Sentadilla' }).click();
+    await expect(handles).toHaveCount(3);
+    for (const handle of await handles.all()) await expect(handle).toBeDisabled();
+
+    await page.getByRole('button', { name: 'Editar series de Sentadilla' }).click();
+    for (const handle of await handles.all()) await expect(handle).toBeEnabled();
+    await dragHandle(page, 'Mover Peso Muerto', 'Mover Press de banca');
+
+    await waitForStoredDayOrder(page, 'd-1', ['ex-1', 'ex-3', 'ex-2']);
+    await expect
+      .poll(() => handles.evaluateAll((hs) => hs.map((h) => h.getAttribute('aria-label'))))
+      .toEqual(['Mover Sentadilla', 'Mover Peso Muerto', 'Mover Press de banca']);
+  });
 });
 
 /** Drags a ≡ handle with small pointer steps (CDK needs real movement) and drops it just past the target row's handle. */
