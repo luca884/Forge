@@ -183,7 +183,8 @@ function formatRest(seconds: number): string {
           <fg-card [padding]="0">
             <!-- One grid shared through subgrid, so Objetivo grows to its longest label and stays aligned with its header.
                  A subgrid's padding comes out of its edge tracks: 36px = 24px + pl-3, 50px = 44px handle + pr-1.5.
-                 The grid is also the drop list: rows are dragged by their ≡ handle and only move vertically. -->
+                 The grid is also the drop list: rows are dragged by their ≡ handle and only move vertically.
+                 While a row is open, dragging is off: closing it mid-gesture moved the rows after CDK measured them. -->
             <div
               class="grid grid-cols-[36px_minmax(0,1fr)_minmax(72px,max-content)_44px_50px] gap-x-1.5"
               cdkDropList
@@ -201,7 +202,7 @@ function formatRest(seconds: number): string {
               <div
                 data-exercise-row
                 cdkDrag
-                (cdkDragStarted)="onDragStarted()"
+                [cdkDragDisabled]="expandedExerciseId() !== null"
                 class="col-span-5 grid grid-cols-subgrid border-b border-line-soft last:border-b-0"
                 [class.bg-accent-soft]="expanded"
               >
@@ -232,7 +233,8 @@ function formatRest(seconds: number): string {
                 <button
                   type="button"
                   cdkDragHandle
-                  class="w-11 min-h-[48px] self-stretch flex items-center justify-center text-ink-2 touch-none cursor-grab"
+                  class="w-11 min-h-[48px] self-stretch flex items-center justify-center text-ink-2 touch-none cursor-grab disabled:opacity-40 disabled:cursor-default"
+                  [disabled]="expandedExerciseId() !== null"
                   [attr.aria-label]="'Mover ' + exercise.exerciseName"
                 >
                   <fg-icon name="grip" [size]="18"></fg-icon>
@@ -432,11 +434,6 @@ export class TrainingDayEditorPage implements OnInit {
       restSeconds,
     });
     await this.loadDay();
-  }
-
-  /** An open row would be dragged with its whole set editor: close it first. */
-  onDragStarted(): void {
-    this.expandedExerciseId.set(null);
   }
 
   /** Shows the new order at once and saves it in the routine; on failure, reloads the saved order. */
