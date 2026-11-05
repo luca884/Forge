@@ -63,6 +63,7 @@ const SCREENS: readonly Screen[] = [
       await page.goto('/training/session');
       await expect(page.getByText(/3 de \d+ series/)).toBeVisible();
       await page.getByRole('button', { name: 'Terminar sesión' }).click();
+      await page.getByRole('button', { name: 'Sí, terminar' }).click();
       await expect(page).toHaveURL(/\/training\/session\/summary$/);
       await expect(page.getByText('Sesión terminada')).toBeVisible();
       await expect(page.getByText('Sentadilla').first()).toBeVisible();

@@ -547,15 +547,17 @@ describe('SessionSummaryPage', () => {
 
   // --- CTA button text ---
 
-  it('CTA button shows "Guardar sesión"', async () => {
+  it('CTA says "Listo", not "Guardar sesión" (the session is already saved)', async () => {
     await setup([]);
     fixture = TestBed.createComponent(SessionSummaryPage);
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('Guardar sesión');
+    const host = fixture.nativeElement as HTMLElement;
+    const labels = Array.from(host.querySelectorAll('button')).map((b) => b.textContent?.trim());
+    expect(labels).toContain('Listo');
+    expect(host.textContent).not.toContain('Guardar sesión');
   });
 
   // --- V-D2-Spec-5: Exercise names resolved from ExerciseRepository (#585) ---
