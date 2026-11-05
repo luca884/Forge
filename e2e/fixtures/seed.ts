@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 
 /**
  * Seed helpers for Forge E2E tests.
@@ -168,24 +168,28 @@ export async function waitForStoredDayOrder(
   dayId: string,
   exerciseIds: readonly string[],
 ): Promise<void> {
-  await page.waitForFunction(
-    async (arg: { dayId: string; exerciseIds: readonly string[] }) => {
-      const db: IDBDatabase = await new Promise((resolve, reject) => {
-        const req = indexedDB.open('forge');
-        req.onsuccess = (): void => resolve(req.result);
-        req.onerror = (): void => reject(new Error(`[wait] IDB open error: ${String(req.error)}`));
-      });
-      type StoredDay = { exercises: { exerciseId: string }[] } | undefined;
-      const day = await new Promise<StoredDay>((resolve) => {
-        const get = db.transaction('trainingDays').objectStore('trainingDays').get(arg.dayId);
-        get.onsuccess = (): void => resolve(get.result as StoredDay);
-      });
-      db.close();
-      return JSON.stringify(day?.exercises.map((e) => e.exerciseId)) === JSON.stringify(arg.exerciseIds);
-    },
-    { dayId, exerciseIds },
-    { polling: 100 },
-  );
+  // expect.poll awaits each read. (page.waitForFunction with an async predicate got a Promise,
+  // which is always truthy, so it never waited — L8.)
+  await expect
+    .poll(() => readStoredDayOrder(page, dayId), { message: `stored order of ${dayId}` })
+    .toEqual([...exerciseIds]);
+}
+
+async function readStoredDayOrder(page: Page, dayId: string): Promise<string[] | null> {
+  return page.evaluate(async (id: string) => {
+    const db: IDBDatabase = await new Promise((resolve, reject) => {
+      const req = indexedDB.open('forge');
+      req.onsuccess = (): void => resolve(req.result);
+      req.onerror = (): void => reject(new Error(`[wait] IDB open error: ${String(req.error)}`));
+    });
+    type StoredDay = { exercises: { exerciseId: string }[] } | undefined;
+    const day = await new Promise<StoredDay>((resolve) => {
+      const get = db.transaction('trainingDays').objectStore('trainingDays').get(id);
+      get.onsuccess = (): void => resolve(get.result as StoredDay);
+    });
+    db.close();
+    return day ? day.exercises.map((e) => e.exerciseId) : null;
+  }, dayId);
 }
 
 // ---------------------------------------------------------------------------
