@@ -42,7 +42,7 @@ const RANGES: readonly { readonly id: HistoryRange; readonly label: string; read
 ];
 
 const SELECTOR_BUTTON =
-  'h-[30px] px-2.5 border-0 rounded-md text-xs cursor-pointer whitespace-nowrap';
+  'h-[30px] px-2.5 border-0 rounded-md text-xs cursor-pointer whitespace-nowrap touch-target-y';
 
 @Component({
   selector: 'fg-exercise-history-chart',
