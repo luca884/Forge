@@ -1,0 +1,29 @@
+# sesiones-pasadas
+
+Objetivo: abrir una sesión terminada desde el Diario y corregir o borrar sus series, con los récords recalculados · Por qué: un error de carga ("cargué 80 en vez de 60") solo se podía corregir durante la sesión y dejaba récords falsos para siempre.
+Rama: `feat/sesiones-pasadas` desde `70bbf95` · Entrega: single-pr · Runner: `npx jest` / `npx playwright test` · Mirror Engram: `odd/sesiones-pasadas/tasks` (ok) · Modelo: Opus de punta a punta (caso 5: grande y de alto riesgo, datos)
+Pronóstico: ~700 líneas cambiadas (agregadas + borradas, sin generados) · Heurística por tarea: ~400 (no es límite)
+
+## Specs
+
+Alcance: detalle de una sesión terminada (abierto desde una fila del Diario de Hoy) donde se edita el valor de una serie o se la borra; los récords del ejercicio se recalculan. · Fuera de alcance: borrar la sesión entera, agregar series, cambiar la fecha; cambiar cómo se editan series durante la sesión en curso.
+Restricciones: `EditWorkedSetUseCase`/`RemoveWorkedSetUseCase` rechazan sesiones que no están en curso (`src/app/features/training/domain/use-cases/edit-worked-set.use-case.ts:24`); la tabla `personalRecords` es append-only desde `LogSetUseCase` (`log-set.use-case.ts:56-72`); el detector compara contra el historial previo (`personal-record-detector.ts`).
+
+- S1: "Ver y corregir sesiones pasadas. No hay una pantalla de detalle de una sesión terminada. Si te equivocaste en un peso, solo lo podés corregir mientras la sesión está en curso. Un detalle con edición arregla eso, y además mantiene bien los récords." (propuesta aceptada con "dale, vamos con ver y corregir sesiones pasadas") — Aceptación: tocar una fila del Diario abre el detalle de esa sesión (día, fecha, series por ejercicio). — Checks: unit de la página, e2e.
+- S2: "Editar y borrar series (Recomendado)" — "Cambiar peso, reps o tiempo de una serie y borrar series mal cargadas; los récords del ejercicio se recalculan. Cubre el error típico (\"cargué 80 en vez de 60\") con el menor riesgo." — Aceptación: en el detalle, una serie se edita o se borra; después, `isPR` de todas las series del ejercicio y las filas de `personalRecords` del ejercicio quedan iguales a las que habría dejado cargar el historial ya corregido desde cero (en orden de `createdAt`), incluidas las series posteriores a la corregida. La escritura es todo o nada. — Checks: unit del recálculo y del store, e2e (el récord cambia en Progreso).
+- S3 (supuesto): borrar la última serie de una sesión la deja sin series (la sesión no se borra; borrar sesiones está fuera de alcance).
+- S4 (supuesto): la sesión en curso no se corrige desde el detalle (se sigue corrigiendo en la sesión); el detalle es solo para sesiones terminadas.
+
+## Tasks
+
+- [x] T1 · S2 · ruta: inline · Aceptación: `ExerciseRecordsRebuilder.rebuild(sets)` (`training/domain/services/exercise-records-rebuilder.ts`) recorre las series de un ejercicio por `createdAt` con `PersonalRecordDetector` y devuelve `isPR` por serie y los `PersonalRecord` resultantes; cubre la cascada (subir una serie vieja quita el récord de una posterior) · Evidencia: RED (módulo inexistente) → GREEN 6/6, eslint limpio · commit: feat(training): recalcular… · Risk: item 1 (decide los récords guardados)
+- [ ] T2 · S2, S3, S4 · ruta: inline · Aceptación: puerto + adaptador Dexie que aplica una corrección en una transacción (serie editada/borrada, `isPR` de las series del ejercicio, filas de `personalRecords` del ejercicio); casos de uso `CorrectPastSetUseCase` (editar/borrar) que rechazan la sesión en curso · Evidencia: — · Risk: item 1 (reescribe datos guardados)
+- [ ] T3 · S1, S2 · ruta: inline · Aceptación: filas del Diario como links a `/training/history/:sessionId`; página de detalle con el logger en modo edición; e2e: corregir un peso cambia el récord en Progreso; borrar una serie · Evidencia: — · Risk: item 1 (borra/edita datos desde la UI)
+
+## Log
+
+- L1 (2026-11-05) Pedido original, textual:
+  > hay algo para mejorar o que podemos agregar a la aplicaicon?
+  > dale, vamos con ver y corregir sesiones pasadas
+- L2 (2026-11-05) Decisión del usuario sobre el alcance (selector), textual: "Editar y borrar series (Recomendado)".
+- L3 (2026-11-05) Exploración: Diario sin interacción (`src/app/features/training/ui/pages/training-home.page.ts:404-430`); `SetLoggerComponent` ya tiene modo edición presentacional (`set-logger.component.ts:199-204`); `CancelSessionUseCase` borra PRs por `workedSetId` (`cancel-session.use-case.ts:40-50`); hoy editar una serie en curso recalcula solo su `isPR` y no toca `personalRecords` (defecto de baseline, fuera de alcance). Próximo paso: T1.
