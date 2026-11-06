@@ -70,9 +70,20 @@ describe('backup codec', () => {
     ['an invalid date', tampered((r) => (r.data.personalRecords[0].achievedAt = 'ayer'))],
     ['an invalid optional date', tampered((r) => (r.data.sessions[0].endedAt = 42))],
     ['an invalid export date', tampered((r) => (r.exportedAt = 'nunca'))],
+    ['a missing export date', tampered((r) => delete r.exportedAt)],
+    ['a null optional date', tampered((r) => (r.data.sessions[0].endedAt = null))],
+    ['version 0', tampered((r) => (r.version = 0))],
+    ['version as text', tampered((r) => (r.version = '1'))],
+    ['an empty file', ''],
+    ['a byte order mark before the JSON', '﻿' + serializeBackup(sampleBackup())],
   ])('rejects %s', (_case, text) => {
     expect(() => parseBackup(text)).toThrow(InvalidBackupError);
     expect(() => parseBackup(text)).toThrow('El archivo no es un respaldo de Forge válido.');
+  });
+
+  it('ignores tables it does not know', () => {
+    const parsed = parseBackup(tampered((r) => (r.data.otraTabla = [{ id: 'x' }])));
+    expect(Object.keys(parsed.data).sort()).toEqual([...BACKUP_TABLES].sort());
   });
 
   it('rejects a backup from a newer version of Forge with its own message', () => {
