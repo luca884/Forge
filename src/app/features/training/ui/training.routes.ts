@@ -13,6 +13,10 @@ import { PersonalRecordRepository } from '@core/shared/domain/ports/personal-rec
 import { DexiePersonalRecordRepository } from '../../progress/data/repositories/dexie-personal-record.repository';
 import { TrainingSessionStore } from './services/training-session.store';
 import { RestTimerService } from './services/rest-timer.service';
+import { CorrectPastSetUseCase } from '../domain/use-cases/correct-past-set.use-case';
+import { ExerciseRecordsRebuilder } from '../domain/services/exercise-records-rebuilder';
+import { ExerciseHistoryStore } from '../domain/exercise-history.store';
+import { DexieExerciseHistoryStore } from '../data/dexie-exercise-history.store';
 
 export default [
   {
@@ -26,6 +30,10 @@ export default [
       { provide: PersonalRecordRepository, useClass: DexiePersonalRecordRepository },
       TrainingSessionStore,
       RestTimerService,
+      // Correcting a finished session's sets (history/:sessionId).
+      CorrectPastSetUseCase,
+      ExerciseRecordsRebuilder,
+      { provide: ExerciseHistoryStore, useClass: DexieExerciseHistoryStore },
     ],
     children: [
       {
@@ -41,6 +49,12 @@ export default [
           import('./pages/training-session.page').then(m => m.TrainingSessionPage),
         // Focus mode: "Minimizar" is the way out, and the rest timer takes the nav's place.
         data: { hideBottomNav: true },
+      },
+      {
+        // A finished session from "Diario": see and correct its sets.
+        path: 'history/:sessionId',
+        loadComponent: () =>
+          import('./pages/session-detail.page').then(m => m.SessionDetailPage),
       },
       {
         path: 'session/summary',

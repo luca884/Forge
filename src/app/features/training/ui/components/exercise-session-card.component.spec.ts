@@ -431,6 +431,33 @@ describe('ExerciseSessionCardComponent', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('fg-set-logger')).toBeNull();
   });
 
+  it('a finished session (canLog false) offers no logger for new sets, but logged sets stay editable', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('targetSets', []);
+    fixture.componentRef.setInput('loggedSets', [weightRepsSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('canLog', false);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelector('fg-set-logger')).toBeNull();
+    el.querySelector<HTMLButtonElement>('button[aria-label="Editar set"]')!.click();
+    fixture.detectChanges();
+    expect(el.querySelector('fg-set-logger')).toBeTruthy();
+  });
+
+  it('without planned sets, the counter says how many sets were logged ("2 series", not "2/0")', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('targetSets', []);
+    fixture.componentRef.setInput('loggedSets', [weightRepsSet, prSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-set-counter]')!.textContent!.trim()).toBe('2 series');
+  });
+
   it('shows the set-logger while sets are still pending', () => {
     fixture = TestBed.createComponent(ExerciseSessionCardComponent);
     fixture.componentRef.setInput('exercise', mockExercise);

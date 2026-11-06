@@ -408,9 +408,10 @@ function formatTarget(sets: readonly TargetSet[]): string {
           </div>
           <fg-card [padding]="0">
             @for (row of journal(); track row.id; let last = $last) {
-              <div
+              <a
                 data-journal-row
-                class="grid grid-cols-[52px_minmax(0,1fr)_auto] gap-x-2.5 items-center px-3.5 py-2 min-h-11"
+                [routerLink]="['/training/history', row.id]"
+                class="grid grid-cols-[52px_minmax(0,1fr)_auto] gap-x-2.5 items-center px-3.5 py-2 min-h-11 text-ink no-underline"
                 [class.border-b]="!last"
                 [class.border-line-soft]="!last"
               >
@@ -425,7 +426,7 @@ function formatTarget(sets: readonly TargetSet[]): string {
                 @if (row.prLabel) {
                   <span class="font-mono text-[11px] leading-[14px] font-medium text-accent-ink border border-accent rounded px-[5px] py-0.5">{{ row.prLabel }}</span>
                 }
-              </div>
+              </a>
             } @empty {
               <p class="px-3.5 py-3 text-[15px] leading-5 text-ink-2">Todavía no terminaste ninguna sesión.</p>
             }
