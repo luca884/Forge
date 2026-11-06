@@ -59,6 +59,32 @@ test.describe('J23 — Sesiones pasadas', () => {
     expect(await recordsText(page)).not.toContain('300 kg');
   });
 
+  test('J23.3 — la sesión en curso se corrige en la sesión; una sesión que no existe lo dice', async ({ page }) => {
+    await page.clock.setFixedTime(FIXED_NOW);
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await seedVisualData(page, { activeSession: true });
+
+    await page.goto('/training/history/nope');
+    await expect(page.getByText('No encontramos esta sesión.')).toBeVisible();
+
+    const liveId = await page.evaluate(
+      () =>
+        new Promise<string>((resolve) => {
+          const open = indexedDB.open('forge');
+          open.onsuccess = () => {
+            const request = open.result.transaction('sessions').objectStore('sessions').getAll();
+            request.onsuccess = () => {
+              resolve((request.result as { id: string; status: string }[]).find((s) => s.status === 'in-progress')!.id);
+              open.result.close();
+            };
+          };
+        }),
+    );
+    await page.goto(`/training/history/${liveId}`);
+    await expect(page).toHaveURL(/\/training\/session$/);
+  });
+
   test('J23.2 — la sesión no ofrece cargar series nuevas, solo corregir las que hay', async ({ page }) => {
     await openLatestSession(page);
     await expect(page.getByRole('button', { name: 'Loguear set' })).toHaveCount(0);

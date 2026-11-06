@@ -31,7 +31,6 @@ interface ExerciseBlock {
     <section class="bg-page text-ink flex flex-col gap-3 px-4 pt-1 pb-6">
       <a
         routerLink="/training"
-        aria-label="Volver"
         class="self-start -ml-2 h-11 px-2 flex items-center gap-0.5 text-[15px] font-medium text-ink no-underline"
       >
         <fg-icon name="chevron-left" [size]="20"></fg-icon>
