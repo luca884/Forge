@@ -227,8 +227,12 @@ describe('RoutineCardComponent', () => {
 
   describe('siglas de los días', () => {
     /** Rutina activa con un día por nombre (de lunes en adelante): siglas de la tira y de la tabla. */
-    function renderedCodes(names: readonly string[]): { strip: string[]; table: string[] } {
-      const days = names.map((name, i) => makeDay(`d-${i}`, name, []));
+    function renderedCodes(
+      names: readonly (string | { name: string; label: string })[],
+    ): { strip: string[]; table: string[] } {
+      const days = names.map((n, i) =>
+        typeof n === 'string' ? makeDay(`d-${i}`, n, []) : { ...makeDay(`d-${i}`, n.name, []), label: n.label },
+      );
       const schedule = Object.fromEntries(DAYS_OF_WEEK.slice(0, days.length).map((dow, i) => [dow, `d-${i}`]));
       const card = TestBed.createComponent(RoutineCardComponent);
       card.componentRef.setInput('routine', { ...activeRoutine, schedule });
@@ -258,6 +262,29 @@ describe('RoutineCardComponent', () => {
       ];
 
       const rendered = scenarios.map(({ names }) => renderedCodes(names));
+
+      expect(rendered.map((r) => r.table)).toEqual(scenarios.map((s) => s.codes));
+      expect(rendered.map((r) => r.strip)).toEqual(scenarios.map((s) => s.codes));
+    });
+
+    it('usan la etiqueta del día cuando es corta y única en la rutina, igual que Hoy', () => {
+      const scenarios: readonly { days: (string | { name: string; label: string })[]; codes: string[] }[] = [
+        // Tal como la escribió el usuario, sin espacios alrededor.
+        { days: [{ name: 'Torso y brazos', label: 'A' }, { name: 'Torso y piernas', label: ' b ' }], codes: ['A', 'b'] },
+        // Más de 4 caracteres no entran en la columna: sigla automática.
+        { days: [{ name: 'Torso A', label: 'Fuerza' }, 'Piernas'], codes: ['TA', 'PI'] },
+        // Repetida (sin importar mayúsculas) no distingue los días: ambos usan su sigla.
+        { days: [{ name: 'Push', label: 'A' }, { name: 'Pull', label: 'a' }], codes: ['PUS', 'PUL'] },
+        // En blanco cuenta como sin etiqueta.
+        { days: [{ name: 'Torso A', label: '  ' }], codes: ['TA'] },
+        // La sigla automática de otro día esquiva las etiquetas.
+        { days: [{ name: 'Torso A', label: 'PI' }, 'Piernas'], codes: ['PI', 'PIE'] },
+        { days: [{ name: 'Torso A', label: 'TO' }, 'Torso/Pierna'], codes: ['TO', 'TOR'] },
+        // Sin más candidatas, se numera.
+        { days: [{ name: 'Torso A', label: 'AB' }, 'Ab'], codes: ['AB', 'AB2'] },
+      ];
+
+      const rendered = scenarios.map(({ days }) => renderedCodes(days));
 
       expect(rendered.map((r) => r.table)).toEqual(scenarios.map((s) => s.codes));
       expect(rendered.map((r) => r.strip)).toEqual(scenarios.map((s) => s.codes));

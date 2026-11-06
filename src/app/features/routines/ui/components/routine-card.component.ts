@@ -103,9 +103,21 @@ const claimedCode = (claim: CodeClaim): string => claim.ladder[claim.step] ?? ''
  * da siempre las mismas siglas.
  */
 function uniqueDayCodes(days: readonly TrainingDay[]): ReadonlyMap<string, string> {
+  // La etiqueta del usuario (la que muestra Hoy) es la sigla del día cuando entra en la columna y
+  // no se repite en la rutina (sin distinguir mayúsculas). Las siglas automáticas la esquivan.
+  const labelKey = (day: TrainingDay): string => day.label?.trim().toUpperCase() ?? '';
+  const labelUses = new Map<string, number>();
+  for (const day of days) labelUses.set(labelKey(day), (labelUses.get(labelKey(day)) ?? 0) + 1);
+  const usesLabel = (day: TrainingDay): boolean => {
+    const key = labelKey(day);
+    return key !== '' && key.length <= MAX_DAY_CODE_LENGTH && labelUses.get(key) === 1;
+  };
+  const labelled = days.filter(usesLabel);
+  const reserved = new Set(labelled.map(labelKey));
+
   // Un reclamo por cada lista de candidatas distinta: si son iguales, las letras no los separan.
   const claims = new Map<string, CodeClaim>();
-  const dayClaims = days.map((day) => {
+  const dayClaims = days.filter((day) => !usesLabel(day)).map((day) => {
     const ladder = dayCodeLadder(day.name);
     const key = ladder.join('|');
     const claim = claims.get(key) ?? { ladder, step: 0 };
@@ -122,7 +134,7 @@ function uniqueDayCodes(days: readonly TrainingDay[]): ReadonlyMap<string, strin
       uses.set(claimedCode(claim), (uses.get(claimedCode(claim)) ?? 0) + 1);
     }
     for (const claim of claims.values()) {
-      const shared = (uses.get(claimedCode(claim)) ?? 0) > 1;
+      const shared = (uses.get(claimedCode(claim)) ?? 0) > 1 || reserved.has(claimedCode(claim));
       if (shared && claim.step < claim.ladder.length - 1) {
         claim.step++;
         moved = true;
@@ -131,16 +143,17 @@ function uniqueDayCodes(days: readonly TrainingDay[]): ReadonlyMap<string, strin
   } while (moved);
 
   // Lo que sigue repetido (nombres iguales o sin más candidatas) se numera por orden.
-  const taken = new Set<string>();
-  return new Map(
-    dayClaims.map(({ id, claim }) => {
+  const taken = new Set(reserved);
+  return new Map([
+    ...labelled.map((day) => [day.id, day.label!.trim()] as const),
+    ...dayClaims.map(({ id, claim }) => {
       const base = claimedCode(claim);
       let code = base;
       for (let n = 2; taken.has(code); n++) code = `${base}${n}`;
       taken.add(code);
       return [id, code] as const;
     }),
-  );
+  ]);
 }
 
 function pluralDays(n: number): string {
