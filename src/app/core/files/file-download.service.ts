@@ -16,7 +16,15 @@ export class FileDownloadService {
   private readonly document = inject(DOCUMENT);
 
   downloadCsv(filename: string, content: string): void {
-    const blob = new Blob([UTF8_BOM, content], { type: 'text/csv;charset=utf-8' });
+    this.download(filename, new Blob([UTF8_BOM, content], { type: 'text/csv;charset=utf-8' }));
+  }
+
+  /** No BOM: the file is read back by JSON.parse, not by a spreadsheet. */
+  downloadJson(filename: string, content: string): void {
+    this.download(filename, new Blob([content], { type: 'application/json;charset=utf-8' }));
+  }
+
+  private download(filename: string, blob: Blob): void {
     const url = URL.createObjectURL(blob);
     const link = this.document.createElement('a');
     link.href = url;

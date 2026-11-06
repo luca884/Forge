@@ -9,6 +9,9 @@ import { TrainingDayRepository } from '@features/routines/domain/training-day.re
 import { DexieTrainingDayRepository } from '@features/routines/data/dexie-training-day.repository';
 import { ExerciseRepository } from '@features/exercises/domain/exercise.repository';
 import { DexieExerciseRepository } from '@features/exercises/data/dexie-exercise.repository';
+import { ExportBackupUseCase, RestoreBackupUseCase } from '@core/shared/domain/use-cases/backup.use-cases';
+import { BackupStore } from '@core/shared/domain/backup/backup-store';
+import { DexieBackupStore } from '@core/shared/data/dexie-backup-store';
 
 export const PROFILE_ROUTES: Routes = [
   {
@@ -23,6 +26,10 @@ export const PROFILE_ROUTES: Routes = [
       { provide: RoutineRepository, useClass: DexieRoutineRepository },
       { provide: TrainingDayRepository, useClass: DexieTrainingDayRepository },
       { provide: ExerciseRepository, useClass: DexieExerciseRepository },
+      // "Exportar respaldo" / "Restaurar respaldo" read and replace every table at once.
+      ExportBackupUseCase,
+      RestoreBackupUseCase,
+      { provide: BackupStore, useClass: DexieBackupStore },
     ],
   },
 ];
