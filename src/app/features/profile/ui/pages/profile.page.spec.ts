@@ -17,6 +17,9 @@ import { ScreenWakeLockService } from '@core/wake-lock/screen-wake-lock.service'
 import { ExportHistoryCsvUseCase } from '@features/progress/domain/use-cases/export-history-csv.use-case';
 import { FileDownloadService } from '@core/files/file-download.service';
 import { WritableSignal, signal } from '@angular/core';
+import { ExportBackupUseCase, RestoreBackupUseCase } from '@core/shared/domain/use-cases/backup.use-cases';
+import { parseBackup, serializeBackup, type BackupData } from '@core/shared/domain/backup/backup';
+import { AppReloadService } from '@core/app-reload/app-reload.service';
 
 interface ToastMock {
   success: jest.Mock;
@@ -33,6 +36,10 @@ interface Setup {
   requestPermission: jest.Mock;
   unit: WritableSignal<'kg' | 'lb'>;
   downloadSpy: jest.Mock;
+  downloadJsonSpy: jest.Mock;
+  backupExportSpy: jest.Mock;
+  restoreSpy: jest.Mock;
+  reloadSpy: jest.Mock;
 }
 
 function fakeWakeLockService(supported: boolean): Pick<ScreenWakeLockService, 'supported' | 'enabled' | 'setEnabled'> {
@@ -56,7 +63,13 @@ function makeFixture(opts: {
   notifications?: { supported: boolean; permission: 'granted' | 'denied' | 'default' };
   wakeLockSupported?: boolean;
   exportSpy?: jest.Mock;
+  backupExportSpy?: jest.Mock;
+  restoreSpy?: jest.Mock;
 } = {}): Setup {
+  const backupExportSpy = opts.backupExportSpy ?? jest.fn().mockResolvedValue('{"format":"forge-backup"}');
+  const restoreSpy = opts.restoreSpy ?? jest.fn().mockResolvedValue(undefined);
+  const reloadSpy = jest.fn();
+  const downloadJsonSpy = jest.fn();
   const exportSpy = opts.exportSpy ?? jest.fn().mockResolvedValue({ content: '', rowCount: 0 });
   const downloadSpy = jest.fn();
   const clearSpy = opts.clearSpy ?? jest.fn().mockResolvedValue(undefined);
@@ -87,7 +100,11 @@ function makeFixture(opts: {
       { provide: SetPreferredUnitUseCase, useValue: { execute: setUnitSpy } },
       { provide: ScreenWakeLockService, useValue: fakeWakeLockService(opts.wakeLockSupported ?? true) },
       { provide: ExportHistoryCsvUseCase, useValue: { execute: exportSpy } },
-      { provide: FileDownloadService, useValue: { downloadCsv: downloadSpy } },
+      { provide: FileDownloadService, useValue: { downloadCsv: downloadSpy, downloadJson: downloadJsonSpy } },
+      { provide: ExportBackupUseCase, useValue: { execute: backupExportSpy } },
+      // read is the real parser: the page must surface its validation errors.
+      { provide: RestoreBackupUseCase, useValue: { read: parseBackup, execute: restoreSpy } },
+      { provide: AppReloadService, useValue: { reload: reloadSpy } },
     ],
   })
     .overrideComponent(ProfilePage, {
@@ -98,7 +115,20 @@ function makeFixture(opts: {
     .compileComponents();
 
   const fixture = TestBed.createComponent(ProfilePage);
-  return { fixture, clearSpy, setUnitSpy, toastMock, install, requestPermission, unit, downloadSpy };
+  return {
+    fixture,
+    clearSpy,
+    setUnitSpy,
+    toastMock,
+    install,
+    requestPermission,
+    unit,
+    downloadSpy,
+    downloadJsonSpy,
+    backupExportSpy,
+    restoreSpy,
+    reloadSpy,
+  };
 }
 
 function root(fixture: ComponentFixture<ProfilePage>): HTMLElement {
@@ -150,7 +180,8 @@ describe('ProfilePage', () => {
       const { fixture } = makeFixture();
       await flush(fixture);
 
-      expect(root(fixture).querySelector('input')).toBeNull();
+      // The only input left is the backup file picker (JSON): no name field, no avatar picker.
+      expect(root(fixture).querySelector('input:not([type="file"][accept*=".json"])')).toBeNull();
       expect(buttonByText(fixture, 'Guardar')).toBeUndefined();
       expect(root(fixture).textContent).not.toContain('Configurá tu perfil');
     });
@@ -431,6 +462,127 @@ describe('ProfilePage', () => {
       finish({ content: '', rowCount: 0 });
       await flush(fixture);
       expect(buttonByText(fixture, 'Exportar historial (CSV)')!.disabled).toBe(false);
+    });
+  });
+
+  describe('Datos — Respaldo (odd/tasks/respaldo.md S1–S3)', () => {
+    const at = new Date('2026-11-05T21:30:00Z');
+    const empty: BackupData = {
+      profile: [],
+      routines: [],
+      trainingDays: [],
+      exercises: [],
+      sessions: [],
+      workedSets: [],
+      personalRecords: [],
+      auditEvents: [],
+    };
+    /** A file the user picks; only its text matters. */
+    const file = (text: string) => ({ text: () => Promise.resolve(text) }) as unknown as File;
+
+    it('descarga el respaldo como forge-respaldo-<fecha local>.json', async () => {
+      const { fixture, backupExportSpy, downloadJsonSpy } = makeFixture();
+      await flush(fixture);
+
+      buttonByText(fixture, 'Exportar respaldo (JSON)')!.click();
+      await flush(fixture);
+
+      const today = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      expect(backupExportSpy).toHaveBeenCalledTimes(1);
+      expect(downloadJsonSpy).toHaveBeenCalledWith(
+        `forge-respaldo-${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}.json`,
+        '{"format":"forge-backup"}',
+      );
+    });
+
+    it('si falla la exportación, avisa y no descarga nada', async () => {
+      const { fixture, toastMock, downloadJsonSpy } = makeFixture({
+        backupExportSpy: jest.fn().mockRejectedValue(new Error('fallo DB')),
+      });
+      await flush(fixture);
+
+      await fixture.componentInstance.onExportBackup();
+
+      expect(toastMock.error).toHaveBeenCalledWith('No se pudo exportar el respaldo', 'fallo DB');
+      expect(downloadJsonSpy).not.toHaveBeenCalled();
+    });
+
+    it('"Restaurar respaldo" abre el selector de archivos JSON', async () => {
+      const { fixture } = makeFixture();
+      await flush(fixture);
+      const input = root(fixture).querySelector<HTMLInputElement>('input[type="file"]')!;
+      const pick = jest.spyOn(input, 'click').mockImplementation(() => undefined);
+
+      buttonByText(fixture, 'Restaurar respaldo')!.click();
+
+      expect(input.accept).toContain('.json');
+      expect(pick).toHaveBeenCalledTimes(1);
+    });
+
+    it('un archivo válido pide confirmación con su fecha y no toca nada todavía', async () => {
+      const { fixture, restoreSpy } = makeFixture();
+      await flush(fixture);
+
+      await fixture.componentInstance.onBackupFile(file(serializeBackup({ exportedAt: at, data: empty })));
+      fixture.detectChanges();
+
+      const text = root(fixture).textContent!;
+      expect(text).toContain('¿Reemplazar todos tus datos por los del respaldo del 5 de noviembre de 2026?');
+      expect(text).toContain('Se borran las rutinas, ejercicios, sesiones, récords y perfil que hay ahora en este dispositivo.');
+      expect(restoreSpy).not.toHaveBeenCalled();
+    });
+
+    it('"Restaurar" reemplaza los datos y recarga la app', async () => {
+      const { fixture, restoreSpy, reloadSpy } = makeFixture();
+      await flush(fixture);
+      await fixture.componentInstance.onBackupFile(file(serializeBackup({ exportedAt: at, data: empty })));
+      fixture.detectChanges();
+
+      buttonByText(fixture, 'Restaurar')!.click();
+      await flush(fixture);
+
+      expect(restoreSpy).toHaveBeenCalledWith({ exportedAt: at, data: empty });
+      expect(reloadSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('"Cancelar" descarta el archivo sin restaurar', async () => {
+      const { fixture, restoreSpy } = makeFixture();
+      await flush(fixture);
+      await fixture.componentInstance.onBackupFile(file(serializeBackup({ exportedAt: at, data: empty })));
+      fixture.detectChanges();
+
+      buttonByText(fixture, 'Cancelar')!.click();
+      fixture.detectChanges();
+
+      expect(root(fixture).textContent).not.toContain('¿Reemplazar todos tus datos');
+      expect(restoreSpy).not.toHaveBeenCalled();
+    });
+
+    it('un archivo inválido avisa con el motivo y no pide confirmación', async () => {
+      const { fixture, toastMock, restoreSpy } = makeFixture();
+      await flush(fixture);
+
+      await fixture.componentInstance.onBackupFile(file('no es un respaldo'));
+      fixture.detectChanges();
+
+      expect(toastMock.error).toHaveBeenCalledWith('El archivo no es un respaldo de Forge válido.');
+      expect(root(fixture).textContent).not.toContain('¿Reemplazar todos tus datos');
+      expect(restoreSpy).not.toHaveBeenCalled();
+    });
+
+    it('si falla la restauración, avisa, no recarga y deja los datos como estaban', async () => {
+      const { fixture, toastMock, reloadSpy } = makeFixture({
+        restoreSpy: jest.fn().mockRejectedValue(new Error('fallo DB')),
+      });
+      await flush(fixture);
+      await fixture.componentInstance.onBackupFile(file(serializeBackup({ exportedAt: at, data: empty })));
+
+      await fixture.componentInstance.onRestoreBackup();
+
+      expect(toastMock.error).toHaveBeenCalledWith('No se pudo restaurar el respaldo. Tus datos quedaron como estaban.', 'fallo DB');
+      expect(reloadSpy).not.toHaveBeenCalled();
+      expect(fixture.componentInstance.restoring()).toBe(false);
     });
   });
 

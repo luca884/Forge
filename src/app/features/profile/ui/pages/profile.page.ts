@@ -11,6 +11,9 @@ import { AccentId, AppearanceService, ThemePreference } from '@core/appearance/a
 import { RestPreferencesService } from '@core/rest-preferences/rest-preferences.service';
 import { ScreenWakeLockService } from '@core/wake-lock/screen-wake-lock.service';
 import { FileDownloadService } from '@core/files/file-download.service';
+import { ExportBackupUseCase, RestoreBackupUseCase } from '@core/shared/domain/use-cases/backup.use-cases';
+import { InvalidBackupError, type Backup } from '@core/shared/domain/backup/backup';
+import { AppReloadService } from '@core/app-reload/app-reload.service';
 import { ExportHistoryCsvUseCase } from '@features/progress/domain/use-cases/export-history-csv.use-case';
 import { ToastService } from '@core/shared/ui/toast/toast.service';
 import { FgButtonComponent, FgIconComponent } from '@core/shared/ui';
@@ -246,6 +249,59 @@ function localDateStamp(date: Date): string {
             Exportar historial (CSV)
             <fg-icon name="chevron-right" [size]="16" class="text-ink-2"></fg-icon>
           </button>
+          <button
+            type="button"
+            class="w-full flex items-center justify-between min-h-12 pl-3.5 pr-3 border-b border-line-soft bg-transparent text-ink text-[15px] font-medium text-left disabled:opacity-60"
+            [disabled]="exportingBackup()"
+            (click)="onExportBackup()"
+          >
+            Exportar respaldo (JSON)
+            <fg-icon name="chevron-right" [size]="16" class="text-ink-2"></fg-icon>
+          </button>
+          <input
+            #backupInput
+            type="file"
+            accept="application/json,.json"
+            class="hidden"
+            (change)="onBackupInput(backupInput)"
+          />
+          @if (pendingBackup(); as backup) {
+            <div data-restore-confirm class="flex flex-col gap-2 p-3.5 border-b border-line-soft">
+              <span class="text-[15px] font-medium text-ink">
+                ¿Reemplazar todos tus datos por los del respaldo del {{ backupDate(backup) }}?
+              </span>
+              <span class="text-[12px] text-ink-2">
+                Se borran las rutinas, ejercicios, sesiones, récords y perfil que hay ahora en este dispositivo.
+              </span>
+              <div class="flex gap-2">
+                <button
+                  type="button"
+                  fg-button
+                  variant="destructive"
+                  class="flex-1"
+                  [disabled]="restoring()"
+                  (click)="onRestoreBackup()"
+                >Restaurar</button>
+                <button
+                  type="button"
+                  fg-button
+                  variant="ghost"
+                  class="flex-1"
+                  [disabled]="restoring()"
+                  (click)="pendingBackup.set(null)"
+                >Cancelar</button>
+              </div>
+            </div>
+          } @else {
+            <button
+              type="button"
+              class="w-full flex items-center justify-between min-h-12 pl-3.5 pr-3 border-b border-line-soft bg-transparent text-ink text-[15px] font-medium text-left"
+              (click)="backupInput.click()"
+            >
+              Restaurar respaldo
+              <fg-icon name="chevron-right" [size]="16" class="text-ink-2"></fg-icon>
+            </button>
+          }
           @if (!confirmingClear()) {
             <button
               type="button"
@@ -292,6 +348,9 @@ export class ProfilePage implements OnInit {
   private readonly userPreferences = inject(UserPreferencesService);
   private readonly exportHistoryCsvUseCase = inject(ExportHistoryCsvUseCase);
   private readonly fileDownload = inject(FileDownloadService);
+  private readonly exportBackupUseCase = inject(ExportBackupUseCase);
+  private readonly restoreBackupUseCase = inject(RestoreBackupUseCase);
+  private readonly appReload = inject(AppReloadService);
   readonly appearance = inject(AppearanceService);
   readonly rest = inject(RestPreferencesService);
   readonly wakeLock = inject(ScreenWakeLockService);
@@ -308,6 +367,10 @@ export class ProfilePage implements OnInit {
   readonly exporting = signal(false);
   readonly confirmingClear = signal(false);
   readonly clearing = signal(false);
+  readonly exportingBackup = signal(false);
+  /** Backup read from the picked file, waiting for the user to confirm the restore. */
+  readonly pendingBackup = signal<Backup | null>(null);
+  readonly restoring = signal(false);
 
   readonly restLabel = computed(() => {
     const seconds = this.rest.defaultSeconds();
@@ -356,6 +419,58 @@ export class ProfilePage implements OnInit {
     } finally {
       this.exporting.set(false);
     }
+  }
+
+  /** "Exportar respaldo (JSON)": every table, to restore later on this or another device. */
+  async onExportBackup(): Promise<void> {
+    if (this.exportingBackup()) return;
+    this.exportingBackup.set(true);
+    try {
+      const content = await this.exportBackupUseCase.execute();
+      this.fileDownload.downloadJson(`forge-respaldo-${localDateStamp(new Date())}.json`, content);
+    } catch (err) {
+      this.toastService.error('No se pudo exportar el respaldo', err instanceof Error ? err.message : undefined);
+    } finally {
+      this.exportingBackup.set(false);
+    }
+  }
+
+  onBackupInput(input: HTMLInputElement): void {
+    const file = input.files?.[0];
+    // Cleared so picking the same file again fires `change` again.
+    input.value = '';
+    if (file) void this.onBackupFile(file);
+  }
+
+  /** Reads and validates the picked file; a valid one waits for confirmation, an invalid one says why. */
+  async onBackupFile(file: File): Promise<void> {
+    try {
+      this.pendingBackup.set(this.restoreBackupUseCase.read(await file.text()));
+    } catch (err) {
+      this.pendingBackup.set(null);
+      this.toastService.error(err instanceof InvalidBackupError ? err.message : 'No se pudo leer el archivo.');
+    }
+  }
+
+  /** Replaces every table with the confirmed backup, then reloads so nothing old stays in memory. */
+  async onRestoreBackup(): Promise<void> {
+    const backup = this.pendingBackup();
+    if (!backup || this.restoring()) return;
+    this.restoring.set(true);
+    try {
+      await this.restoreBackupUseCase.execute(backup);
+      this.appReload.reload();
+    } catch (err) {
+      this.toastService.error(
+        'No se pudo restaurar el respaldo. Tus datos quedaron como estaban.',
+        err instanceof Error ? err.message : undefined,
+      );
+      this.restoring.set(false);
+    }
+  }
+
+  backupDate(backup: Backup): string {
+    return backup.exportedAt.toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' });
   }
 
   async onInstallApp(): Promise<void> {

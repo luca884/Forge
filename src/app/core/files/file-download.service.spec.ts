@@ -68,6 +68,15 @@ describe('FileDownloadService', () => {
     expect(document.querySelector('a[download]')).toBeNull();
   });
 
+  it('saves JSON as plain UTF-8 (no BOM: JSON.parse would choke on it) through the same link', async () => {
+    TestBed.inject(FileDownloadService).downloadJson('forge-respaldo-2026-11-05.json', '{"format":"forge-backup","nombre":"Día"}');
+
+    const blob = createObjectURL.mock.calls[0][0] as Blob;
+    expect(blob.type).toBe('application/json;charset=utf-8');
+    expect(await readText(blob)).toBe('{"format":"forge-backup","nombre":"Día"}');
+    expect(clicked).toEqual([{ download: 'forge-respaldo-2026-11-05.json', href: 'blob:forge', inDocument: true }]);
+  });
+
   it('frees the blob URL only after a delay, so mobile browsers can finish the download', () => {
     jest.useFakeTimers();
     TestBed.inject(FileDownloadService).downloadCsv('f.csv', 'x\r\n');
