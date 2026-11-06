@@ -461,17 +461,24 @@ describe('TrainingSessionPage', () => {
     fixture.detectChanges();
   }
 
-  it('renders only the focused exercise as a card + one rail chip per exercise', async () => {
+  const rowButtons = () => fixture.debugElement.queryAll(By.css('[data-exercise-row]'));
+
+  it('lists every exercise as a row and expands only the focused one with its sets', async () => {
     await arrangeTwoExercises();
 
-    // Only ONE exercise card is rendered (the focused one), not the whole list.
+    const rows = rowButtons();
+    expect(rows.length).toBe(2);
+    expect(rows.map((r) => r.attributes['aria-expanded'])).toEqual(['false', 'true']);
+
+    // Only ONE exercise card is rendered (the expanded one), right under its row.
     const sessionCards = fixture.debugElement.queryAll(By.css('fg-exercise-session-card'));
     expect(sessionCards.length).toBe(1);
     expect(sessionCards[0].attributes['ng-reflect-expanded']).toBe('true');
-
-    // The rail shows a chip (role=tab) for every exercise of the day.
-    const chips = fixture.debugElement.queryAll(By.css('[role="tab"]'));
-    expect(chips.length).toBe(2);
+    // Row and sets are one block: the card sits inside the same framed item, without its own header.
+    const items = fixture.debugElement.queryAll(By.css('[data-exercise-item]'));
+    expect(items[1].query(By.css('fg-exercise-session-card'))).not.toBeNull();
+    expect((items[1].nativeElement as HTMLElement).classList).toContain('border');
+    expect(sessionCards[0].componentInstance.embedded()).toBe(true);
   });
 
   it('initial focus is the first incomplete exercise', async () => {
@@ -479,15 +486,28 @@ describe('TrainingSessionPage', () => {
     expect(fixture.componentInstance.focusedItem()?.exercise.id).toBe(incompleteId);
   });
 
-  it('tapping a rail chip focuses that exercise (edit a past one anytime)', async () => {
+  it('tapping a row expands that exercise (edit a past one anytime)', async () => {
     await arrangeTwoExercises();
 
-    // chips follow exercise order: [completed, incomplete]
-    const chips = fixture.debugElement.queryAll(By.css('[role="tab"]'));
-    (chips[0].nativeElement as HTMLButtonElement).click();
+    (rowButtons()[0].nativeElement as HTMLButtonElement).click();
     fixture.detectChanges();
 
     expect(fixture.componentInstance.focusedItem()?.exercise.id).toBe(completedId);
+    expect(rowButtons().map((r) => r.attributes['aria-expanded'])).toEqual(['true', 'false']);
+  });
+
+  it('tapping the expanded row collapses it; logging stays possible after reopening', async () => {
+    await arrangeTwoExercises();
+
+    (rowButtons()[1].nativeElement as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(rowButtons().map((r) => r.attributes['aria-expanded'])).toEqual(['false', 'false']);
+    expect(fixture.debugElement.query(By.css('fg-exercise-session-card'))).toBeNull();
+
+    (rowButtons()[1].nativeElement as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(rowButtons()[1].attributes['aria-expanded']).toBe('true');
   });
 
   // --- S4: ordenar ejercicios durante la sesión (se guarda en la rutina, S2) ---
@@ -537,7 +557,7 @@ describe('TrainingSessionPage', () => {
 
     const chips = (): string[] =>
       fixture.debugElement
-        .queryAll(By.css('[role="tab"]'))
+        .queryAll(By.css('[data-exercise-row]'))
         .map((c) => ((c.nativeElement as HTMLElement).textContent ?? '').replace(/\s+/g, ' ').trim());
 
     function drop(previousIndex: number, currentIndex: number): void {

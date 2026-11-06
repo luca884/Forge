@@ -165,7 +165,7 @@ function formatHMS(totalSeconds: number): string {
           </fg-pr-celebration>
         }
 
-        <!-- Step-by-step: exercise rail + single focused exercise -->
+        <!-- Exercise list: one expandable row per exercise -->
         @if (initLoading()) {
           <fg-card>
             <fg-skeleton [height]="72"></fg-skeleton>
@@ -213,66 +213,74 @@ function formatHMS(totalSeconds: number): string {
                 </div>
               </fg-card>
             } @else {
-            <div class="flex gap-2 -mx-3 pl-3">
-              @if (exercisesWithData().length > 1) {
-                <button type="button" aria-label="Ordenar ejercicios" (click)="reordering.set(true)"
-                        class="flex-shrink-0 mb-1 w-16 flex flex-col items-center justify-center gap-0.5 rounded-xl border border-line bg-surface text-ink-2 cursor-pointer">
-                  <fg-icon name="grip" [size]="16"></fg-icon>
-                  <span class="text-[11px] leading-4 font-medium">Ordenar</span>
-                </button>
-              }
-              <!-- Rail: tap any exercise to focus / edit it -->
-              <div class="flex flex-1 min-w-0 gap-2 overflow-x-auto pb-1 pr-3" role="tablist" aria-label="Ejercicios">
-                @for (item of exercisesWithData(); track item.exercise.id) {
-                  @let focused = item.exercise.id === focusedId();
-                  <button
-                    type="button"
-                    role="tab"
-                    [attr.aria-selected]="focused"
-                    (click)="focus(item.exercise.id)"
-                    class="flex-shrink-0 max-w-[160px] px-3 py-2 rounded-xl text-left border transition-colors"
-                    [ngClass]="focused ? 'bg-accent-soft border-accent' : 'bg-surface border-line'"
-                  >
-                    <div class="flex items-center gap-1.5">
-                      @if (isComplete(item)) {
-                        <fg-icon name="check-circle" [size]="13" class="text-accent-ink flex-shrink-0"></fg-icon>
-                      } @else {
-                        <span class="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                              [class.bg-accent]="focused"
-                              [class.bg-dash]="!focused"></span>
-                      }
-                      <span class="t-body-sm truncate"
-                            [class.text-ink]="focused"
-                            [class.text-ink-2]="!focused">
-                        {{ item.exercise.name }}
-                      </span>
-                    </div>
-                    <div class="font-mono text-[12px] leading-4 text-ink-2 tabular-nums mt-0.5">
-                      {{ loggedCountFor(item) }}/{{ item.exerciseInDay.targetSets.length }}
-                    </div>
+            <!-- Exercise list: tap a row to expand its sets (one open at a time) -->
+            <section class="flex flex-col gap-2" aria-labelledby="session-exercises-title">
+              <div class="flex items-center justify-between min-h-[36px]">
+                <h2 id="session-exercises-title" class="t-micro text-ink-2">Ejercicios</h2>
+                @if (exercisesWithData().length > 1) {
+                  <button type="button" aria-label="Ordenar ejercicios" (click)="reordering.set(true)"
+                          class="touch-target flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-line bg-surface text-ink-2 cursor-pointer">
+                    <fg-icon name="grip" [size]="14"></fg-icon>
+                    <span class="text-[12px] leading-4 font-medium">Ordenar</span>
                   </button>
                 }
               </div>
-              </div>
+              <ul class="flex flex-col gap-2" aria-label="Ejercicios">
+                @for (item of exercisesWithData(); track item.exercise.id) {
+                  @let open = item.exercise.id === openId();
+                  <li data-exercise-item
+                      class="flex flex-col rounded-xl border bg-surface overflow-hidden transition-colors"
+                      [ngClass]="open ? 'border-accent' : 'border-line'">
+                    <button
+                      type="button"
+                      data-exercise-row
+                      [attr.aria-expanded]="open"
+                      (click)="toggle(item.exercise.id)"
+                      class="w-full flex items-center gap-2.5 min-h-[52px] pl-3 pr-2 text-left transition-colors cursor-pointer"
+                      [class.bg-accent-soft]="open"
+                    >
+                      @if (isComplete(item)) {
+                        <fg-icon name="check-circle" [size]="14" class="text-accent-ink flex-shrink-0"></fg-icon>
+                      } @else {
+                        <span class="w-1.5 h-1.5 mx-1 rounded-full flex-shrink-0"
+                              [class.bg-accent]="open"
+                              [class.bg-dash]="!open"></span>
+                      }
+                      <span class="flex-1 min-w-0 text-[15px] font-medium truncate"
+                            [class.text-ink]="open || !isComplete(item)"
+                            [class.text-ink-2]="!open && isComplete(item)">
+                        {{ item.exercise.name }}
+                      </span>
+                      <span class="font-mono text-[12px] leading-4 text-ink-2 tabular-nums">
+                        {{ loggedCountFor(item) }}/{{ item.exerciseInDay.targetSets.length }}
+                      </span>
+                      <fg-icon name="chevron-down" [size]="18"
+                               class="text-ink-2 flex-shrink-0 transition-transform"
+                               [class.rotate-180]="open"></fg-icon>
+                    </button>
 
-              <!-- Focused exercise only -->
-              @if (focusedItem(); as item) {
-                <fg-exercise-session-card
-                  [exercise]="item.exercise"
-                  [targetSets]="item.exerciseInDay.targetSets"
-                  [loggedSets]="store.setsByExercise().get(item.exercise.id) ?? []"
-                  [sessionId]="store.activeSession()?.id ?? ''"
-                  [unit]="unit()"
-                  [expanded]="true"
-                  [restSeconds]="item.exerciseInDay.restSeconds ?? defaultRestSeconds()"
-                  [note]="item.exerciseInDay.note"
-                  [progressionTargetData]="progressionTargetData()"
-                  [previousSessionSets]="previousSessionSets()"
-                  (setLogged)="onSetLogged($event)"
-                  (setEdited)="onWorkedSetEdited($event)"
-                  (setRemoved)="onWorkedSetRemoved($event)">
-                </fg-exercise-session-card>
-              }
+                    @if (open) {
+                      <fg-exercise-session-card
+                        [exercise]="item.exercise"
+                        [targetSets]="item.exerciseInDay.targetSets"
+                        [loggedSets]="store.setsByExercise().get(item.exercise.id) ?? []"
+                        [sessionId]="store.activeSession()?.id ?? ''"
+                        [unit]="unit()"
+                        [expanded]="true"
+                        [embedded]="true"
+                        [restSeconds]="item.exerciseInDay.restSeconds ?? defaultRestSeconds()"
+                        [note]="item.exerciseInDay.note"
+                        [progressionTargetData]="progressionTargetData()"
+                        [previousSessionSets]="previousSessionSets()"
+                        (setLogged)="onSetLogged($event)"
+                        (setEdited)="onWorkedSetEdited($event)"
+                        (setRemoved)="onWorkedSetRemoved($event)">
+                      </fg-exercise-session-card>
+                    }
+                  </li>
+                }
+              </ul>
+            </section>
             }
           } @else {
             <p class="t-body text-ink-2 text-center py-12">
@@ -350,7 +358,7 @@ export class TrainingSessionPage implements OnInit, OnDestroy {
   readonly cancelling = signal(false);
   readonly confirmingCancel = signal(false);
   readonly confirmingComplete = signal(false);
-  /** True while the "Ordenar" list replaces the rail and the focused card. */
+  /** True while the "Ordenar" list replaces the exercise list. */
   readonly reordering = signal(false);
   /** Day exercises whose library entry was deleted: not shown, but kept in the day when reordering. */
   private hiddenExerciseIds: string[] = [];
@@ -373,8 +381,14 @@ export class TrainingSessionPage implements OnInit, OnDestroy {
     return items.find((i) => i.exercise.id === id) ?? items[0] ?? null;
   });
 
-  /** Id of the focused exercise (or null) — used by the rail to highlight the active chip. */
+  /** Id of the focused exercise (or null). */
   readonly focusedId = computed<string | null>(() => this.focusedItem()?.exercise.id ?? null);
+
+  /** True after tapping the open row: the list shows every exercise closed. */
+  private readonly collapsed = signal(false);
+
+  /** Exercise whose sets are expanded in the list, or null when all rows are closed. */
+  readonly openId = computed<string | null>(() => (this.collapsed() ? null : this.focusedId()));
 
   /**
    * Progression target OBJECT for the focused exercise (slice 1 + 2).
@@ -623,9 +637,19 @@ export class TrainingSessionPage implements OnInit, OnDestroy {
     void this.router.navigate(['/training']);
   }
 
-  /** Focuses an exercise (rail tap) — shows it as the single active card. */
+  /** Focuses an exercise and expands its row — the single open card. */
   focus(exerciseId: string): void {
     this.focusedExerciseId.set(exerciseId);
+    this.collapsed.set(false);
+  }
+
+  /** Row tap: opens that exercise, or closes it when it is already open. */
+  toggle(exerciseId: string): void {
+    if (this.openId() === exerciseId) {
+      this.collapsed.set(true);
+      return;
+    }
+    this.focus(exerciseId);
   }
 
   /** Two-digit position shown in the "Ordenar" list (01, 02…), like the day editor. */

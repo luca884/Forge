@@ -154,6 +154,36 @@ describe('ExerciseSessionCardComponent', () => {
     expect(section.getAttribute('aria-labelledby')).toBe(nameEl!.id);
   });
 
+  it('embedded: no own frame, no repeated name or counter; keeps the target line', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', [weightRepsSet]);
+    fixture.componentRef.setInput('targetSets', [targetSet, targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('embedded', true);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const section = el.querySelector('section')!;
+    expect(section.classList).not.toContain('border');
+    expect(section.classList).not.toContain('rounded-lg');
+    expect(section.hasAttribute('aria-labelledby')).toBe(false);
+    expect(el.querySelector('h2')).toBeNull();
+    expect(el.querySelector('[data-set-counter]')).toBeNull();
+    expect(el.querySelector('[data-target-line]')).not.toBeNull();
+  });
+
+  it('a done set row keeps the plain background: only the "Hecha" box is accent', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('loggedSets', [weightRepsSet]);
+    fixture.componentRef.setInput('targetSets', [targetSet, targetSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.detectChanges();
+    const row = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('button[aria-label="Editar set"]')!;
+    expect(row.classList).not.toContain('bg-accent-soft');
+    expect(row.querySelector('.bg-accent')).not.toBeNull();
+  });
+
   it('done/total counter is accent-ink when all series done', () => {
     fixture = TestBed.createComponent(ExerciseSessionCardComponent);
     fixture.componentRef.setInput('exercise', mockExercise);
