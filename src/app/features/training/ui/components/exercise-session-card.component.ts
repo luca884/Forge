@@ -31,8 +31,23 @@ interface PendingRow {
   providers: [ProgressionTargetCalculator],
   template: `
     <!-- Cuaderno · planilla: encabezado del ejercicio, una fila por serie y la fila activa (logger) -->
-    <section class="bg-surface border border-line rounded-lg overflow-hidden"
-             [attr.aria-labelledby]="headingId()">
+    <section class="overflow-hidden"
+             [class]="embedded() ? 'border-t border-line' : 'bg-surface border border-line rounded-lg'"
+             [attr.aria-labelledby]="embedded() ? null : headingId()">
+      @if (embedded()) {
+        <!-- Inside the session list: the row above already shows the name and the counter -->
+        <header class="flex items-center gap-2 px-3.5 pt-2 pb-1">
+          <p data-target-line class="min-w-0 font-mono tabular-nums text-[12px] leading-4 text-ink-2">
+            {{ targetLabel() }}
+            @if (restLabel(); as rest) {
+              · {{ rest }}
+            }
+          </p>
+          @if (isPR()) {
+            <fg-chip size="sm" leadingIcon="flame" class="ml-auto">PR</fg-chip>
+          }
+        </header>
+      } @else {
       <header class="px-3.5 pt-2.5 pb-1.5">
         <div class="flex items-center gap-2">
           <h2 [id]="headingId()" class="text-[17px] leading-[22px] font-semibold text-accent-ink min-w-0 truncate">{{ exercise.name }}</h2>
@@ -44,13 +59,14 @@ interface PendingRow {
                 [class.text-accent-ink]="allDone()"
                 [class.text-ink-2]="!allDone()">{{ canLog() ? loggedSets.length + '/' + targetSets.length : loggedSets.length }} series</span>
         </div>
-        <p class="font-mono tabular-nums text-[12px] leading-4 text-ink-2">
+        <p data-target-line class="font-mono tabular-nums text-[12px] leading-4 text-ink-2">
           {{ targetLabel() }}
           @if (restLabel(); as rest) {
             · {{ rest }}
           }
         </p>
       </header>
+      }
 
       <!-- Sets list (only when expanded) -->
       @if (expanded() && (loggedSets.length > 0 || pendingSlots().length > 0)) {
@@ -86,7 +102,7 @@ interface PendingRow {
               <button type="button"
                       (click)="startEdit(set.id)"
                       aria-label="Editar set"
-                      class="w-full text-left grid grid-cols-[40px_minmax(0,1fr)_76px_60px_44px] gap-x-1.5 items-center min-h-11 pl-3.5 pr-2 bg-accent-soft border-t border-line-soft">
+                      class="w-full text-left grid grid-cols-[40px_minmax(0,1fr)_76px_60px_44px] gap-x-1.5 items-center min-h-11 pl-3.5 pr-2 border-t border-line-soft">
                 <span data-cell="n" class="font-mono text-[14px] font-medium">{{ i + 1 }}</span>
                 <span data-cell="prev" class="font-mono tabular-nums text-[13px] text-ink-2 truncate">{{ previousFor(i) }}</span>
                 <span data-cell="a" class="font-mono tabular-nums text-[14px] font-medium text-center whitespace-nowrap">{{ setCells(set)[0] }}</span>
@@ -162,6 +178,9 @@ export class ExerciseSessionCardComponent {
 
   /** False on a finished session: logged sets stay editable, but no new set can be logged. */
   readonly canLog = input<boolean>(true);
+
+  /** True inside the session's exercise list: the list row frames it and shows the name and counter. */
+  readonly embedded = input<boolean>(false);
 
   /** Whether the sets list is expanded. Default true for backward compat. */
   readonly expanded = input<boolean>(true);

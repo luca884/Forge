@@ -574,7 +574,7 @@ test.describe('J15 — Ejercicio en placas', () => {
 // ─── J18 — Ordenar ejercicios durante la sesión (S2, S4) ─────────────────────
 
 test.describe('J18 — Ordenar ejercicios en la sesión', () => {
-  test('J18.1 — "Ordenar" + arrastrar la manija cambia los chips y el orden queda guardado en la rutina', async ({
+  test('J18.1 — "Ordenar" + arrastrar la manija cambia la lista y el orden queda guardado en la rutina', async ({
     page,
   }) => {
     await page.goto('/');
@@ -614,7 +614,7 @@ test.describe('J18 — Ordenar ejercicios en la sesión', () => {
     await page.waitForLoadState('networkidle');
     await page.getByRole('button', { name: 'Empezar sesión de Día 1' }).click();
     await expect(page).toHaveURL(/\/training\/session$/);
-    const chips = page.getByRole('tablist', { name: 'Ejercicios' }).getByRole('tab');
+    const chips = page.getByRole('list', { name: 'Ejercicios' }).locator('[data-exercise-row]');
     await expect(chips).toHaveText([/Sentadilla/, /Remo/, /Curl/]);
 
     await page.getByRole('button', { name: 'Ordenar ejercicios' }).click();
