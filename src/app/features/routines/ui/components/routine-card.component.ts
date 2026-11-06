@@ -221,17 +221,21 @@ function pluralDays(n: number): string {
         </div>
 
         @if (dayRows().length > 0) {
+          <!-- Below 360px the numeric columns shrink to their values and "Ejercicios" to "Ejerc.", so "Día" keeps room for the name. -->
           <div
-            class="grid grid-cols-[28px_minmax(0,1fr)_80px_48px_20px] gap-x-2 px-4 pb-1.5 text-[10px] leading-3 font-semibold tracking-[0.06em] uppercase text-ink-2 border-b border-line"
+            data-day-head
+            class="grid grid-cols-[28px_minmax(0,1fr)_80px_48px_20px] max-[359px]:grid-cols-[28px_minmax(0,1fr)_44px_44px_16px] gap-x-2 max-[359px]:gap-x-1.5 px-4 pb-1.5 text-[10px] leading-3 font-semibold tracking-[0.06em] uppercase text-ink-2 border-b border-line"
             aria-hidden="true"
           >
-            <span></span><span>Día</span><span>Ejercicios</span><span>Series</span><span></span>
+            <span></span><span>Día</span>
+            <span><span class="max-[359px]:hidden">Ejercicios</span><span class="hidden max-[359px]:inline">Ejerc.</span></span>
+            <span>Series</span><span></span>
           </div>
           @for (row of dayRows(); track row.day.id) {
             <button
               type="button"
               data-day-row
-              class="grid grid-cols-[28px_minmax(0,1fr)_80px_48px_20px] gap-x-2 items-center min-h-[46px] px-4 text-left text-ink border-b border-line-soft last:border-b-0"
+              class="grid grid-cols-[28px_minmax(0,1fr)_80px_48px_20px] max-[359px]:grid-cols-[28px_minmax(0,1fr)_44px_44px_16px] gap-x-2 max-[359px]:gap-x-1.5 items-center min-h-[46px] px-4 text-left text-ink border-b border-line-soft last:border-b-0"
               [attr.aria-label]="'Editar día ' + row.day.name"
               (click)="dayClick.emit(row.day)"
             >
@@ -240,7 +244,7 @@ function pluralDays(n: number): string {
                 [class.text-ink-2]="!row.isToday"
                 [class.text-accent-ink]="row.isToday"
               >{{ row.code }}</span>
-              <span class="text-[15px] font-medium truncate">{{ row.day.name }}</span>
+              <span data-day-name class="text-[15px] font-medium truncate">{{ row.day.name }}</span>
               <span class="font-mono text-[13px]">{{ row.exercises }}</span>
               <span class="font-mono text-[13px]">{{ row.sets }}</span>
               <fg-icon name="chevron-right" [size]="16" class="text-ink-2"></fg-icon>
