@@ -24,7 +24,7 @@ function sessionDateTypes(page: Page): Promise<string[]> {
     () =>
       new Promise<string[]>((resolve, reject) => {
         const open = indexedDB.open('forge');
-        open.onerror = () => reject(open.error);
+        open.onerror = () => reject(new Error(open.error?.message ?? 'cannot open forge'));
         open.onsuccess = () => {
           const request = open.result.transaction('sessions').objectStore('sessions').getAll();
           request.onsuccess = () => {
@@ -73,6 +73,30 @@ test.describe('J22 — Respaldo', () => {
     const types = await sessionDateTypes(page);
     expect(types.length).toBe(raw.data.sessions.length);
     expect(new Set(types)).toEqual(new Set(['[object Date]']));
+  });
+
+  test('J22.3 — si la escritura falla a mitad, los datos quedan como estaban (todo o nada)', async ({ page }) => {
+    await openProfile(page);
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Exportar respaldo (JSON)' }).click(),
+    ]);
+    // Valid for the parser, but two sets share an id: the write fails after the tables were cleared.
+    const raw = JSON.parse(await readFile(await download.path(), 'utf-8'));
+    raw.data.workedSets.push(raw.data.workedSets[0]);
+    raw.data.routines = [];
+
+    const [chooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.getByRole('button', { name: 'Restaurar respaldo' }).click(),
+    ]);
+    await chooser.setFiles({ name: 'roto.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(raw)) });
+    await page.getByRole('button', { name: 'Restaurar', exact: true }).click();
+
+    await expect(page.getByText('No se pudo restaurar el respaldo. Tus datos quedaron como estaban.')).toBeVisible();
+    await page.goto('/routines');
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByText('Torso / Pierna')).toBeVisible();
   });
 
   test('J22.2 — un archivo que no es un respaldo se rechaza y no toca los datos', async ({ page }) => {
