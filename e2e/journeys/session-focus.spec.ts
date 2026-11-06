@@ -108,4 +108,43 @@ test.describe('J19 — Sesión en modo foco', () => {
     const confirm = (await page.getByRole('button', { name: 'Sí, cancelar' }).boundingBox())!;
     expect(confirm.y + confirm.height).toBeLessThanOrEqual((await bottomBar.boundingBox())!.y);
   });
+
+  test('J19.5 — desde cualquier pestaña se vuelve a la sesión en curso', async ({ page }) => {
+    const bar = page.getByRole('link', { name: 'Continuar entrenamiento en curso: Día 1' });
+    await seedDay(page);
+    await startSession(page);
+    await page.getByRole('button', { name: 'Minimizar sesión' }).click();
+    // Hoy has its own "Entrenamiento en curso" card.
+    await expect(page).toHaveURL(/\/training$/);
+    await expect(bar).toHaveCount(0);
+
+    for (const tab of ['Rutinas', 'Ejercicios', 'Progreso', 'Perfil']) {
+      await nav(page).getByRole('link', { name: tab }).click();
+      await expect(bar, tab).toBeVisible();
+    }
+    // Above the bottom nav, not over the page content.
+    const strip = (await bar.boundingBox())!;
+    expect(strip.y + strip.height).toBeLessThanOrEqual((await nav(page).boundingBox())!.y + 0.5);
+
+    await bar.click();
+    await expect(page).toHaveURL(/\/training\/session$/);
+    await page.getByRole('button', { name: 'Cancelar entrenamiento' }).click();
+    await page.getByRole('button', { name: 'Sí, cancelar' }).click();
+    await nav(page).getByRole('link', { name: 'Rutinas' }).click();
+    await expect(page).toHaveURL(/\/routines$/);
+    await expect(bar).toHaveCount(0);
+  });
+
+  test('J19.6 — la barra aparece al recargar una pestaña y se va al borrar el historial', async ({ page }) => {
+    const bar = page.getByRole('link', { name: 'Continuar entrenamiento en curso: Día 1' });
+    await seedDay(page);
+    await startSession(page);
+    await page.goto('/profile');
+    await expect(bar).toBeVisible();
+
+    // "Borrar historial" deletes the session in progress without leaving the page.
+    await page.getByRole('button', { name: 'Borrar historial' }).click();
+    await page.getByRole('button', { name: 'Borrar', exact: true }).click();
+    await expect(bar).toHaveCount(0);
+  });
 });
