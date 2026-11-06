@@ -32,6 +32,8 @@ export default [
         path: '',
         loadComponent: () =>
           import('./pages/training-home.page').then(m => m.TrainingHomePage),
+        // Hoy already shows the "Entrenamiento en curso" card: no second way back to the session.
+        data: { hideActiveSessionBar: true },
       },
       {
         path: 'session',

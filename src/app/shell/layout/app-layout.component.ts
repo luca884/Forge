@@ -5,6 +5,7 @@ import { CdkScrollable } from '@angular/cdk/scrolling';
 import { filter, map } from 'rxjs';
 import { BottomNavComponent } from '../navigation/bottom-nav.component';
 import { FgToastOutletComponent } from '@core/shared/ui';
+import { ActiveSessionBarComponent } from '@features/training/ui/components/active-session-bar.component';
 
 /** Deepest active route: route `data` is not inherited by lazy children, so read the leaf. */
 function leaf(route: ActivatedRouteSnapshot): ActivatedRouteSnapshot {
@@ -14,17 +15,25 @@ function leaf(route: ActivatedRouteSnapshot): ActivatedRouteSnapshot {
 @Component({
   selector: 'fg-app-layout',
   standalone: true,
-  imports: [RouterOutlet, CdkScrollable, BottomNavComponent, FgToastOutletComponent],
+  imports: [RouterOutlet, CdkScrollable, BottomNavComponent, FgToastOutletComponent, ActiveSessionBarComponent],
   template: `
     <div class="app-layout">
       <!-- cdkScrollable: pages scroll here, not in the window, so drag-and-drop lists auto-scroll it. -->
       <main class="app-layout__content" cdkScrollable>
         <router-outlet />
       </main>
-      @if (hideBottomNav() === false) {
-        <footer class="app-layout__footer">
-          <fg-bottom-nav />
-        </footer>
+      @if (chrome(); as c) {
+        @if (!c.hideBottomNav) {
+          <footer class="app-layout__footer">
+            @if (!c.hideActiveSessionBar) {
+              <!-- Deferred: the bar reads the database, which must stay out of the initial bundle. -->
+              @defer (on immediate) {
+                <fg-active-session-bar />
+              }
+            }
+            <fg-bottom-nav />
+          </footer>
+        }
       }
       <fg-toast-outlet />
     </div>
@@ -54,14 +63,22 @@ export class AppLayoutComponent {
   private readonly router = inject(Router);
 
   /**
-   * A route opts out of the bottom nav with `data: { hideBottomNav: true }`. Null until the first
-   * navigation ends: the layout is created before the route is known, and showing the nav by default
-   * would flash it on a reload of a route that hides it.
+   * What the leaf route asks to leave out: `data: { hideBottomNav: true }` drops the whole footer,
+   * `data: { hideActiveSessionBar: true }` only the session-in-progress strip (a page that already
+   * offers the way back). Null until the first navigation ends: the layout is created before the
+   * route is known, and showing the footer by default would flash it on a reload of a route that
+   * hides it.
    */
-  readonly hideBottomNav = toSignal(
+  readonly chrome = toSignal(
     this.router.events.pipe(
       filter((e) => e instanceof NavigationEnd),
-      map(() => leaf(this.router.routerState.snapshot.root).data['hideBottomNav'] === true),
+      map(() => {
+        const data = leaf(this.router.routerState.snapshot.root).data;
+        return {
+          hideBottomNav: data['hideBottomNav'] === true,
+          hideActiveSessionBar: data['hideActiveSessionBar'] === true,
+        };
+      }),
     ),
     { initialValue: null },
   );
