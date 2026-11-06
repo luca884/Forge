@@ -558,6 +558,19 @@ describe('TrainingHomePage', () => {
       expect(rows[1].textContent).not.toContain('PR');
     });
 
+    it('each "Diario" row opens its session, to see and correct it', async () => {
+      await setup({
+        sessions: [completedSession('s-new', '2026-10-26', 'd-2', 52)],
+        setsBySession: { 's-new': [weightSet('a', 's-new', 100, 10)] },
+      });
+      const row = root().querySelector<HTMLAnchorElement>('a[data-journal-row]');
+      expect(row).not.toBeNull();
+      expect(row!.getAttribute('href')).toBe('/training/history/s-new');
+      // No aria-label: the row's own text (day, stats, PR) names the link.
+      expect(row!.hasAttribute('aria-label')).toBe(false);
+      expect(row!.textContent).toContain('Torso');
+    });
+
     it('"Diario" ignores sessions that are not completed', async () => {
       const inProgress: Session = { ...completedSession('s-x', '2026-10-26', 'd-1'), status: 'in-progress', endedAt: undefined };
       await setup({ sessions: [inProgress] });

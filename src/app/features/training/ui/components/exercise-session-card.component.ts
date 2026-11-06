@@ -42,7 +42,7 @@ interface PendingRow {
           <span data-set-counter
                 class="ml-auto shrink-0 font-mono tabular-nums text-[12px] leading-4"
                 [class.text-accent-ink]="allDone()"
-                [class.text-ink-2]="!allDone()">{{ loggedSets.length }}/{{ targetSets.length }} series</span>
+                [class.text-ink-2]="!allDone()">{{ targetSets.length > 0 ? loggedSets.length + '/' + targetSets.length : loggedSets.length }} series</span>
         </div>
         <p class="font-mono tabular-nums text-[12px] leading-4 text-ink-2">
           {{ targetLabel() }}
@@ -135,7 +135,7 @@ interface PendingRow {
       }
 
       <!-- Set logger — hidden once the exercise reached its target sets (no over-logging) -->
-      @if (sessionId && !allDone()) {
+      @if (sessionId && canLog() && !allDone()) {
         <fg-set-logger
           [trackingType]="exercise.trackingType"
           [sessionId]="sessionId"
@@ -159,6 +159,9 @@ export class ExerciseSessionCardComponent {
 
   /** Preferred weight unit — passed down from the hosting page (D-2, ADR-22). */
   readonly unit = input<PreferredUnit>('kg');
+
+  /** False on a finished session: logged sets stay editable, but no new set can be logged. */
+  readonly canLog = input<boolean>(true);
 
   /** Whether the sets list is expanded. Default true for backward compat. */
   readonly expanded = input<boolean>(true);
