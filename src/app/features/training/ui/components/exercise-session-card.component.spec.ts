@@ -447,7 +447,20 @@ describe('ExerciseSessionCardComponent', () => {
     expect(el.querySelector('fg-set-logger')).toBeTruthy();
   });
 
-  it('without planned sets, the counter says how many sets were logged ("2 series", not "2/0")', () => {
+  it('on a finished session without planned sets, the counter says how many sets were logged ("2 series")', () => {
+    fixture = TestBed.createComponent(ExerciseSessionCardComponent);
+    fixture.componentRef.setInput('exercise', mockExercise);
+    fixture.componentRef.setInput('targetSets', []);
+    fixture.componentRef.setInput('loggedSets', [weightRepsSet, prSet]);
+    fixture.componentRef.setInput('sessionId', 's-1');
+    fixture.componentRef.setInput('canLog', false);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-set-counter]')!.textContent!.trim()).toBe('2 series');
+  });
+
+  it('in the session in progress, an exercise without planned sets keeps its "2/0 series" counter', () => {
+    // An exercise added to a day starts with no planned sets (add-exercise-to-day.use-case.ts).
     fixture = TestBed.createComponent(ExerciseSessionCardComponent);
     fixture.componentRef.setInput('exercise', mockExercise);
     fixture.componentRef.setInput('targetSets', []);
@@ -455,7 +468,7 @@ describe('ExerciseSessionCardComponent', () => {
     fixture.componentRef.setInput('sessionId', 's-1');
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).querySelector('[data-set-counter]')!.textContent!.trim()).toBe('2 series');
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-set-counter]')!.textContent!.trim()).toBe('2/0 series');
   });
 
   it('shows the set-logger while sets are still pending', () => {

@@ -42,7 +42,7 @@ interface PendingRow {
           <span data-set-counter
                 class="ml-auto shrink-0 font-mono tabular-nums text-[12px] leading-4"
                 [class.text-accent-ink]="allDone()"
-                [class.text-ink-2]="!allDone()">{{ targetSets.length > 0 ? loggedSets.length + '/' + targetSets.length : loggedSets.length }} series</span>
+                [class.text-ink-2]="!allDone()">{{ canLog() ? loggedSets.length + '/' + targetSets.length : loggedSets.length }} series</span>
         </div>
         <p class="font-mono tabular-nums text-[12px] leading-4 text-ink-2">
           {{ targetLabel() }}
