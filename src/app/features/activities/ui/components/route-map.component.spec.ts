@@ -1,3 +1,4 @@
+import { ErrorHandler } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import type { TrackPoint } from '../../domain/activity.entity';
 import { RouteMapComponent } from './route-map.component';
@@ -148,5 +149,29 @@ describe('RouteMapComponent', () => {
     fixture.destroy();
     expect(map.remove).toHaveBeenCalledTimes(1);
     expect(nextMap.remove).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not create a stale map when the points change before the import resolves', async () => {
+    const fixture = render();
+    fixture.componentRef.setInput('points', [point(10, 20), point(11, 21)]);
+    fixture.detectChanges();
+    await finishLoading();
+
+    expect(leaflet.map).toHaveBeenCalledTimes(1);
+    expect(leaflet.polyline).toHaveBeenCalledTimes(1);
+    expect(leaflet.polyline).toHaveBeenCalledWith([[10, 20], [11, 21]], expect.any(Object));
+  });
+
+  it('reports a failed map setup to the ErrorHandler', async () => {
+    const handleError = jest.fn();
+    TestBed.overrideProvider(ErrorHandler, { useValue: { handleError } });
+    leaflet.map.mockImplementation(() => {
+      throw new Error('boom');
+    });
+    render();
+    await finishLoading();
+    await Promise.resolve();
+
+    expect(handleError).toHaveBeenCalledTimes(1);
   });
 });
