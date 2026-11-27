@@ -32,6 +32,11 @@ export const routes: Routes = [
       import('@features/profile/ui/profile.routes').then((m) => m.PROFILE_ROUTES),
   },
   {
+    path: 'activities',
+    loadChildren: () =>
+      import('@features/activities/ui/activities.routes').then((m) => m.default),
+  },
+  {
     path: '**',
     redirectTo: '/training',
   },
