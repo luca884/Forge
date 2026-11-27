@@ -9,7 +9,7 @@ Rama `feat/activities-gpx-import` (worktree `/Users/luca/Projects/Forge-activiti
 
 ## Tasks
 - [x] T1 (S1, S3) Parser GPX + entidad `Activity` y estadísticas (distancia, tiempo, velocidad, desnivel). Dominio puro, sin Angular. Ruta: worker. Commit: 0b48167 (53 tests verdes, eslint ok; Risk: none)
-- [ ] T2 (S2, S3) Tablas Dexie `activities` + `activityTracks` (versión 4, ver D4), repositorio, casos de uso (importar, listar, obtener, borrar) y backup (`BACKUP_TABLES`, `DATE_FIELDS`, `BACKUP_VERSION`). Ruta: worker. Commit: —
+- [x] T2 (S2, S3) Tablas Dexie `activities` + `activityTracks` (versión 4, ver D4), repositorio, casos de uso (importar, listar, obtener, borrar) y backup (`BACKUP_TABLES`, `DATE_FIELDS`, `BACKUP_VERSION`). Ruta: worker. Commit: 1e0a16f (jest 1969/1969, tsc y eslint ok; verificador independiente sin bloqueantes; revisión nativa aprobada; Risk: item 1)
 - [ ] T3 (S1, S3) UI: importar archivo, lista de actividades y detalle con estadísticas (sin mapa). Ruta: worker. Commit: —
 - [ ] T4 (S1) Mapa del recorrido con Leaflet + OpenStreetMap, en carga diferida (presupuesto inicial 400/450 kB). Ruta: worker. Commit: —
 - [ ] T5 (S4) Sexta pestaña "Actividades" en la barra inferior (`repeat(5` → 6), icono, ruta, recorrido e2e. Ruta: inline. Commit: —
@@ -25,4 +25,7 @@ Rama `feat/activities-gpx-import` (worktree `/Users/luca/Projects/Forge-activiti
 - L5 (slice): el commit 0b48167 mide 569 líneas contando ~310 de tests; límite del slice 1 = fin de T1. Los slices siguientes se cortan por tarea (T2, T3, T4, T5+T6).
 - L6 (hallazgo): `npx tsc --noEmit -p tsconfig.spec.json` ya falla en `main` por specs ajenos (appearance-boot-script, pwa-update); no es de esta funcionalidad.
 - D4 (decisión, rendimiento): los puntos GPS viven en una tabla aparte `activityTracks` (clave = id de la actividad) y `activities` guarda solo metadatos y estadísticas; así la lista no carga miles de puntos por recorrido. Borrar y guardar tocan ambas tablas en una sola transacción. El backup incluye las dos tablas y debe seguir restaurando respaldos viejos (sin esas tablas).
+- L7 (slice): el commit 1e0a16f mide 550 líneas (+19 −); límite del slice 2 = fin de T2. Revisión nativa RDD (lenses risk/resilience/reliability) aprobada, autoridad quemada, linaje review-1cedbf0bfd883faf.
+- L8 (seguimiento, no bloqueante, de la revisión R3/R4 y del verificador A1/A2): la validación de un backup v2 solo mira la clave primaria de `activities`/`activityTracks`; un archivo editado a mano puede dejar actividades sin recorrido (se listan pero no se abren). Misma laxitud que las tablas previas. Posible T7 opcional: validar forma y pares actividad↔recorrido antes de reemplazar.
+- L9 (comportamiento confirmado): restaurar un respaldo v1 (sin actividades) sobre una base con actividades las borra, por la regla "restaurar reemplaza todo"; el aviso de Perfil ya lo dice ("…perfil y recorridos…").
 - D3 (arquitectura, del mapa del explorer): Dexie se amplía con versión nueva aditiva `version(4).stores({ activities: ... })` en `src/app/core/db/database.ts`; el backup enumera tablas a mano en `src/app/core/shared/domain/backup/backup.ts`; la barra inferior es el arreglo `tabs` en `src/app/shell/navigation/bottom-nav.component.ts`; tests co-ubicados (`*.spec.ts`), Jest + fake-indexeddb; eslint con prefijo `fg`; tsconfig con `noUncheckedIndexedAccess`.
