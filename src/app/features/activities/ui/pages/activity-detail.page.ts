@@ -29,13 +29,13 @@ const loading: DetailState = { kind: 'loading' };
         class="break-words"
       />
     } @else {
-      <fg-page-header title="Actividades" />
+      <fg-page-header title="Recorridos" />
     }
 
     <div class="flex flex-col gap-3 px-4 pt-3 pb-6">
       @if (detail.kind !== 'not-found') {
         <a routerLink="/activities" class="inline-flex min-h-11 items-center self-start rounded-lg text-sm font-medium text-accent-ink underline">
-          Volver a Actividades
+          Volver a Recorridos
         </a>
       }
 
@@ -49,7 +49,7 @@ const loading: DetailState = { kind: 'loading' };
         @case ('not-found') {
           <fg-empty-state title="No encontramos este recorrido" icon="pin">
             <a fgEmptyAction routerLink="/activities" class="inline-flex min-h-11 items-center rounded-lg text-sm font-medium text-accent-ink underline">
-              Volver a Actividades
+              Volver a Recorridos
             </a>
           </fg-empty-state>
         }

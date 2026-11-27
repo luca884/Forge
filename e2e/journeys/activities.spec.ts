@@ -72,14 +72,14 @@ async function deleteFromDetail(page: Page): Promise<void> {
 }
 
 test.describe('J24 — Recorridos', () => {
-  test('J24.1 — Recorridos abre Actividades y muestra el estado vacío', async ({ page }) => {
+  test('J24.1 — la pestaña Recorridos abre su lista y muestra el estado vacío', async ({ page }) => {
     await page.goto('/');
     const tab = nav(page).getByRole('link', { name: 'Recorridos', exact: true });
     await expect(tab).toBeVisible();
     await tab.click();
     await expect(page).toHaveURL(/\/activities$/);
     await expect(tab).toHaveAttribute('aria-current', 'page');
-    await expect(page.getByRole('heading', { name: 'Actividades', level: 1, exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Recorridos', level: 1, exact: true })).toBeVisible();
     await expect(page.getByText(EMPTY_STATE, { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Importar GPX', exact: true })).toBeVisible();
   });
@@ -122,7 +122,7 @@ test.describe('J24 — Recorridos', () => {
       tiles.some((tile) => tile instanceof HTMLImageElement && tile.complete && tile.naturalWidth === 1),
     )).toBe(true);
 
-    await page.getByRole('link', { name: 'Volver a Actividades', exact: true }).click();
+    await page.getByRole('link', { name: 'Volver a Recorridos', exact: true }).click();
     await activityLinks(page).getByText('Costanera', { exact: true }).click();
     await expect(surface).toBeVisible();
     await expect(stylesheet).toHaveCount(1);
@@ -130,7 +130,7 @@ test.describe('J24 — Recorridos', () => {
 
   test('J24.4 — un GPX sin nombre ni tipo usa el nombre del archivo y la lista conserva su orden al recargar', async ({ page }) => {
     await importCostanera(page);
-    await page.getByRole('link', { name: 'Volver a Actividades', exact: true }).click();
+    await page.getByRole('link', { name: 'Volver a Recorridos', exact: true }).click();
     // Imported second, but recorded a day before Costanera.
     await loadGpx(page, 'Vuelta al parque.gpx');
     const chooser = page.getByRole('group', { name: '¿Qué tipo de actividad es?' });
@@ -139,7 +139,7 @@ test.describe('J24 — Recorridos', () => {
     await chooser.getByRole('button', { name: 'Correr', exact: true }).click();
     await expectDetail(page, 'Vuelta al parque', 'Correr');
 
-    await page.getByRole('link', { name: 'Volver a Actividades', exact: true }).click();
+    await page.getByRole('link', { name: 'Volver a Recorridos', exact: true }).click();
     await expect(page).toHaveURL(/\/activities$/);
     await page.reload();
     const links = activityLinks(page);
@@ -151,7 +151,7 @@ test.describe('J24 — Recorridos', () => {
   test('J24.5 — rechazar un archivo que no es GPX deja la lista intacta', async ({ page }) => {
     await importCostanera(page);
     const costaneraPath = new URL(page.url()).pathname;
-    await page.getByRole('link', { name: 'Volver a Actividades', exact: true }).click();
+    await page.getByRole('link', { name: 'Volver a Recorridos', exact: true }).click();
     const links = activityLinks(page);
     await expect(links).toHaveCount(1);
     const originalList = await links.allTextContents();
