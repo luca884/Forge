@@ -119,6 +119,31 @@ export interface WorkedSetRow {
   distanceKm?: number;
 }
 
+export interface ActivityRow {
+  id: string;
+  name: string;
+  type: 'walk' | 'bike' | 'run';
+  startedAt: number | null;
+  importedAt: number;
+  stats: {
+    distanceMeters: number;
+    elapsedSeconds: number | null;
+    movingSeconds: number | null;
+    avgSpeedKmh: number | null;
+    elevationGainMeters: number | null;
+  };
+}
+
+export interface ActivityTrackRow {
+  activityId: string;
+  points: {
+    lat: number;
+    lon: number;
+    ele: number | null;
+    time: number | null;
+  }[];
+}
+
 export class ForgeDatabase extends Dexie {
   profile!: Table<ProfileRow, string>;
   routines!: Table<RoutineRow, string>;
@@ -128,6 +153,8 @@ export class ForgeDatabase extends Dexie {
   workedSets!: Table<WorkedSetRow, string>;
   personalRecords!: Table<PersonalRecordRow, string>;
   auditEvents!: Table<AuditEventRow, string>;
+  activities!: Table<ActivityRow, string>;
+  activityTracks!: Table<ActivityTrackRow, string>;
 
   constructor() {
     super('forge');
@@ -155,6 +182,12 @@ export class ForgeDatabase extends Dexie {
     this.version(3).stores({
       sessions: 'id, date, routineId, dayId, status, startedAt',
       auditEvents: 'id, name, occurredAt, sessionId',
+    });
+
+    // v4 — solo agrega tablas. Los puntos se guardan aparte para no cargarlos al listar.
+    this.version(4).stores({
+      activities: 'id, startedAt, importedAt',
+      activityTracks: 'activityId',
     });
   }
 }
