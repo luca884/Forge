@@ -89,7 +89,7 @@ describe('ActivityDetailPage', () => {
       Distancia: '5,42 km', 'Tiempo total': '1 h 05 min', 'Tiempo en movimiento': '42 min',
       'Velocidad media': '7,2 km/h', 'Desnivel positivo': '+120 m',
     });
-    expect(root.querySelector('a[href="/activities"]')?.textContent?.trim()).toBe('Volver a Actividades');
+    expect(root.querySelector('a[href="/activities"]')?.textContent?.trim()).toBe('Volver a Recorridos');
   });
 
   it('shows a route map above the stats when the activity has two points', async () => {

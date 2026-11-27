@@ -83,7 +83,7 @@ describe('ActivityListPage', () => {
   it('shows the empty state and opens the GPX file picker', async () => {
     await flush(fixture);
 
-    expect(root.querySelector('h1')?.textContent).toBe('Actividades');
+    expect(root.querySelector('h1')?.textContent).toBe('Recorridos');
     const emptyState = root.querySelector<HTMLElement>('fg-empty-state');
     if (!emptyState) throw new Error('No empty state');
     expect(emptyState.textContent).toContain('Todavía no importaste ningún recorrido');

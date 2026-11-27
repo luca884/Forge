@@ -17,7 +17,7 @@ const activityTypes: readonly ActivityType[] = ['walk', 'bike', 'run'];
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink, FgButtonComponent, FgCardComponent, FgEmptyStateComponent, FgPageHeaderComponent],
   template: `
-    <fg-page-header title="Actividades" />
+    <fg-page-header title="Recorridos" />
 
     <div class="flex flex-col gap-3 px-4 pt-3 pb-6">
       @let items = activities();
