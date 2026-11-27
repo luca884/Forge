@@ -1,11 +1,23 @@
+import { Component, input } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
-import type { Activity } from '../../domain/activity.entity';
+import type { Activity, TrackPoint } from '../../domain/activity.entity';
 import { ActivityNotFoundError } from '../../domain/errors/activity-not-found.error';
 import { DeleteActivityUseCase } from '../../domain/use-cases/delete-activity.use-case';
 import { GetActivityUseCase } from '../../domain/use-cases/get-activity.use-case';
+import { RouteMapComponent } from '../components/route-map.component';
 import { ActivityDetailPage } from './activity-detail.page';
+
+@Component({ selector: 'fg-route-map', standalone: true, template: '' })
+class RouteMapStubComponent {
+  readonly points = input.required<readonly TrackPoint[]>();
+}
+
+const track: TrackPoint[] = [
+  { lat: -34.6, lon: -58.4, ele: null, time: null },
+  { lat: -34.61, lon: -58.39, ele: null, time: null },
+];
 
 const activity: Activity = {
   id: 'run', name: 'Circuito del parque', type: 'run',
@@ -53,6 +65,9 @@ describe('ActivityDetailPage', () => {
         { provide: GetActivityUseCase, useValue: { execute: getActivity } },
         { provide: DeleteActivityUseCase, useValue: { execute: deleteActivity } },
       ],
+    }).overrideComponent(ActivityDetailPage, {
+      remove: { imports: [RouteMapComponent] },
+      add: { imports: [RouteMapStubComponent] },
     });
     navigate = jest.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
   });
@@ -75,6 +90,23 @@ describe('ActivityDetailPage', () => {
       'Velocidad media': '7,2 km/h', 'Desnivel positivo': '+120 m',
     });
     expect(root.querySelector('a[href="/activities"]')?.textContent?.trim()).toBe('Volver a Actividades');
+  });
+
+  it('shows a route map above the stats when the activity has two points', async () => {
+    getActivity.mockResolvedValueOnce({ ...activity, points: track });
+    await render();
+
+    const map = root.querySelector('fg-route-map');
+    expect(map).not.toBeNull();
+    expect(map?.nextElementSibling?.querySelector('dl')).not.toBeNull();
+  });
+
+  it.each([0, 1])('does not show a route map for an activity with %i points', async (count) => {
+    getActivity.mockResolvedValueOnce({ ...activity, points: track.slice(0, count) });
+    await render();
+
+    expect(root.querySelector('fg-route-map')).toBeNull();
+    expect(root.querySelector('dl')).not.toBeNull();
   });
 
   it('uses the import date and displays a dash for every missing stat without hiding zero distance', async () => {

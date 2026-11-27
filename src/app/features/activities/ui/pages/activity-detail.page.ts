@@ -7,6 +7,7 @@ import type { Activity } from '../../domain/activity.entity';
 import { ActivityNotFoundError } from '../../domain/errors/activity-not-found.error';
 import { DeleteActivityUseCase } from '../../domain/use-cases/delete-activity.use-case';
 import { GetActivityUseCase } from '../../domain/use-cases/get-activity.use-case';
+import { RouteMapComponent } from '../components/route-map.component';
 import {
   activityTypeLabels, formatActivityDate, formatDistance, formatDuration, formatElevationGain, formatSpeed,
 } from '../format/activity-format';
@@ -18,7 +19,7 @@ const loading: DetailState = { kind: 'loading' };
   selector: 'fg-activity-detail-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, FgButtonComponent, FgCardComponent, FgEmptyStateComponent, FgPageHeaderComponent],
+  imports: [RouterLink, FgButtonComponent, FgCardComponent, FgEmptyStateComponent, FgPageHeaderComponent, RouteMapComponent],
   template: `
     @let detail = state();
     @if (detail.kind === 'ready') {
@@ -54,6 +55,9 @@ const loading: DetailState = { kind: 'loading' };
         }
         @case ('ready') {
           @let stats = detail.activity.stats;
+          @if (detail.activity.points.length >= 2) {
+            <fg-route-map [points]="detail.activity.points" />
+          }
           <fg-card>
             <dl class="grid grid-cols-2 gap-4 sm:grid-cols-3">
               <div>
