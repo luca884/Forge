@@ -29,6 +29,14 @@ function sampleBackup(): Backup {
       workedSets: [{ id: 'ws-1', sessionId: 's-1', exerciseId: 'ex-1', type: 'weight-reps', isPR: true, reps: 5, weightKg: 62.5, createdAt: d('2026-11-03T18:10:00Z') }],
       personalRecords: [{ id: 'pr-1', exerciseId: 'ex-1', trackingType: 'weight-reps', workedSetId: 'ws-1', achievedAt: d('2026-11-03T18:10:00Z'), reps: 5, weightKg: 62.5, createdAt: d('2026-11-03T18:10:00Z'), updatedAt: d('2026-11-03T18:10:00Z') }],
       auditEvents: [{ id: 'ae-1', name: 'WorkedSetEdited', occurredAt: d('2026-11-03T18:20:00Z'), sessionId: 's-1', payload: '{"setId":"ws-1"}' }],
+      activities: [
+        { id: 'a-1', name: 'Vuelta', type: 'walk', startedAt: 0, importedAt: 1793813400000, stats: { distanceMeters: 111, elapsedSeconds: null, movingSeconds: 0, avgSpeedKmh: null, elevationGainMeters: null } },
+        { id: 'a-2', name: 'Paseo', type: 'bike', startedAt: null, importedAt: 1793813400001, stats: { distanceMeters: 111, elapsedSeconds: null, movingSeconds: null, avgSpeedKmh: null, elevationGainMeters: null } },
+      ],
+      activityTracks: [
+        { activityId: 'a-1', points: [{ lat: 0, lon: 0, ele: 0, time: 0 }, { lat: 0, lon: 0.001, ele: null, time: null }] },
+        { activityId: 'a-2', points: [{ lat: 0, lon: 0, ele: null, time: null }, { lat: 0, lon: 0.001, ele: null, time: null }] },
+      ],
     },
   };
 }
@@ -45,15 +53,25 @@ describe('backup codec', () => {
     const backup = sampleBackup();
     const parsed = parseBackup(serializeBackup(backup));
     expect(parsed).toEqual(backup);
-    expect(parsed.data.sessions[0]['startedAt']).toBeInstanceOf(Date);
+    expect(parsed.data.sessions[0]?.['startedAt']).toBeInstanceOf(Date);
     expect(Object.keys(parsed.data).sort()).toEqual([...BACKUP_TABLES].sort());
   });
 
-  it('marks the file as a Forge backup, version 1', () => {
+  it('marks the file as a Forge backup, version 2', () => {
     const raw = JSON.parse(serializeBackup(sampleBackup()));
     expect(raw.format).toBe('forge-backup');
-    expect(raw.version).toBe(1);
+    expect(raw.version).toBe(2);
     expect(raw.exportedAt).toBe('2026-11-05T21:30:00.000Z');
+  });
+
+  it('reads version 1 and supplies empty activity tables', () => {
+    const text = tampered((r) => {
+      r.version = 1;
+      delete r.data.activities;
+      delete r.data.activityTracks;
+    });
+    const backup = sampleBackup();
+    expect(parseBackup(text)).toEqual({ ...backup, data: { ...backup.data, activities: [], activityTracks: [] } });
   });
 
   it.each<[string, string]>([
@@ -62,6 +80,16 @@ describe('backup codec', () => {
     ['another format', tampered((r) => (r.format = 'otra-app'))],
     ['no version', tampered((r) => delete r.version)],
     ['a missing table', tampered((r) => delete r.data.sessions)],
+    ['missing activities in version 2', tampered((r) => delete r.data.activities)],
+    ['missing tracks in version 2', tampered((r) => delete r.data.activityTracks)],
+    ['missing tracks primary key', tampered((r) => delete r.data.activityTracks[0].activityId)],
+    ['empty tracks primary key', tampered((r) => (r.data.activityTracks[0].activityId = ''))],
+    ['a missing original table in version 1', tampered((r) => {
+      r.version = 1;
+      delete r.data.sessions;
+      delete r.data.activities;
+      delete r.data.activityTracks;
+    })],
     ['a table that is not a list', tampered((r) => (r.data.routines = {}))],
     ['a row that is not an object', tampered((r) => r.data.exercises.push('x'))],
     ['a row without id', tampered((r) => delete r.data.routines[0].id)],
@@ -87,7 +115,7 @@ describe('backup codec', () => {
   });
 
   it('rejects a backup from a newer version of Forge with its own message', () => {
-    const text = tampered((r) => (r.version = 2));
+    const text = tampered((r) => (r.version = 3));
     expect(() => parseBackup(text)).toThrow(InvalidBackupError);
     expect(() => parseBackup(text)).toThrow('Este respaldo es de una versión más nueva de Forge. Actualizá la app y probá de nuevo.');
   });

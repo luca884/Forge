@@ -271,7 +271,7 @@ function localDateStamp(date: Date): string {
                 ¿Reemplazar todos tus datos por los del respaldo del {{ backupDate(backup) }}?
               </span>
               <span class="text-[12px] text-ink-2">
-                Se borran las rutinas, ejercicios, sesiones, récords y perfil que hay ahora en este dispositivo.
+                Se borran las rutinas, ejercicios, sesiones, récords, perfil y recorridos que hay ahora en este dispositivo.
               </span>
               <div class="flex gap-2">
                 <button
