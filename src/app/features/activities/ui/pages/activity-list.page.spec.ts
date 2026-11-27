@@ -89,7 +89,10 @@ describe('ActivityListPage', () => {
     expect(emptyState.textContent).toContain('Todavía no importaste ningún recorrido');
     const input = fileInput();
     const pick = jest.spyOn(input, 'click').mockImplementation(() => undefined);
-    expect(input.accept).toBe('.gpx,application/gpx+xml,application/xml,text/xml');
+    // Sin `accept`: en Android, Capacitor convierte la lista en tipos MIME permitidos y descarta ".gpx"
+    // (Android no lo conoce); el archivo se guarda como application/octet-stream y el selector lo
+    // deshabilita. El contenido se valida al importar (InvalidGpxError), no por tipo.
+    expect(input.hasAttribute('accept')).toBe(false);
     expect(input.hidden).toBe(true);
     button(emptyState, 'Importar GPX').click();
     expect(pick).toHaveBeenCalledTimes(1);

@@ -24,7 +24,6 @@ const activityTypes: readonly ActivityType[] = ['walk', 'bike', 'run'];
       <input
         #gpxInput
         type="file"
-        accept=".gpx,application/gpx+xml,application/xml,text/xml"
         hidden
         (change)="onFileInput(gpxInput)"
       />
