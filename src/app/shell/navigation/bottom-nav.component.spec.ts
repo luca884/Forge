@@ -34,8 +34,8 @@ describe('BottomNavComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('muestra exactamente 5 tabs', () => {
-    expect(getTabs().length).toBe(5);
+  it('muestra exactamente 6 tabs', () => {
+    expect(getTabs().length).toBe(6);
   });
 
   it('el primer tab apunta a /training', () => {
@@ -50,15 +50,19 @@ describe('BottomNavComponent', () => {
     expect(getHref(getTabs()[2]!)).toBe('/exercises');
   });
 
-  it('el cuarto tab apunta a /progress', () => {
-    expect(getHref(getTabs()[3]!)).toBe('/progress');
+  it('el cuarto tab apunta a /activities', () => {
+    expect(getHref(getTabs()[3]!)).toBe('/activities');
   });
 
-  it('el quinto tab apunta a /profile', () => {
-    expect(getHref(getTabs()[4]!)).toBe('/profile');
+  it('el quinto tab apunta a /progress', () => {
+    expect(getHref(getTabs()[4]!)).toBe('/progress');
   });
 
-  it('el quinto tab tiene la etiqueta Perfil', () => {
+  it('el sexto tab apunta a /profile', () => {
+    expect(getHref(getTabs()[5]!)).toBe('/profile');
+  });
+
+  it('el último tab tiene la etiqueta Perfil', () => {
     const tabs = getTabs();
     const lastTab = tabs[tabs.length - 1];
     const label = lastTab?.query(By.css('.bottom-nav__label'));
@@ -75,24 +79,24 @@ describe('BottomNavComponent', () => {
 
   it('cada tab renderiza un fg-icon del design system (no emoji)', () => {
     const tabs = getTabs();
-    expect(tabs.length).toBe(5);
+    expect(tabs.length).toBe(6);
     tabs.forEach((tab) => {
       expect(tab.query(By.css('fg-icon'))).toBeTruthy();
     });
   });
 
-  it('las etiquetas son Hoy, Rutinas, Ejercicios, Progreso y Perfil (L9)', () => {
+  it('las etiquetas son Hoy, Rutinas, Ejercicios, Recorridos, Progreso y Perfil (L9)', () => {
     const labels = getTabs().map((tab) =>
       (tab.query(By.css('.bottom-nav__label')).nativeElement as HTMLElement).textContent?.trim(),
     );
-    expect(labels).toEqual(['Hoy', 'Rutinas', 'Ejercicios', 'Progreso', 'Perfil']);
+    expect(labels).toEqual(['Hoy', 'Rutinas', 'Ejercicios', 'Recorridos', 'Progreso', 'Perfil']);
   });
 
   it('cada tab usa el ícono del canvas C (Ejercicios conserva uno del catálogo)', () => {
     const names = getTabs().map(
       (tab) => (tab.query(By.css('fg-icon')).componentInstance as { name: () => string }).name(),
     );
-    expect(names).toEqual(['clock', 'list', 'dumbbell', 'bars', 'person']);
+    expect(names).toEqual(['clock', 'list', 'dumbbell', 'route', 'bars', 'person']);
   });
 
   it('los íconos miden 22px', () => {
@@ -114,6 +118,7 @@ describe('BottomNavComponent · pestaña activa', () => {
           { path: 'training', component: BlankPage },
           { path: 'routines', component: BlankPage },
           { path: 'exercises', component: BlankPage },
+          { path: 'activities', component: BlankPage },
           { path: 'progress', component: BlankPage },
           { path: 'profile', component: BlankPage },
         ]),
@@ -129,7 +134,16 @@ describe('BottomNavComponent · pestaña activa', () => {
     const tabs = Array.from(
       (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLAnchorElement>('a.bottom-nav__tab'),
     );
-    expect(tabs.map((t) => t.getAttribute('aria-current'))).toEqual([null, 'page', null, null, null]);
+    expect(tabs.map((t) => t.getAttribute('aria-current'))).toEqual([null, 'page', null, null, null, null]);
     expect(tabs[1]!.classList.contains('active')).toBe(true);
+  });
+
+  it('marca Recorridos como activa también en el detalle de una actividad', async () => {
+    await TestBed.inject(Router).navigateByUrl('/activities');
+    fixture.detectChanges();
+    const tabs = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLAnchorElement>('a.bottom-nav__tab'),
+    );
+    expect(tabs.map((t) => t.getAttribute('aria-current'))).toEqual([null, null, null, 'page', null, null]);
   });
 });
