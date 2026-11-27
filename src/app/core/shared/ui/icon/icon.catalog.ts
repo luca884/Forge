@@ -62,6 +62,9 @@ export const ICONS = {
 
   /* ── Reordenar (manija ≡ para arrastrar) ─────────────────────────── */
   grip:     'M5 8h14 M5 12h14 M5 16h14',
+
+  /* ── Recorridos (dos puntos unidos por un camino) ─────────────────────────────────── */
+  route:    'M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15 M6 22a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M18 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
 } as const;
 
 export type IconName = keyof typeof ICONS;

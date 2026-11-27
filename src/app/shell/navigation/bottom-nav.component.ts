@@ -33,7 +33,7 @@ interface NavTab {
   styles: `
     .bottom-nav {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(6, minmax(0, 1fr));
       background: rgb(var(--color-surface));
       border-top: 1px solid rgb(var(--color-line));
       padding: 6px 8px max(18px, env(safe-area-inset-bottom));
@@ -65,6 +65,7 @@ export class BottomNavComponent {
     { label: 'Hoy', route: '/training', icon: 'clock' },
     { label: 'Rutinas', route: '/routines', icon: 'list' },
     { label: 'Ejercicios', route: '/exercises', icon: 'dumbbell' },
+    { label: 'Recorridos', route: '/activities', icon: 'route' },
     { label: 'Progreso', route: '/progress', icon: 'bars' },
     { label: 'Perfil', route: '/profile', icon: 'person' },
   ];

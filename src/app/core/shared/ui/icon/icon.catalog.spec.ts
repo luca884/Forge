@@ -4,7 +4,7 @@ import { ICONS } from './icon.catalog';
  * Catalog spec — verifies completeness and integrity of the ICONS record.
  * Source of truth: Design/Forge/icons.jsx (36 icons) + 4 de la barra inferior del
  * canvas C Cuaderno (clock, list, bars, person).
- * Nav(5) + Common(16) + Domain(15) + Cuaderno nav(4) + Reordenar(1) = 41 total.
+ * Nav(5) + Common(16) + Domain(15) + Cuaderno nav(4) + Reordenar(1) + Recorridos(1) = 42 total.
  *
  * Known intentional duplicate: `download` and `install` share the same SVG path
  * (same visual glyph, different semantic meaning). Not a copy-paste error.
@@ -24,14 +24,16 @@ describe('ICONS catalog', () => {
     'clock', 'list', 'bars', 'person',
     // Reordenar (1)
     'grip',
+    // Recorridos (1)
+    'route',
   ] as const;
 
   it('ICONS object is not empty', () => {
     expect(Object.keys(ICONS).length).toBeGreaterThan(0);
   });
 
-  it('ICONS contains exactly 41 icons (36 de Design/Forge/icons.jsx + 4 de Cuaderno + grip)', () => {
-    expect(Object.keys(ICONS).length).toBe(41);
+  it('ICONS contains exactly 42 icons (36 de Design/Forge/icons.jsx + 4 de Cuaderno + grip + route)', () => {
+    expect(Object.keys(ICONS).length).toBe(42);
   });
 
   it('every expected key is present', () => {
