@@ -476,6 +476,8 @@ describe('ProfilePage', () => {
       workedSets: [],
       personalRecords: [],
       auditEvents: [],
+      activities: [],
+      activityTracks: [],
     };
     /** A file the user picks; only its text matters. */
     const file = (text: string) => ({ text: () => Promise.resolve(text) }) as unknown as File;
@@ -529,7 +531,7 @@ describe('ProfilePage', () => {
 
       const text = root(fixture).textContent!;
       expect(text).toContain('¿Reemplazar todos tus datos por los del respaldo del 5 de noviembre de 2026?');
-      expect(text).toContain('Se borran las rutinas, ejercicios, sesiones, récords y perfil que hay ahora en este dispositivo.');
+      expect(text).toContain('Se borran las rutinas, ejercicios, sesiones, récords, perfil y recorridos que hay ahora en este dispositivo.');
       expect(restoreSpy).not.toHaveBeenCalled();
     });
 

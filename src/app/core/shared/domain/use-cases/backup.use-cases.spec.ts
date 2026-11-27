@@ -13,6 +13,8 @@ const data: BackupData = {
   workedSets: [],
   personalRecords: [],
   auditEvents: [],
+  activities: [],
+  activityTracks: [],
 };
 
 describe('backup use cases', () => {

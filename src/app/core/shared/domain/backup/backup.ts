@@ -8,7 +8,8 @@ import { DomainError } from '../errors/domain-error';
  * older versions it replaces.
  */
 export const BACKUP_FORMAT = 'forge-backup';
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
+const LEGACY_BACKUP_VERSION = 1;
 
 /** Tables in the backup, named as the database names them. */
 export const BACKUP_TABLES = [
@@ -20,14 +21,17 @@ export const BACKUP_TABLES = [
   'workedSets',
   'personalRecords',
   'auditEvents',
+  'activities',
+  'activityTracks',
 ] as const;
 
 export type BackupTable = (typeof BACKUP_TABLES)[number];
 
-/** A stored row: an object with a string id. Rows travel as stored; the codec only revives dates. */
-export type BackupRow = Readonly<Record<string, unknown>> & { readonly id: string };
+/** Cada fila conserva su clave primaria; el códec solo reconstruye campos Date. */
+export type BackupRow<Table extends BackupTable = BackupTable> = Readonly<Record<string, unknown>> &
+  (Table extends 'activityTracks' ? { readonly activityId: string } : { readonly id: string });
 
-export type BackupData = Readonly<Record<BackupTable, readonly BackupRow[]>>;
+export type BackupData = { readonly [Table in BackupTable]: readonly BackupRow<Table>[] };
 
 export interface Backup {
   readonly exportedAt: Date;
@@ -52,6 +56,9 @@ const DATE_FIELDS: Readonly<Record<BackupTable, DateFields>> = {
   workedSets: { required: ['createdAt'] },
   personalRecords: { required: ['achievedAt', 'createdAt', 'updatedAt'] },
   auditEvents: { required: ['occurredAt'] },
+  // Estas fechas y los tiempos de los puntos son números (milisegundos), no Date.
+  activities: { required: [] },
+  activityTracks: { required: [] },
 };
 
 const INVALID_MESSAGE = 'El archivo no es un respaldo de Forge válido.';
@@ -80,14 +87,18 @@ export function parseBackup(text: string): Backup {
   if (!isObject(raw) || raw['format'] !== BACKUP_FORMAT || typeof raw['version'] !== 'number') {
     throw new InvalidBackupError();
   }
-  if (raw['version'] > BACKUP_VERSION) throw new InvalidBackupError(NEWER_MESSAGE);
-  if (raw['version'] !== BACKUP_VERSION) throw new InvalidBackupError();
+  const version = raw['version'];
+  if (version > BACKUP_VERSION) throw new InvalidBackupError(NEWER_MESSAGE);
+  if (version !== BACKUP_VERSION && version !== LEGACY_BACKUP_VERSION) throw new InvalidBackupError();
 
   const rawData = raw['data'];
   if (!isObject(rawData)) throw new InvalidBackupError();
 
   const data = Object.fromEntries(
     BACKUP_TABLES.map((table) => {
+      if (version === LEGACY_BACKUP_VERSION && (table === 'activities' || table === 'activityTracks')) {
+        return [table, []];
+      }
       const rows = rawData[table];
       if (!Array.isArray(rows)) throw new InvalidBackupError();
       return [table, rows.map((row) => reviveRow(row, table))];
@@ -98,7 +109,9 @@ export function parseBackup(text: string): Backup {
 }
 
 function reviveRow(row: unknown, table: BackupTable): BackupRow {
-  if (!isObject(row) || typeof row['id'] !== 'string' || row['id'] === '') throw new InvalidBackupError();
+  if (!isObject(row)) throw new InvalidBackupError();
+  const key = row[table === 'activityTracks' ? 'activityId' : 'id'];
+  if (typeof key !== 'string' || key === '') throw new InvalidBackupError();
   const revived: Record<string, unknown> = { ...row };
   const { required, optional = [] } = DATE_FIELDS[table];
   for (const field of required) revived[field] = toDate(row[field]);

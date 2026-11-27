@@ -10,7 +10,8 @@ const d = (iso: string) => new Date(iso);
 
 /** One row per table; `tag` makes ids and names distinct between data sets. */
 function dataSet(tag: string): BackupData {
-  const at = d('2026-11-03T18:00:00Z');
+  // Usar la misma representación Date que devuelve IndexedDB en Jest.
+  const at = structuredClone(d('2026-11-03T18:00:00Z'));
   return {
     profile: [{ id: 'me', name: `Perfil ${tag}`, preferredUnit: 'kg', createdAt: at, updatedAt: at }],
     routines: [{ id: `rt-${tag}`, name: `Rutina ${tag}`, isActive: true, schedule: null, createdAt: at, updatedAt: at }],
@@ -20,6 +21,8 @@ function dataSet(tag: string): BackupData {
     workedSets: [{ id: `ws-${tag}`, sessionId: `s-${tag}`, exerciseId: `ex-${tag}`, type: 'weight-reps', isPR: false, reps: 5, weightKg: 60, createdAt: at }],
     personalRecords: [{ id: `pr-${tag}`, exerciseId: `ex-${tag}`, trackingType: 'weight-reps', workedSetId: `ws-${tag}`, achievedAt: at, reps: 5, weightKg: 60, createdAt: at, updatedAt: at }],
     auditEvents: [{ id: `ae-${tag}`, name: 'WorkedSetEdited', occurredAt: at, payload: '{}' }],
+    activities: [{ id: `a-${tag}`, name: `Paseo ${tag}`, type: 'walk', startedAt: at.getTime(), importedAt: at.getTime() + 1, stats: { distanceMeters: 111, elapsedSeconds: null, movingSeconds: 0, avgSpeedKmh: null, elevationGainMeters: null } }],
+    activityTracks: [{ activityId: `a-${tag}`, points: [{ lat: 0, lon: 0, ele: 0, time: at.getTime() }, { lat: 0, lon: 0.001, ele: null, time: null }] }],
   };
 }
 
@@ -68,12 +71,22 @@ describe('DexieBackupStore', () => {
     expect(await contents()).toEqual(dataSet('old'));
   });
 
-  it('a backup written from the database restores the same database', async () => {
+  it('a new backup restores the database including activities and their exact tracks', async () => {
     await seed(dataSet('a'));
     const file = serializeBackup({ exportedAt: new Date(), data: await store.readAll() });
     await store.replaceAll(dataSet('other'));
 
     await store.replaceAll(parseBackup(file).data);
     expect(await contents()).toEqual(dataSet('a'));
+  });
+
+  it('restores a version 1 backup and clears both activity tables', async () => {
+    await seed(dataSet('current'));
+    const { activities: _activities, activityTracks: _activityTracks, ...legacy } = dataSet('legacy');
+    const file = JSON.stringify({ format: 'forge-backup', version: 1, exportedAt: new Date(), data: legacy });
+
+    await store.replaceAll(parseBackup(file).data);
+
+    expect(await contents()).toEqual({ ...legacy, activities: [], activityTracks: [] });
   });
 });

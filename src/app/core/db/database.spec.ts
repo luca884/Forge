@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto';
+import Dexie from 'dexie';
 import { ForgeDatabase, AuditEventRow } from './database';
 
 describe('ForgeDatabase — version chain', () => {
@@ -14,8 +15,46 @@ describe('ForgeDatabase — version chain', () => {
     await db.delete();
   });
 
-  it('should open at version 3', async () => {
-    expect(db.verno).toBe(3);
+  it('opens at version 4 with the activity indexes', () => {
+    expect(db.verno).toBe(4);
+    expect(db.table('activities').schema.primKey.keyPath).toBe('id');
+    expect(db.table('activities').schema.indexes.map(({ name }) => name)).toEqual(['startedAt', 'importedAt']);
+    expect(db.table('activityTracks').schema.primKey.keyPath).toBe('activityId');
+  });
+
+  it('preserves every v3 store and its data on upgrade', async () => {
+    await db.delete();
+    const schema = {
+      profile: 'id',
+      routines: 'id, isActive',
+      trainingDays: 'id, routineId',
+      exercises: 'id, muscleGroup, isCustom, name',
+      sessions: 'id, date, routineId, dayId, status, startedAt',
+      workedSets: 'id, sessionId, exerciseId, isPR',
+      personalRecords: 'id, exerciseId, trackingType, achievedAt',
+      auditEvents: 'id, name, occurredAt, sessionId',
+    };
+    const legacy = new Dexie('forge');
+    legacy.version(3).stores(schema);
+    const at = structuredClone(new Date('2026-05-01T00:00:00Z'));
+    try {
+      await legacy.open();
+      for (const table of Object.keys(schema)) {
+        await legacy.table(table).add({ id: table, createdAt: at, startedAt: at });
+      }
+    } finally {
+      legacy.close();
+    }
+
+    await db.open();
+    expect(db.verno).toBe(4);
+    for (const [table, definition] of Object.entries(schema)) {
+      const { primKey, indexes } = db.table(table).schema;
+      expect([primKey.name, ...indexes.map(({ name }) => name)].join(', ')).toBe(definition);
+      expect(await db.table(table).toArray()).toEqual([{ id: table, createdAt: at, startedAt: at }]);
+    }
+    expect(await db.table('activities').count()).toBe(0);
+    expect(await db.table('activityTracks').count()).toBe(0);
   });
 
   it('should have auditEvents table', () => {
