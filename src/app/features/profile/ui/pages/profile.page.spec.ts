@@ -478,6 +478,7 @@ describe('ProfilePage', () => {
       auditEvents: [],
       activities: [],
       activityTracks: [],
+      healthDaily: [],
     };
     /** A file the user picks; only its text matters. */
     const file = (text: string) => ({ text: () => Promise.resolve(text) }) as unknown as File;

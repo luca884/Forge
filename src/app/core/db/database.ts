@@ -144,6 +144,24 @@ export interface ActivityTrackRow {
   }[];
 }
 
+export interface HealthRangeRow {
+  avg: number;
+  min: number;
+  max: number;
+  samples: number;
+}
+
+/** Resumen de un día de salud; `id` es el día local AAAA-MM-DD. */
+export interface HealthDayRow {
+  id: string;
+  steps: number | null;
+  distanceMeters: number | null;
+  caloriesKcal: number | null;
+  heartRate: HealthRangeRow | null;
+  oxygenSaturation: HealthRangeRow | null;
+  syncedAt: number;
+}
+
 export class ForgeDatabase extends Dexie {
   profile!: Table<ProfileRow, string>;
   routines!: Table<RoutineRow, string>;
@@ -155,6 +173,7 @@ export class ForgeDatabase extends Dexie {
   auditEvents!: Table<AuditEventRow, string>;
   activities!: Table<ActivityRow, string>;
   activityTracks!: Table<ActivityTrackRow, string>;
+  healthDaily!: Table<HealthDayRow, string>;
 
   constructor() {
     super('forge');
@@ -188,6 +207,11 @@ export class ForgeDatabase extends Dexie {
     this.version(4).stores({
       activities: 'id, startedAt, importedAt',
       activityTracks: 'activityId',
+    });
+
+    // v5 — solo agrega la tabla de resúmenes diarios de salud.
+    this.version(5).stores({
+      healthDaily: 'id, syncedAt',
     });
   }
 }

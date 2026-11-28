@@ -15,8 +15,10 @@ describe('ForgeDatabase — version chain', () => {
     await db.delete();
   });
 
-  it('opens at version 4 with the activity indexes', () => {
-    expect(db.verno).toBe(4);
+  it('opens at version 5 with the activity and health indexes', () => {
+    expect(db.verno).toBe(5);
+    expect(db.table('healthDaily').schema.primKey.keyPath).toBe('id');
+    expect(db.table('healthDaily').schema.indexes.map(({ name }) => name)).toEqual(['syncedAt']);
     expect(db.table('activities').schema.primKey.keyPath).toBe('id');
     expect(db.table('activities').schema.indexes.map(({ name }) => name)).toEqual(['startedAt', 'importedAt']);
     expect(db.table('activityTracks').schema.primKey.keyPath).toBe('activityId');
@@ -47,7 +49,7 @@ describe('ForgeDatabase — version chain', () => {
     }
 
     await db.open();
-    expect(db.verno).toBe(4);
+    expect(db.verno).toBe(5);
     for (const [table, definition] of Object.entries(schema)) {
       const { primKey, indexes } = db.table(table).schema;
       expect([primKey.name, ...indexes.map(({ name }) => name)].join(', ')).toBe(definition);
@@ -55,6 +57,7 @@ describe('ForgeDatabase — version chain', () => {
     }
     expect(await db.table('activities').count()).toBe(0);
     expect(await db.table('activityTracks').count()).toBe(0);
+    expect(await db.table('healthDaily').count()).toBe(0);
   });
 
   it('should have auditEvents table', () => {

@@ -37,6 +37,10 @@ function sampleBackup(): Backup {
         { activityId: 'a-1', points: [{ lat: 0, lon: 0, ele: 0, time: 0 }, { lat: 0, lon: 0.001, ele: null, time: null }] },
         { activityId: 'a-2', points: [{ lat: 0, lon: 0, ele: null, time: null }, { lat: 0, lon: 0.001, ele: null, time: null }] },
       ],
+      healthDaily: [
+        { id: '2026-11-27', steps: 8123, distanceMeters: 6100, caloriesKcal: 2210, heartRate: { avg: 72, min: 51, max: 130, samples: 96 }, oxygenSaturation: { avg: 97, min: 94, max: 99, samples: 12 }, syncedAt: 1793813400000 },
+        { id: '2026-11-28', steps: null, distanceMeters: null, caloriesKcal: null, heartRate: null, oxygenSaturation: null, syncedAt: 1793813400001 },
+      ],
     },
   };
 }
@@ -57,21 +61,31 @@ describe('backup codec', () => {
     expect(Object.keys(parsed.data).sort()).toEqual([...BACKUP_TABLES].sort());
   });
 
-  it('marks the file as a Forge backup, version 2', () => {
+  it('marks the file as a Forge backup, version 3', () => {
     const raw = JSON.parse(serializeBackup(sampleBackup()));
     expect(raw.format).toBe('forge-backup');
-    expect(raw.version).toBe(2);
+    expect(raw.version).toBe(3);
     expect(raw.exportedAt).toBe('2026-11-05T21:30:00.000Z');
   });
 
-  it('reads version 1 and supplies empty activity tables', () => {
+  it('reads version 1 and supplies empty activity and health tables', () => {
     const text = tampered((r) => {
       r.version = 1;
       delete r.data.activities;
       delete r.data.activityTracks;
+      delete r.data.healthDaily;
     });
     const backup = sampleBackup();
-    expect(parseBackup(text)).toEqual({ ...backup, data: { ...backup.data, activities: [], activityTracks: [] } });
+    expect(parseBackup(text)).toEqual({ ...backup, data: { ...backup.data, activities: [], activityTracks: [], healthDaily: [] } });
+  });
+
+  it('reads version 2 and supplies an empty health table, keeping its activities', () => {
+    const text = tampered((r) => {
+      r.version = 2;
+      delete r.data.healthDaily;
+    });
+    const backup = sampleBackup();
+    expect(parseBackup(text)).toEqual({ ...backup, data: { ...backup.data, healthDaily: [] } });
   });
 
   it.each<[string, string]>([
@@ -81,7 +95,10 @@ describe('backup codec', () => {
     ['no version', tampered((r) => delete r.version)],
     ['a missing table', tampered((r) => delete r.data.sessions)],
     ['missing activities in version 2', tampered((r) => delete r.data.activities)],
-    ['missing tracks in version 2', tampered((r) => delete r.data.activityTracks)],
+    ['missing tracks in version 2', tampered((r) => (r.version = 2, delete r.data.activityTracks))],
+    ['missing health days in version 3', tampered((r) => delete r.data.healthDaily)],
+    ['a health day without id', tampered((r) => delete r.data.healthDaily[0].id)],
+    ['a health day with an empty id', tampered((r) => (r.data.healthDaily[0].id = ''))],
     ['missing tracks primary key', tampered((r) => delete r.data.activityTracks[0].activityId)],
     ['empty tracks primary key', tampered((r) => (r.data.activityTracks[0].activityId = ''))],
     ['a missing original table in version 1', tampered((r) => {
@@ -89,6 +106,7 @@ describe('backup codec', () => {
       delete r.data.sessions;
       delete r.data.activities;
       delete r.data.activityTracks;
+      delete r.data.healthDaily;
     })],
     ['a table that is not a list', tampered((r) => (r.data.routines = {}))],
     ['a row that is not an object', tampered((r) => r.data.exercises.push('x'))],
@@ -115,7 +133,7 @@ describe('backup codec', () => {
   });
 
   it('rejects a backup from a newer version of Forge with its own message', () => {
-    const text = tampered((r) => (r.version = 3));
+    const text = tampered((r) => (r.version = 4));
     expect(() => parseBackup(text)).toThrow(InvalidBackupError);
     expect(() => parseBackup(text)).toThrow('Este respaldo es de una versión más nueva de Forge. Actualizá la app y probá de nuevo.');
   });

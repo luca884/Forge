@@ -8,8 +8,8 @@ import { DomainError } from '../errors/domain-error';
  * older versions it replaces.
  */
 export const BACKUP_FORMAT = 'forge-backup';
-export const BACKUP_VERSION = 2;
-const LEGACY_BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 3;
+const OLDEST_BACKUP_VERSION = 1;
 
 /** Tables in the backup, named as the database names them. */
 export const BACKUP_TABLES = [
@@ -23,9 +23,17 @@ export const BACKUP_TABLES = [
   'auditEvents',
   'activities',
   'activityTracks',
+  'healthDaily',
 ] as const;
 
 export type BackupTable = (typeof BACKUP_TABLES)[number];
+
+/** Versión del respaldo en que apareció cada tabla; un archivo más viejo la trae vacía. */
+const TABLE_ADDED_IN: Readonly<Partial<Record<BackupTable, number>>> = {
+  activities: 2,
+  activityTracks: 2,
+  healthDaily: 3,
+};
 
 /** Cada fila conserva su clave primaria; el códec solo reconstruye campos Date. */
 export type BackupRow<Table extends BackupTable = BackupTable> = Readonly<Record<string, unknown>> &
@@ -59,6 +67,7 @@ const DATE_FIELDS: Readonly<Record<BackupTable, DateFields>> = {
   // Estas fechas y los tiempos de los puntos son números (milisegundos), no Date.
   activities: { required: [] },
   activityTracks: { required: [] },
+  healthDaily: { required: [] },
 };
 
 const INVALID_MESSAGE = 'El archivo no es un respaldo de Forge válido.';
@@ -89,14 +98,14 @@ export function parseBackup(text: string): Backup {
   }
   const version = raw['version'];
   if (version > BACKUP_VERSION) throw new InvalidBackupError(NEWER_MESSAGE);
-  if (version !== BACKUP_VERSION && version !== LEGACY_BACKUP_VERSION) throw new InvalidBackupError();
+  if (!Number.isInteger(version) || version < OLDEST_BACKUP_VERSION) throw new InvalidBackupError();
 
   const rawData = raw['data'];
   if (!isObject(rawData)) throw new InvalidBackupError();
 
   const data = Object.fromEntries(
     BACKUP_TABLES.map((table) => {
-      if (version === LEGACY_BACKUP_VERSION && (table === 'activities' || table === 'activityTracks')) {
+      if (version < (TABLE_ADDED_IN[table] ?? OLDEST_BACKUP_VERSION)) {
         return [table, []];
       }
       const rows = rawData[table];

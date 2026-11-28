@@ -23,6 +23,7 @@ function dataSet(tag: string): BackupData {
     auditEvents: [{ id: `ae-${tag}`, name: 'WorkedSetEdited', occurredAt: at, payload: '{}' }],
     activities: [{ id: `a-${tag}`, name: `Paseo ${tag}`, type: 'walk', startedAt: at.getTime(), importedAt: at.getTime() + 1, stats: { distanceMeters: 111, elapsedSeconds: null, movingSeconds: 0, avgSpeedKmh: null, elevationGainMeters: null } }],
     activityTracks: [{ activityId: `a-${tag}`, points: [{ lat: 0, lon: 0, ele: 0, time: at.getTime() }, { lat: 0, lon: 0.001, ele: null, time: null }] }],
+    healthDaily: [{ id: '2026-11-03', steps: 8123, distanceMeters: 6100, caloriesKcal: 2210, heartRate: { avg: 72, min: 51, max: 130, samples: 96 }, oxygenSaturation: null, syncedAt: at.getTime() }],
   };
 }
 
@@ -80,13 +81,23 @@ describe('DexieBackupStore', () => {
     expect(await contents()).toEqual(dataSet('a'));
   });
 
-  it('restores a version 1 backup and clears both activity tables', async () => {
+  it('restores a version 1 backup and clears the activity and health tables', async () => {
     await seed(dataSet('current'));
-    const { activities: _activities, activityTracks: _activityTracks, ...legacy } = dataSet('legacy');
+    const { activities: _activities, activityTracks: _activityTracks, healthDaily: _healthDaily, ...legacy } = dataSet('legacy');
     const file = JSON.stringify({ format: 'forge-backup', version: 1, exportedAt: new Date(), data: legacy });
 
     await store.replaceAll(parseBackup(file).data);
 
-    expect(await contents()).toEqual({ ...legacy, activities: [], activityTracks: [] });
+    expect(await contents()).toEqual({ ...legacy, activities: [], activityTracks: [], healthDaily: [] });
+  });
+
+  it('restores a version 2 backup, keeping its activities and clearing the health table', async () => {
+    await seed(dataSet('current'));
+    const { healthDaily: _healthDaily, ...legacy } = dataSet('legacy');
+    const file = JSON.stringify({ format: 'forge-backup', version: 2, exportedAt: new Date(), data: legacy });
+
+    await store.replaceAll(parseBackup(file).data);
+
+    expect(await contents()).toEqual({ ...legacy, healthDaily: [] });
   });
 });

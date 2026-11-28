@@ -15,6 +15,7 @@ const data: BackupData = {
   auditEvents: [],
   activities: [],
   activityTracks: [],
+  healthDaily: [],
 };
 
 describe('backup use cases', () => {
