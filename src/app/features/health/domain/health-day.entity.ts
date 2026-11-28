@@ -52,6 +52,9 @@ function checkRange(range: HealthRange | null, label: string, limit?: number): v
   if (limit !== undefined && !values.every((v) => v >= 0 && v <= limit)) {
     throw new InvalidHealthDayInputError(`${label} debe estar entre 0 y ${limit}`);
   }
+  if (limit === undefined && !values.every((v) => v >= 0)) {
+    throw new InvalidHealthDayInputError(`${label} no puede ser negativa`);
+  }
   if (!values.every(Number.isFinite) || !(range.min <= range.avg && range.avg <= range.max)) {
     throw new InvalidHealthDayInputError(`${label} debe cumplir mínimo ≤ promedio ≤ máximo`);
   }

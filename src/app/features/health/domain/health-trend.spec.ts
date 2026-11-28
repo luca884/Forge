@@ -68,4 +68,9 @@ describe('buildHealthTrend', () => {
     const empty = buildHealthTrend([], '2026-11-28', 2).summary;
     expect(empty).toEqual({ daysWithData: 0, stepsAvg: null, heartRateAvg: null, oxygenSaturationAvg: null });
   });
+
+  it('counts a day with zero steps and handles a zero-length window', () => {
+    expect(buildHealthTrend([day('2026-11-28', { steps: 0 })], '2026-11-28', 1).summary).toEqual({ daysWithData: 1, stepsAvg: 0, heartRateAvg: null, oxygenSaturationAvg: null });
+    expect(buildHealthTrend([], '2026-11-28', 0).points).toEqual([]);
+  });
 });

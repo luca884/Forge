@@ -137,4 +137,29 @@ describe('backup codec', () => {
     expect(() => parseBackup(text)).toThrow(InvalidBackupError);
     expect(() => parseBackup(text)).toThrow('Este respaldo es de una versión más nueva de Forge. Actualizá la app y probá de nuevo.');
   });
+
+  describe('version gate', () => {
+    const file = (version: unknown, data: object) =>
+      JSON.stringify({ format: 'forge-backup', version, exportedAt: '2026-01-01T00:00:00.000Z', data });
+    const original = Object.fromEntries(
+      ['profile', 'routines', 'trainingDays', 'exercises', 'sessions', 'workedSets', 'personalRecords', 'auditEvents'].map((t) => [t, []]),
+    );
+
+    it.each([0, -1, 1.5, 2.5, '2', null, true])('rejects version %p as invalid', (version) => {
+      expect(() => parseBackup(file(version, original))).toThrow('El archivo no es un respaldo de Forge válido.');
+    });
+
+    it.each([4, 1e9])('rejects version %p as newer', (version) => {
+      expect(() => parseBackup(file(version, original))).toThrow('versión más nueva');
+    });
+
+    it('restores version 1 with the activity and health tables empty, ignoring garbage there', () => {
+      const { data } = parseBackup(file(1, { ...original, activities: 5, healthDaily: 5 }));
+      expect([data.activities, data.activityTracks, data.healthDaily]).toEqual([[], [], []]);
+    });
+
+    it('rejects a version 3 file that lacks healthDaily', () => {
+      expect(() => parseBackup(file(3, { ...original, activities: [], activityTracks: [] }))).toThrow('no es un respaldo de Forge válido');
+    });
+  });
 });
