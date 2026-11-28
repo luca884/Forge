@@ -1,4 +1,5 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
 import { SetPreferredUnitUseCase } from '../../domain/use-cases/set-preferred-unit.use-case';
 import { PreferredUnit } from '../../domain/value-objects/preferred-unit.vo';
 import { ClearTrainingHistoryUseCase } from '@core/shared/domain/use-cases/clear-training-history.use-case';
@@ -242,6 +243,14 @@ function localDateStamp(date: Date): string {
           }
           <button
             type="button"
+            class="w-full flex items-center justify-between min-h-12 pl-3.5 pr-3 border-b border-line-soft bg-transparent text-ink text-[15px] font-medium text-left"
+            (click)="router.navigateByUrl('/health')"
+          >
+            Salud
+            <fg-icon name="chevron-right" [size]="16" class="text-ink-2"></fg-icon>
+          </button>
+          <button
+            type="button"
             class="w-full flex items-center justify-between min-h-12 pl-3.5 pr-3 border-b border-line-soft bg-transparent text-ink text-[15px] font-medium text-left disabled:opacity-60"
             [disabled]="exporting()"
             (click)="onExportHistory()"
@@ -345,6 +354,7 @@ export class ProfilePage implements OnInit {
   private readonly setPreferredUnitUseCase = inject(SetPreferredUnitUseCase);
   private readonly clearHistoryUseCase = inject(ClearTrainingHistoryUseCase);
   private readonly toastService = inject(ToastService);
+  protected readonly router = inject(Router);
   private readonly userPreferences = inject(UserPreferencesService);
   private readonly exportHistoryCsvUseCase = inject(ExportHistoryCsvUseCase);
   private readonly fileDownload = inject(FileDownloadService);

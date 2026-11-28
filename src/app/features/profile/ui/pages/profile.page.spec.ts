@@ -4,6 +4,7 @@
  * Uses TestBed + overrideComponent to mock component-level providers.
  */
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
 import { ProfilePage } from './profile.page';
 import { SetPreferredUnitUseCase } from '../../domain/use-cases/set-preferred-unit.use-case';
 import { ClearTrainingHistoryUseCase } from '@core/shared/domain/use-cases/clear-training-history.use-case';
@@ -586,6 +587,18 @@ describe('ProfilePage', () => {
       expect(toastMock.error).toHaveBeenCalledWith('No se pudo restaurar el respaldo. Tus datos quedaron como estaban.', 'fallo DB');
       expect(reloadSpy).not.toHaveBeenCalled();
       expect(fixture.componentInstance.restoring()).toBe(false);
+    });
+  });
+
+  describe('Datos — Salud (odd/tasks/salud-health-connect.md S1)', () => {
+    it('has a Salud row that opens the health screen', async () => {
+      const { fixture } = makeFixture({});
+      await flush(fixture);
+      const navigate = jest.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+
+      buttonByText(fixture, 'Salud')!.click();
+
+      expect(navigate).toHaveBeenCalledWith('/health');
     });
   });
 

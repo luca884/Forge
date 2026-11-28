@@ -37,6 +37,11 @@ export const routes: Routes = [
       import('@features/activities/ui/activities.routes').then((m) => m.default),
   },
   {
+    path: 'health',
+    loadChildren: () =>
+      import('@features/health/ui/health.routes').then((m) => m.default),
+  },
+  {
     path: '**',
     redirectTo: '/training',
   },
