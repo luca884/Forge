@@ -60,6 +60,42 @@ describe('ForgeDatabase — version chain', () => {
     expect(await db.table('healthDaily').count()).toBe(0);
   });
 
+  it('preserves v4 activity data on upgrade to v5', async () => {
+    await db.delete();
+    const legacy = new Dexie('forge');
+    legacy.version(4).stores({
+      profile: 'id',
+      routines: 'id, isActive',
+      trainingDays: 'id, routineId',
+      exercises: 'id, muscleGroup, isCustom, name',
+      sessions: 'id, date, routineId, dayId, status, startedAt',
+      workedSets: 'id, sessionId, exerciseId, isPR',
+      personalRecords: 'id, exerciseId, trackingType, achievedAt',
+      auditEvents: 'id, name, occurredAt, sessionId',
+      activities: 'id, startedAt, importedAt',
+      activityTracks: 'activityId',
+    });
+    const activity = { id: 'a1', name: 'Paseo', startedAt: 5, importedAt: 6 };
+    const track = { activityId: 'a1', points: [{ lat: 1, lon: 2, ele: null, time: null }] };
+    const profile = { id: 'me', name: 'L' };
+    try {
+      await legacy.open();
+      await legacy.table('activities').add(activity);
+      await legacy.table('activityTracks').add(track);
+      await legacy.table('profile').add(profile);
+    } finally {
+      legacy.close();
+    }
+
+    await db.open();
+    expect(db.verno).toBe(5);
+    expect(await db.table('activities').toArray()).toEqual([activity]);
+    expect(await db.table('activityTracks').toArray()).toEqual([track]);
+    expect(await db.table('profile').toArray()).toEqual([profile]);
+    expect(await db.table('activities').where('startedAt').equals(5).primaryKeys()).toEqual(['a1']);
+    expect(await db.table('healthDaily').count()).toBe(0);
+  });
+
   it('should have auditEvents table', () => {
     expect(db.auditEvents).toBeDefined();
   });
