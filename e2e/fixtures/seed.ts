@@ -227,6 +227,32 @@ export async function seedTrainingDays(
   await putRows(page, 'trainingDays', rows);
 }
 
+export interface SeedHealthRange {
+  avg: number;
+  min: number;
+  max: number;
+  samples: number;
+}
+
+export interface SeedHealthDay {
+  id: string;
+  steps: number | null;
+  distanceMeters: number | null;
+  caloriesKcal: number | null;
+  heartRate: SeedHealthRange | null;
+  oxygenSaturation: SeedHealthRange | null;
+  syncedAt: number;
+}
+
+/**
+ * Seeds daily health summaries into the `healthDaily` store.
+ *
+ * Caller MUST `page.goto('/')` + `waitForLoadState('networkidle')` BEFORE calling.
+ */
+export async function seedHealthDays(page: Page, rows: readonly SeedHealthDay[]): Promise<void> {
+  await putRows(page, 'healthDaily', rows);
+}
+
 // ─── Time helper ─────────────────────────────────────────────────────────────
 
 /**

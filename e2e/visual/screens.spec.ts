@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures/db-reset';
+import { seedHealthDays } from '../fixtures/seed';
 import { FIXED_NOW, seedVisualData, type SeedOptions } from './visual-data';
 
 /**
@@ -116,6 +117,38 @@ const SCREENS: readonly Screen[] = [
       await expect(page.getByRole('heading', { name: 'Sentadilla' })).toBeVisible();
       await expect(page.locator('fg-exercise-history-chart canvas')).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Historial' })).toBeVisible();
+    },
+  },
+  {
+    name: 'salud',
+    open: async (page) => {
+      // The clock is fixed, so "today" is the same day in every run.
+      const ids = await page.evaluate(() => {
+        const pad = (v: number): string => String(v).padStart(2, '0');
+        const now = new Date();
+        return Array.from({ length: 10 }, (_, back) => {
+          const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - back);
+          return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        });
+      });
+      const steps = [8123, 6400, 9100, 5200, 10400, 7300, null, 8800, 6900, 7700];
+      const heartRate = [72, 70, 75, 68, 74, 71, null, 73, 69, 72];
+      const oxygen = [97, 96, 98, 95, 97, 96, null, 97, 98, 96];
+      await seedHealthDays(
+        page,
+        ids.map((id, i) => ({
+          id,
+          steps: steps[i] ?? null,
+          distanceMeters: steps[i] == null ? null : steps[i]! * 0.75,
+          caloriesKcal: steps[i] == null ? null : 2000 + i * 25,
+          heartRate: heartRate[i] == null ? null : { avg: heartRate[i]!, min: 51, max: 130, samples: 96 },
+          oxygenSaturation: oxygen[i] == null ? null : { avg: oxygen[i]!, min: 94, max: 99, samples: 12 },
+          syncedAt: 1,
+        })),
+      );
+      await page.goto('/health');
+      await expect(page.getByRole('heading', { name: 'Salud', level: 1, exact: true })).toBeVisible();
+      await expect(page.getByRole('img', { name: 'Pasos por día, últimos 7 días' })).toBeVisible();
     },
   },
   {
