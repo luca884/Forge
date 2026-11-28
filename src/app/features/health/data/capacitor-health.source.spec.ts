@@ -1,6 +1,8 @@
 import { CapacitorHealthSource } from './capacitor-health.source';
 
-const plugin = { isAvailable: jest.fn(), requestAuthorization: jest.fn(), readSamples: jest.fn() };
+// Like Capacitor's plugin proxy, every property is a native method, `then` included; on Android
+// `Health.then()` is not implemented and never settles, so awaiting the plugin itself hangs.
+const plugin = { isAvailable: jest.fn(), requestAuthorization: jest.fn(), readSamples: jest.fn(), then: jest.fn() };
 jest.mock('@capgo/capacitor-health', () => ({ Health: plugin }), { virtual: false });
 
 function setNative(native: boolean): void {
@@ -29,6 +31,12 @@ describe('CapacitorHealthSource', () => {
     await expect(source.isAvailable()).resolves.toBe(true);
     plugin.isAvailable.mockResolvedValue({ available: false, reason: 'sin Health Connect' });
     await expect(source.isAvailable()).resolves.toBe(false);
+  });
+
+  it('never awaits the plugin proxy itself, so its unimplemented then() cannot hang the call', async () => {
+    plugin.isAvailable.mockResolvedValue({ available: true });
+    await expect(source.isAvailable()).resolves.toBe(true);
+    expect(plugin.then).not.toHaveBeenCalled();
   });
 
   it('is unavailable when the plugin fails to answer', async () => {

@@ -20,9 +20,14 @@ function isNativePlatform(): boolean {
   return capacitor?.isNativePlatform?.() === true;
 }
 
-/** El plugin se carga recién al usarlo: así no entra al bundle inicial de la web. */
-async function plugin() {
-  return (await import('@capgo/capacitor-health')).Health;
+/**
+ * El plugin se carga recién al usarlo: así no entra al bundle inicial de la web. Se devuelve el
+ * módulo y no el plugin: el plugin es un Proxy de Capacitor que también responde a `then`, así que
+ * devolverlo desde una función async o hacerle await llama a `Health.then()`, que en Android no existe
+ * y deja la promesa colgada para siempre.
+ */
+function healthModule() {
+  return import('@capgo/capacitor-health');
 }
 
 @Injectable()
@@ -30,7 +35,8 @@ export class CapacitorHealthSource extends HealthSource {
   async isAvailable(): Promise<boolean> {
     if (!isNativePlatform()) return false;
     try {
-      return (await (await plugin()).isAvailable()).available;
+      const { Health } = await healthModule();
+      return (await Health.isAvailable()).available;
     } catch {
       return false;
     }
@@ -38,7 +44,8 @@ export class CapacitorHealthSource extends HealthSource {
 
   async requestAccess(): Promise<HealthMetric[]> {
     if (!isNativePlatform()) return [];
-    const status = await (await plugin()).requestAuthorization({
+    const { Health } = await healthModule();
+    const status = await Health.requestAuthorization({
       read: HEALTH_METRICS.map((metric) => TYPE_OF[metric]),
       requestHistoryAccess: true,
     });
@@ -47,7 +54,8 @@ export class CapacitorHealthSource extends HealthSource {
 
   async read(metric: HealthMetric, fromMs: number, toMs: number): Promise<HealthSample[]> {
     if (!isNativePlatform()) return [];
-    const { samples } = await (await plugin()).readSamples({
+    const { Health } = await healthModule();
+    const { samples } = await Health.readSamples({
       dataType: TYPE_OF[metric],
       startDate: new Date(fromMs).toISOString(),
       endDate: new Date(toMs).toISOString(),
