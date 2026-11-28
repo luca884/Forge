@@ -3,6 +3,8 @@ import type { HealthDay } from '../../domain/health-day.entity';
 import { HealthDayRepository } from '../../domain/health-day.repository';
 import { HealthSource } from '../../domain/health-source';
 import { localDayId } from '../../domain/local-day';
+import { addDays } from '../../domain/health-trend';
+import { GetHealthTrendUseCase } from '../../domain/use-cases/get-health-trend.use-case';
 import { GetHealthDayUseCase } from '../../domain/use-cases/get-health-day.use-case';
 import { SaveHealthDaysUseCase } from '../../domain/use-cases/save-health-days.use-case';
 import { SyncHealthUseCase, type SyncHealthResult } from '../../domain/use-cases/sync-health.use-case';
@@ -53,6 +55,7 @@ describe('HealthPage', () => {
     TestBed.configureTestingModule({
       providers: [
         GetHealthDayUseCase,
+        GetHealthTrendUseCase,
         SaveHealthDaysUseCase,
         { provide: SyncHealthUseCase, useValue: sync },
         { provide: HealthDayRepository, useValue: repo },
@@ -146,5 +149,64 @@ describe('HealthPage', () => {
     finish({ status: 'synced', days: 0, metrics: [] });
     await flush(fixture);
     expect(button(el)?.disabled).toBe(false);
+  });
+
+  describe('Tendencia', () => {
+    const todayId = () => localDayId(new Date());
+    const charts = (el: HTMLElement) => Array.from(el.querySelectorAll('svg[role="img"]'));
+    const range = (el: HTMLElement, label: string) =>
+      Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.trim() === label);
+
+    it('shows the last 7 days by default, with an average and one chart per metric', async () => {
+      const { el } = await open();
+      expect(repo.listRange).toHaveBeenCalledWith(addDays(todayId(), -6), todayId());
+      const text = el.textContent ?? '';
+      expect(text).toContain('Tendencia');
+      expect(text).toContain('Promedio: 8.123 pasos por día');
+      expect(text).toContain('Promedio: 72 lpm');
+      expect(text).toContain('Promedio: 97 %');
+      expect(charts(el).map((c) => c.getAttribute('aria-label'))).toEqual([
+        'Pasos por día, últimos 7 días',
+        'Frecuencia cardíaca promedio por día, últimos 7 días',
+        'Saturación de oxígeno promedio por día, últimos 7 días',
+      ]);
+      expect(range(el, '7 días')?.getAttribute('aria-pressed')).toBe('true');
+      expect(range(el, '30 días')?.getAttribute('aria-pressed')).toBe('false');
+    });
+
+    it('switches to 30 days and reloads the window', async () => {
+      const { fixture, el } = await open();
+      range(el, '30 días')?.click();
+      await flush(fixture);
+      expect(repo.listRange).toHaveBeenCalledWith(addDays(todayId(), -29), todayId());
+      expect(range(el, '30 días')?.getAttribute('aria-pressed')).toBe('true');
+      expect(charts(el)[0]?.getAttribute('aria-label')).toBe('Pasos por día, últimos 30 días');
+    });
+
+    it('says so, without charts, when the period has no data', async () => {
+      stored = null;
+      const { el } = await open();
+      expect(el.textContent?.match(/Sin datos en este período/g)).toHaveLength(3);
+      expect(charts(el)).toHaveLength(0);
+    });
+
+    it('reloads the trend after a sync', async () => {
+      stored = null;
+      const { fixture, el } = await open();
+      expect(charts(el)).toHaveLength(0);
+      stored = today;
+      button(el)?.click();
+      await flush(fixture);
+      expect(charts(el)).toHaveLength(3);
+    });
+
+    it('shows an error when the trend cannot be read, keeping the rest of the page', async () => {
+      repo.listRange.mockImplementation((from: string, to: string) =>
+        from === to ? Promise.resolve([{ id: from, ...today }]) : rejectLater(new Error('db')),
+      );
+      const { el } = await open();
+      expect(el.querySelector('[role="alert"]')?.textContent).toContain('No se pudo cargar la tendencia.');
+      expect(el.textContent).toContain('8.123');
+    });
   });
 });

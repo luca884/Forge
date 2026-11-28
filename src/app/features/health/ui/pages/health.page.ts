@@ -3,13 +3,19 @@ import { FgButtonComponent, FgCardComponent, FgPageHeaderComponent } from '@core
 import type { HealthDay } from '../../domain/health-day.entity';
 import { HealthSource } from '../../domain/health-source';
 import { localDayId } from '../../domain/local-day';
+import type { HealthTrend } from '../../domain/health-trend';
+import { GetHealthTrendUseCase } from '../../domain/use-cases/get-health-trend.use-case';
 import { GetHealthDayUseCase } from '../../domain/use-cases/get-health-day.use-case';
 import { SyncHealthUseCase, type SyncHealthResult } from '../../domain/use-cases/sync-health.use-case';
+import { FgTrendChartComponent } from '../components/trend-chart.component';
 import { formatBpm, formatKcal, formatMeters, formatPercent, formatSteps } from '../format/health-format';
 
 /** Primera sincronización (hoy sin datos) lee un mes; las siguientes solo la última semana. */
 const FIRST_SYNC_DAYS = 30;
 const REGULAR_SYNC_DAYS = 7;
+
+type TrendRange = 7 | 30;
+const TREND_RANGES: readonly TrendRange[] = [7, 30];
 
 function syncMessage(result: SyncHealthResult): string {
   switch (result.status) {
@@ -27,7 +33,7 @@ function syncMessage(result: SyncHealthResult): string {
   selector: 'fg-health-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FgButtonComponent, FgCardComponent, FgPageHeaderComponent],
+  imports: [FgButtonComponent, FgCardComponent, FgPageHeaderComponent, FgTrendChartComponent],
   template: `
     <fg-page-header title="Salud" />
 
@@ -71,6 +77,43 @@ function syncMessage(result: SyncHealthResult): string {
         <p role="status" class="text-sm text-ink-2">Cargando datos de salud…</p>
       }
 
+      @if (trendError()) {
+        <p role="alert" class="text-sm text-danger">No se pudo cargar la tendencia.</p>
+      } @else {
+        @if (trend(); as data) {
+        <section class="flex flex-col gap-3" aria-labelledby="trend-title">
+          <div class="flex items-center justify-between">
+            <h2 id="trend-title" class="font-semibold text-ink">Tendencia</h2>
+            <div class="flex gap-2">
+              @for (option of ranges; track option) {
+                <button
+                  type="button"
+                  fg-button
+                  size="sm"
+                  [variant]="option === range() ? 'primary' : 'secondary'"
+                  [attr.aria-pressed]="option === range()"
+                  (click)="onRange(option)"
+                >
+                  {{ option }} días
+                </button>
+              }
+            </div>
+          </div>
+          @for (metric of metrics(data); track metric.title) {
+            <fg-card>
+              <h3 class="text-sm font-medium text-ink">{{ metric.title }}</h3>
+              @if (data.summary.daysWithData > 0 && metric.average !== null) {
+                <p class="text-xs text-ink-2">Promedio: {{ metric.average }}</p>
+                <fg-trend-chart [values]="metric.values" [kind]="metric.kind" [label]="metric.label + ', últimos ' + range() + ' días'" />
+              } @else {
+                <p class="text-xs text-ink-2">Sin datos en este período</p>
+              }
+            </fg-card>
+          }
+        </section>
+        }
+      }
+
       @if (canSync()) {
         <button type="button" fg-button class="self-start" [disabled]="syncing()" (click)="onSync()">
           Sincronizar con Health Connect
@@ -92,6 +135,7 @@ function syncMessage(result: SyncHealthResult): string {
 })
 export class HealthPage implements OnInit {
   private readonly getDay = inject(GetHealthDayUseCase);
+  private readonly getTrend = inject(GetHealthTrendUseCase);
   private readonly syncHealth = inject(SyncHealthUseCase);
   private readonly source = inject(HealthSource);
 
@@ -103,6 +147,10 @@ export class HealthPage implements OnInit {
   protected readonly syncing = signal(false);
   protected readonly syncResult = signal<string | null>(null);
   protected readonly syncError = signal(false);
+  protected readonly range = signal<TrendRange>(7);
+  protected readonly trend = signal<HealthTrend | null>(null);
+  protected readonly trendError = signal(false);
+  protected readonly ranges = TREND_RANGES;
 
   protected readonly steps = formatSteps;
   protected readonly meters = formatMeters;
@@ -112,7 +160,42 @@ export class HealthPage implements OnInit {
 
   ngOnInit(): void {
     void this.load();
+    void this.loadTrend();
     void this.checkSource();
+  }
+
+  protected onRange(range: TrendRange): void {
+    if (range === this.range()) return;
+    this.range.set(range);
+    void this.loadTrend();
+  }
+
+  /** Una tarjeta por medida; el promedio ya viene formateado y con su unidad. */
+  protected metrics(data: HealthTrend) {
+    const { summary, points } = data;
+    return [
+      {
+        title: 'Pasos',
+        label: 'Pasos por día',
+        kind: 'bars' as const,
+        values: points.map((p) => p.steps),
+        average: summary.stepsAvg === null ? null : `${formatSteps(summary.stepsAvg)} pasos por día`,
+      },
+      {
+        title: 'Frecuencia cardíaca',
+        label: 'Frecuencia cardíaca promedio por día',
+        kind: 'line' as const,
+        values: points.map((p) => p.heartRateAvg),
+        average: summary.heartRateAvg === null ? null : formatBpm(summary.heartRateAvg),
+      },
+      {
+        title: 'Saturación de oxígeno',
+        label: 'Saturación de oxígeno promedio por día',
+        kind: 'line' as const,
+        values: points.map((p) => p.oxygenSaturationAvg),
+        average: summary.oxygenSaturationAvg === null ? null : formatPercent(summary.oxygenSaturationAvg),
+      },
+    ];
   }
 
   protected async onSync(): Promise<void> {
@@ -124,7 +207,7 @@ export class HealthPage implements OnInit {
       const days = this.today() ? REGULAR_SYNC_DAYS : FIRST_SYNC_DAYS;
       const result = await this.syncHealth.execute({ now: new Date(), days });
       this.syncResult.set(syncMessage(result));
-      if (result.status === 'synced') await this.load();
+      if (result.status === 'synced') await Promise.all([this.load(), this.loadTrend()]);
     } catch {
       this.syncError.set(true);
     } finally {
@@ -139,6 +222,18 @@ export class HealthPage implements OnInit {
       this.loaded.set(true);
     } catch {
       this.loadError.set(true);
+    }
+  }
+
+  private async loadTrend(): Promise<void> {
+    const range = this.range();
+    try {
+      const trend = await this.getTrend.execute(localDayId(new Date()), range);
+      if (range !== this.range()) return; // llegó tarde: el usuario ya cambió de período
+      this.trend.set(trend);
+      this.trendError.set(false);
+    } catch {
+      this.trendError.set(true);
     }
   }
 
