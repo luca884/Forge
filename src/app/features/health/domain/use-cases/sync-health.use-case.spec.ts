@@ -21,6 +21,7 @@ describe('SyncHealthUseCase', () => {
       (reads[metric] ?? []).filter((s) => s.startMs >= fromMs && s.startMs < toMs),
     );
     repo.saveMany.mockReset().mockResolvedValue(undefined);
+    repo.listRange.mockReset().mockResolvedValue([]);
     TestBed.configureTestingModule({
       providers: [
         SyncHealthUseCase,
@@ -74,6 +75,20 @@ describe('SyncHealthUseCase', () => {
     await expect(run(1)).resolves.toEqual({ status: 'synced', days: 1, metrics: ['steps'] });
     expect(source.read).toHaveBeenCalledTimes(1);
     expect(repo.saveMany).toHaveBeenCalledWith([expect.objectContaining({ steps: 10, heartRate: null })]);
+  });
+
+  it('keeps the stored values of metrics it could not read, so a revoked permission erases nothing', async () => {
+    const storedHeartRate = { avg: 80, min: 60, max: 120, samples: 50 };
+    repo.listRange.mockResolvedValue([
+      { id: '2026-11-28', steps: 5, distanceMeters: 4, caloriesKcal: 3, heartRate: storedHeartRate, oxygenSaturation: null, syncedAt: 1 },
+    ]);
+    source.requestAccess.mockResolvedValue(['steps']);
+    reads = { steps: [{ startMs: local(28, 8), value: 10, sourceId: GLORYFIT_SOURCE_ID }] };
+    await expect(run(1)).resolves.toEqual({ status: 'synced', days: 1, metrics: ['steps'] });
+    expect(repo.listRange).toHaveBeenCalledWith('2026-11-28', '2026-11-28');
+    expect(repo.saveMany).toHaveBeenCalledWith([
+      { id: '2026-11-28', steps: 10, distanceMeters: 4, caloriesKcal: 3, heartRate: storedHeartRate, oxygenSaturation: null, syncedAt: now.getTime() },
+    ]);
   });
 
   it('saves nothing when the whole window is empty', async () => {
