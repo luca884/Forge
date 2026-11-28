@@ -20,6 +20,15 @@ describe('summarizeHealthDay', () => {
     expect(day).toEqual({ id: '2026-11-27', steps: 3500, distanceMeters: 2500.5, caloriesKcal: 100.5, heartRate: null, oxygenSaturation: null, syncedAt: 99 });
   });
 
+  it('rounds a fractional step total to the nearest whole step and keeps distance and calories as they are', () => {
+    const day = summarize({
+      steps: [sample(8, 10.5), sample(9, 2000.25)],
+      distance: [sample(8, 700.5)],
+      calories: [sample(8, 40.25)],
+    });
+    expect(day).toEqual({ id: '2026-11-27', steps: 2011, distanceMeters: 700.5, caloriesKcal: 40.25, heartRate: null, oxygenSaturation: null, syncedAt: 99 });
+  });
+
   it('ignores steps, distance and calories from other sources, so totals are not counted three times', () => {
     const day = summarize({
       steps: [sample(8, 1000), sample(8, 5000, 'com.sec.android.app.shealth'), sample(8, 400, null)],

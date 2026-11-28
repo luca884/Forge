@@ -18,9 +18,11 @@ export function summarizeHealthDay(dayId: string, samples: DaySamples, syncedAt:
     list.filter((s) => s.startMs >= fromMs && s.startMs < toMs && Number.isFinite(s.value) && s.value >= 0);
   const fromWatch = (list: readonly HealthSample[]) => usable(list).filter((s) => s.sourceId === GLORYFIT_SOURCE_ID);
 
+  // Health Connect guarda los pasos como enteros; si el plugin entrega decimales se redondea en vez de perder el día.
+  const steps = total(fromWatch(samples.steps));
   const day: HealthDay = {
     id: dayId,
-    steps: total(fromWatch(samples.steps)),
+    steps: steps === null ? null : Math.round(steps),
     distanceMeters: total(fromWatch(samples.distance)),
     caloriesKcal: total(fromWatch(samples.calories)),
     heartRate: range(usable(samples.heartRate)),
